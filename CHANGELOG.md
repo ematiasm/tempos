@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Phase 4c — Quote → Invoice (1 click)
+- `POST /documents/{id}/convert-to-invoice` (perm `document.create`): converts a quote into an exact-copy invoice — same lines, prices, discounts, taxes and cost snapshots — linked via `parent_document_id` (lines keep `parent_line_id`).
+- The target type is suggested from tax conditions at conversion time (the same A/B/C rule as `GET /documents/suggest-type`, now shared through `crud.suggest_fiscal_sale_type`).
+- A quote may have at most one ACTIVE invoice child; voiding the invoice unlocks the quote for a new conversion. `DocumentPublic` exposes `child_document_id/numero`; the detail dialog shows the conversion state and a "Convert to invoice" action.
+
 ### Phase 4b — Voiding (total/partial via NC)
 - `POST /documents/{id}/void` (perm `document.void`): empty `lines` voids everything pending; otherwise per-line quantities, validated against the accumulated remaining (active NCs only). Issued NC carries the same prices/taxes/cost snapshots and links via `parent_document_id` + per-line `parent_line_id`.
 - The original flips to `voided` only when every line is fully reverted; the document-level discount reverses on the NC exactly then (partial NCs leave it attached to the original).

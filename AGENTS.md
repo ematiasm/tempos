@@ -398,7 +398,12 @@ This is the high-level module map. For the full locked design table, see
   the document-level discount is reversed in the NC (partial NCs keep it
   attached to the original); `cantidad_pendiente` in document detail; void
   dialog in `/documents` UI.
-- [ ] **Phase 4c** — Cotización→Factura 1 click via `parent_document_id`.
+- [x] **Phase 4c** — Cotización→Factura 1 click
+  (`POST /documents/{id}/convert-to-invoice`): exact copy (prices, discounts,
+  taxes, cost snapshot), invoice type suggested A/B/C from tax conditions at
+  conversion time; the quote stays active and is not re-invoicable while an
+  ACTIVE invoice child exists (voiding the invoice unlocks conversion); the
+  document payload exposes `child_document_id/numero`.
 - [ ] **Phase 6+7** — Unified ledgers: `StockMovement` (append-only,
   negative-stock config, atomic stock UPDATE) + finance (`AccountMovement`,
   `Transfer`, card commission + deferred accreditation, current-account
