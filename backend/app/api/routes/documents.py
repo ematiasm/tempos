@@ -8,21 +8,18 @@ from sqlmodel import col, func, select
 
 from app import crud
 from app.api.deps import CurrentUser, PaginationDep, SessionDep, require_permissions
-from app.core.db import FISCAL_SALE_TYPE_NAMES
 from app.models import (
-    BusinessSettings,
     CounterpartType,
     Customer,
     Document,
     DocumentCreate,
     DocumentLine,
     DocumentPublic,
-    DocumentType,
+    DocumentStatus,
     DocumentTypePublic,
     DocumentVoidCreate,
     Page,
     Supplier,
-    TaxCondition,
 )
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -70,12 +67,28 @@ def _attach_counterpart_names(
                 ).all()
             }
         )
+    # Active children (for quotes: the invoice they were converted into).
+    parent_ids = [d.id for d in documents]
+    children = (
+        session.exec(
+            select(Document.parent_document_id, Document.id, Document.numero)
+            .where(col(Document.parent_document_id).in_(parent_ids))
+            .where(Document.estado == DocumentStatus.ACTIVE)
+        ).all()
+        if parent_ids
+        else []
+    )
+    child_map = {parent: (child_id, numero) for parent, child_id, numero in children}
+
     publics = []
     for document in documents:
         public = DocumentPublic.model_validate(document)
         public.contraparte_name = (
             names.get(document.contraparte_id) if document.contraparte_id else None
         )
+        child = child_map.get(document.id)
+        if child:
+            public.child_document_id, public.child_document_numero = child
         publics.append(public)
     return publics
 
@@ -86,33 +99,11 @@ def _attach_counterpart_names(
     dependencies=[require_permissions("document.read")],
 )
 def suggest_fiscal_sale_type(session: SessionDep, customer_id: uuid.UUID) -> Any:
-    """Resolve Factura A/B/C from the business/customer tax condition combo.
-
-    RI business + RI customer → A; RI business + anyone else → B;
-    non-RI business → C. Matched by seeded type name.
-    """
-    customer = session.get(Customer, customer_id)
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
-    settings = session.exec(select(BusinessSettings)).first()
-    if not settings:
-        raise HTTPException(status_code=404, detail="Business settings not found")
-    business_is_ri = settings.condicion_fiscal == TaxCondition.RI
-    customer_is_ri = customer.condicion_fiscal == TaxCondition.RI
-    letter = (
-        "A" if business_is_ri and customer_is_ri else "B" if business_is_ri else "C"
-    )
-    doc_type = session.exec(
-        select(DocumentType).where(
-            col(DocumentType.name) == FISCAL_SALE_TYPE_NAMES[letter]
-        )
-    ).first()
-    if not doc_type:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Seeded document type '{FISCAL_SALE_TYPE_NAMES[letter]}' not found",
-        )
-    return doc_type
+    """Resolve Factura A/B/C from the business/customer tax condition combo."""
+    try:
+        return crud.suggest_fiscal_sale_type(session=session, customer_id=customer_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get(
@@ -200,3 +191,22 @@ def void_document(
         session.rollback()
         raise HTTPException(status_code=400, detail=str(e)) from e
     return _attach_counterpart_names(session, [nc])[0]
+
+
+@router.post(
+    "/{document_id}/convert-to-invoice",
+    response_model=DocumentPublic,
+    dependencies=[require_permissions("document.create")],
+)
+def convert_to_invoice(
+    *, session: SessionDep, document_id: uuid.UUID, current_user: CurrentUser
+) -> Any:
+    """Convert a quote into an invoice in one click (exact copy)."""
+    try:
+        invoice = crud.convert_quote_to_invoice(
+            session=session, document_id=document_id, user_id=current_user.id
+        )
+    except ValueError as e:
+        session.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return _attach_counterpart_names(session, [invoice])[0]

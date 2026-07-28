@@ -9,9 +9,11 @@ from sqlmodel import Session, col, delete, func, select
 
 from app.core.security import get_password_hash, verify_password
 from app.models import (
+    FISCAL_SALE_TYPE_NAMES,
     Attribute,
     AttributeCreate,
     AttributeValue,
+    BusinessSettings,
     CounterpartType,
     Customer,
     Document,
@@ -38,6 +40,7 @@ from app.models import (
     Role,
     Supplier,
     TaxAppliesTo,
+    TaxCondition,
     User,
     UserCreate,
     UserRole,
@@ -618,6 +621,122 @@ def void_document(
     session.commit()
     session.refresh(nc)
     return nc
+
+
+def suggest_fiscal_sale_type(
+    *, session: Session, customer_id: uuid.UUID
+) -> DocumentType:
+    """Resolve Factura A/B/C from the business/customer tax condition combo.
+
+    RI business + RI customer → A; RI business + anyone else → B;
+    non-RI business → C. Matched by seeded type name.
+    """
+    customer = session.get(Customer, customer_id)
+    if not customer:
+        raise ValueError("Customer not found")
+    settings = session.exec(select(BusinessSettings)).first()
+    if not settings:
+        raise ValueError("Business settings not found")
+    business_is_ri = settings.condicion_fiscal == TaxCondition.RI
+    customer_is_ri = customer.condicion_fiscal == TaxCondition.RI
+    letter = (
+        "A" if business_is_ri and customer_is_ri else "B" if business_is_ri else "C"
+    )
+    doc_type = session.exec(
+        select(DocumentType).where(
+            col(DocumentType.name) == FISCAL_SALE_TYPE_NAMES[letter]
+        )
+    ).first()
+    if not doc_type:
+        raise ValueError(
+            f"Seeded document type '{FISCAL_SALE_TYPE_NAMES[letter]}' not found"
+        )
+    return doc_type
+
+
+def convert_quote_to_invoice(
+    *, session: Session, document_id: uuid.UUID, user_id: uuid.UUID
+) -> Document:
+    """Convert a quote into an invoice in one click (exact copy).
+
+    The quote stays active; a quote has at most one ACTIVE invoice child
+    (if the invoice gets voided, the quote can be converted again).
+    Prices, discounts, taxes and the cost snapshot are copied verbatim.
+    """
+    quote = session.exec(
+        select(Document)
+        .where(Document.id == document_id)
+        .options(
+            selectinload(Document.document_type),  # type: ignore
+            selectinload(Document.lines).selectinload(DocumentLine.taxes),  # type: ignore
+            selectinload(Document.taxes),  # type: ignore
+        )
+    ).first()
+    if not quote:
+        raise ValueError("Document not found")
+    if quote.document_type is None or quote.document_type.operation != (
+        DocumentOperation.COTIZACION
+    ):
+        raise ValueError("Only quotes can be converted to invoices")
+    if quote.estado == DocumentStatus.VOIDED:
+        raise ValueError("A voided quote cannot be converted")
+    if quote.contraparte_id is None:
+        raise ValueError("The quote has no customer")
+    existing = session.exec(
+        select(Document).where(
+            col(Document.parent_document_id) == quote.id,
+            Document.estado == DocumentStatus.ACTIVE,
+        )
+    ).first()
+    if existing:
+        raise ValueError(f"Quote already converted (invoice {existing.numero})")
+
+    doc_type = suggest_fiscal_sale_type(
+        session=session, customer_id=quote.contraparte_id
+    )
+    original_doc_tax_ids = {dt.tax_id for dt in quote.taxes}
+    lines: list[DocumentLineCreate] = []
+    parent_line_ids: dict[int, uuid.UUID] = {}
+    orden = 0
+    for line in sorted(quote.lines, key=lambda x: x.orden):
+        orden += 1
+        product = session.get(Product, line.product_id)
+        product_tax_ids = {t.id for t in product.taxes} if product else set()
+        line_tax_ids = {t.tax_id for t in line.taxes if t.aplicado}
+        tax_ids = sorted(line_tax_ids | (original_doc_tax_ids & product_tax_ids))
+        lines.append(
+            DocumentLineCreate(
+                product_id=line.product_id,
+                variant_id=line.variant_id,
+                cantidad=line.cantidad,
+                precio_unit=line.precio_unit,
+                descuento_pct=line.descuento_pct,
+                descuento_monto=(
+                    line.descuento_monto if line.descuento_pct == 0 else None
+                ),
+                tax_ids=tax_ids,
+                costo_unitario=line.costo_unitario,
+            )
+        )
+        parent_line_ids[orden] = line.id
+
+    invoice_in = DocumentCreate(
+        document_type_id=doc_type.id,
+        contraparte_id=quote.contraparte_id,
+        descuento_total=quote.descuento_total,
+        lines=lines,
+        payments=[],
+    )
+    invoice = _create_document_in_tx(
+        session=session,
+        document_in=invoice_in,
+        user_id=user_id,
+        parent_document_id=quote.id,
+        parent_line_ids=parent_line_ids,
+    )
+    session.commit()
+    session.refresh(invoice)
+    return invoice
 
 
 def _purchase_cost_hook(*, session: Session, document: Document) -> None:

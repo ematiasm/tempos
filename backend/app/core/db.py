@@ -167,8 +167,6 @@ SEED_DOCUMENT_TYPES: list[
     ("Remito", "RTO", DocumentOperation.VENTA, -1, 0, False, CounterpartType.CUSTOMER),
     ("Ajuste Stock", "AJS", DocumentOperation.AJUSTE, 0, 0, False, None),
 ]
-FISCAL_SALE_TYPE_NAMES = {"A": "Factura A", "B": "Factura B", "C": "Factura C"}
-
 # Voiding: type prefix → mirror NC type prefix (seed-managed, rename-proof).
 VOID_TYPE_MIRROR = {
     "FA": "NCV",

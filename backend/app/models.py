@@ -275,6 +275,10 @@ class ProductVariantCreate(SQLModel):
 # Name of the seeded default customer; protected from delete/deactivation.
 CONSUMIDOR_FINAL_NAME = "Consumidor Final"
 
+# Seeded fiscal sale types by invoice letter, used to resolve Factura A/B/C
+# from the business/customer tax condition combo.
+FISCAL_SALE_TYPE_NAMES = {"A": "Factura A", "B": "Factura B", "C": "Factura C"}
+
 
 def _validate_documento_field(value: str | None) -> str | None:
     """Shared ``field_validator`` body for counterparty documento fields."""
@@ -1103,6 +1107,9 @@ class DocumentPublic(SQLModel):
     payments: list[DocumentPaymentPublic] = []
     # Resolved from the polymorphic counterpart (customer/supplier name).
     contraparte_name: str | None = None
+    # Active document derived from this one (for quotes: its invoice).
+    child_document_id: uuid.UUID | None = None
+    child_document_numero: str | None = None
 
 
 # ---------------------------------------------------------------------------
