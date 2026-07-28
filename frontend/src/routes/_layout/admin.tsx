@@ -7,6 +7,7 @@ import {
   AttributesService,
   CategoriesService,
   type CategoryPublic,
+  DocumentTypesService,
   type RolePublic,
   RolesService,
   TaxesService,
@@ -33,6 +34,10 @@ import {
   type UserTableData,
   columns as userColumns,
 } from "@/components/Admin/columns"
+import {
+  type DocumentTypeTableData,
+  columns as documentTypeColumns,
+} from "@/components/Admin/documentTypeColumns"
 import GeneralSettings from "@/components/Admin/GeneralSettings"
 import { type RoleTableData, roleColumns } from "@/components/Admin/roleColumns"
 import {
@@ -87,6 +92,14 @@ function getAttributesQueryOptions() {
   return {
     queryFn: () => AttributesService.readAttributes({ skip: 0, limit: 100 }),
     queryKey: ["attributes"],
+  }
+}
+
+function getDocumentTypesQueryOptions() {
+  return {
+    queryFn: () =>
+      DocumentTypesService.readDocumentTypes({ skip: 0, limit: 100 }),
+    queryKey: ["document-types"],
   }
 }
 
@@ -352,6 +365,36 @@ function AttributesTab() {
   )
 }
 
+function DocumentTypesTabContent() {
+  const { data: documentTypes } = useSuspenseQuery(
+    getDocumentTypesQueryOptions(),
+  )
+
+  return (
+    <DataTable
+      columns={documentTypeColumns}
+      data={documentTypes.data as DocumentTypeTableData[]}
+    />
+  )
+}
+
+function DocumentTypesTab() {
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h2 className="text-xl font-bold tracking-tight">Document Types</h2>
+        <p className="text-muted-foreground">
+          Sales, purchases and other operations. Signs and operation are
+          seed-managed; name and prefix are editable.
+        </p>
+      </div>
+      <Suspense fallback={<PendingUsers />}>
+        <DocumentTypesTabContent />
+      </Suspense>
+    </div>
+  )
+}
+
 function Admin() {
   return (
     <div className="flex flex-col gap-6">
@@ -370,6 +413,7 @@ function Admin() {
           <TabsTrigger value="units">Units</TabsTrigger>
           <TabsTrigger value="taxes">Taxes</TabsTrigger>
           <TabsTrigger value="attributes">Attributes</TabsTrigger>
+          <TabsTrigger value="document-types">Document Types</TabsTrigger>
         </TabsList>
         <TabsContent value="general">
           <GeneralSettings />
@@ -388,6 +432,9 @@ function Admin() {
         </TabsContent>
         <TabsContent value="attributes">
           <AttributesTab />
+        </TabsContent>
+        <TabsContent value="document-types">
+          <DocumentTypesTab />
         </TabsContent>
       </Tabs>
     </div>

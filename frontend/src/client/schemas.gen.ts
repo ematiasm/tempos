@@ -540,6 +540,12 @@ export const CategoryUpdateSchema = {
     title: 'CategoryUpdate'
 } as const;
 
+export const CounterpartTypeSchema = {
+    type: 'string',
+    enum: ['customer', 'supplier'],
+    title: 'CounterpartType'
+} as const;
+
 export const CustomerCreateSchema = {
     properties: {
         razon_social: {
@@ -829,6 +835,652 @@ export const CustomerUpdateSchema = {
     title: 'CustomerUpdate'
 } as const;
 
+export const DocumentCreateSchema = {
+    properties: {
+        document_type_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Document Type Id'
+        },
+        contraparte_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contraparte Id'
+        },
+        fecha: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Fecha'
+        },
+        descuento_total: {
+            anyOf: [
+                {
+                    type: 'number',
+                    minimum: 0
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                }
+            ],
+            title: 'Descuento Total',
+            default: '0'
+        },
+        lines: {
+            items: {
+                '$ref': '#/components/schemas/DocumentLineCreate'
+            },
+            type: 'array',
+            minItems: 1,
+            title: 'Lines'
+        },
+        payments: {
+            items: {
+                '$ref': '#/components/schemas/DocumentPaymentCreate'
+            },
+            type: 'array',
+            title: 'Payments'
+        }
+    },
+    type: 'object',
+    required: ['document_type_id', 'lines'],
+    title: 'DocumentCreate'
+} as const;
+
+export const DocumentLineCreateSchema = {
+    properties: {
+        product_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Product Id'
+        },
+        variant_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Variant Id'
+        },
+        cantidad: {
+            anyOf: [
+                {
+                    type: 'number',
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                }
+            ],
+            title: 'Cantidad'
+        },
+        precio_unit: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Precio Unit'
+        },
+        descuento_pct: {
+            anyOf: [
+                {
+                    type: 'number',
+                    maximum: 100,
+                    minimum: 0
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                }
+            ],
+            title: 'Descuento Pct',
+            default: '0'
+        },
+        descuento_monto: {
+            anyOf: [
+                {
+                    type: 'number',
+                    minimum: 0
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Descuento Monto'
+        },
+        tax_ids: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string',
+                        format: 'uuid'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Tax Ids'
+        }
+    },
+    type: 'object',
+    required: ['product_id', 'cantidad'],
+    title: 'DocumentLineCreate'
+} as const;
+
+export const DocumentLinePublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        orden: {
+            type: 'integer',
+            title: 'Orden'
+        },
+        product_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Product Id'
+        },
+        variant_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Variant Id'
+        },
+        cantidad: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Cantidad'
+        },
+        precio_unit: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Precio Unit'
+        },
+        costo_unitario: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Costo Unitario'
+        },
+        descuento_pct: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Descuento Pct'
+        },
+        descuento_monto: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Descuento Monto'
+        },
+        subtotal_line: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Subtotal Line'
+        },
+        taxes: {
+            items: {
+                '$ref': '#/components/schemas/DocumentLineTaxPublic'
+            },
+            type: 'array',
+            title: 'Taxes',
+            default: []
+        }
+    },
+    type: 'object',
+    required: ['id', 'orden', 'product_id', 'cantidad', 'precio_unit', 'costo_unitario', 'descuento_pct', 'descuento_monto', 'subtotal_line'],
+    title: 'DocumentLinePublic'
+} as const;
+
+export const DocumentLineTaxPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        tax_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Tax Id'
+        },
+        base: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Base'
+        },
+        monto: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Monto'
+        },
+        aplicado: {
+            type: 'boolean',
+            title: 'Aplicado'
+        }
+    },
+    type: 'object',
+    required: ['id', 'tax_id', 'base', 'monto', 'aplicado'],
+    title: 'DocumentLineTaxPublic'
+} as const;
+
+export const DocumentOperationSchema = {
+    type: 'string',
+    enum: ['venta', 'compra', 'cotizacion', 'ajuste'],
+    title: 'DocumentOperation'
+} as const;
+
+export const DocumentPaymentCreateSchema = {
+    properties: {
+        payment_method_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Payment Method Id'
+        },
+        monto: {
+            anyOf: [
+                {
+                    type: 'number',
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                }
+            ],
+            title: 'Monto'
+        },
+        comision_pct: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Comision Pct'
+        },
+        fecha_acreditacion: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Fecha Acreditacion'
+        }
+    },
+    type: 'object',
+    required: ['payment_method_id', 'monto'],
+    title: 'DocumentPaymentCreate'
+} as const;
+
+export const DocumentPaymentPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        payment_method_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Payment Method Id'
+        },
+        monto: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Monto'
+        },
+        comision_pct: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Comision Pct'
+        },
+        fecha_acreditacion: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Fecha Acreditacion'
+        },
+        conciliado: {
+            type: 'boolean',
+            title: 'Conciliado'
+        }
+    },
+    type: 'object',
+    required: ['id', 'payment_method_id', 'monto', 'conciliado'],
+    title: 'DocumentPaymentPublic'
+} as const;
+
+export const DocumentPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        document_type_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Document Type Id'
+        },
+        numero: {
+            type: 'string',
+            title: 'Numero'
+        },
+        year: {
+            type: 'integer',
+            title: 'Year'
+        },
+        fecha: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Fecha'
+        },
+        contraparte_type: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/CounterpartType'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        contraparte_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contraparte Id'
+        },
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        estado: {
+            '$ref': '#/components/schemas/DocumentStatus'
+        },
+        subtotal: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Subtotal'
+        },
+        descuento_total: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Descuento Total'
+        },
+        total: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Total'
+        },
+        parent_document_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Parent Document Id'
+        },
+        created_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Created At'
+        },
+        document_type: {
+            '$ref': '#/components/schemas/DocumentTypePublic'
+        },
+        lines: {
+            items: {
+                '$ref': '#/components/schemas/DocumentLinePublic'
+            },
+            type: 'array',
+            title: 'Lines',
+            default: []
+        },
+        taxes: {
+            items: {
+                '$ref': '#/components/schemas/DocumentTaxPublic'
+            },
+            type: 'array',
+            title: 'Taxes',
+            default: []
+        },
+        payments: {
+            items: {
+                '$ref': '#/components/schemas/DocumentPaymentPublic'
+            },
+            type: 'array',
+            title: 'Payments',
+            default: []
+        },
+        contraparte_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contraparte Name'
+        }
+    },
+    type: 'object',
+    required: ['id', 'document_type_id', 'numero', 'year', 'fecha', 'user_id', 'estado', 'subtotal', 'descuento_total', 'total', 'document_type'],
+    title: 'DocumentPublic'
+} as const;
+
+export const DocumentStatusSchema = {
+    type: 'string',
+    enum: ['active', 'voided'],
+    title: 'DocumentStatus'
+} as const;
+
+export const DocumentTaxPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        tax_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Tax Id'
+        },
+        base: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Base'
+        },
+        monto: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Monto'
+        }
+    },
+    type: 'object',
+    required: ['id', 'tax_id', 'base', 'monto'],
+    title: 'DocumentTaxPublic'
+} as const;
+
+export const DocumentTypePublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        prefix: {
+            type: 'string',
+            title: 'Prefix'
+        },
+        operation: {
+            '$ref': '#/components/schemas/DocumentOperation'
+        },
+        signo_stock: {
+            type: 'integer',
+            title: 'Signo Stock'
+        },
+        signo_caja: {
+            type: 'integer',
+            title: 'Signo Caja'
+        },
+        es_fiscal: {
+            type: 'boolean',
+            title: 'Es Fiscal'
+        },
+        tipo_contraparte: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/CounterpartType'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        is_active: {
+            type: 'boolean',
+            title: 'Is Active'
+        }
+    },
+    type: 'object',
+    required: ['id', 'name', 'prefix', 'operation', 'signo_stock', 'signo_caja', 'es_fiscal', 'is_active'],
+    title: 'DocumentTypePublic'
+} as const;
+
+export const DocumentTypeUpdateSchema = {
+    properties: {
+        name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 100,
+                    minLength: 1
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        prefix: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 10,
+                    minLength: 1
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Prefix'
+        },
+        is_active: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Is Active'
+        }
+    },
+    type: 'object',
+    title: 'DocumentTypeUpdate',
+    description: 'Editable fields of a document type; signs and operation stay fixed.'
+} as const;
+
 export const HTTPValidationErrorSchema = {
     properties: {
         detail: {
@@ -1036,6 +1688,44 @@ export const Page_CustomerPublic_Schema = {
     title: 'Page[CustomerPublic]'
 } as const;
 
+export const Page_DocumentPublic_Schema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/DocumentPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'Page[DocumentPublic]'
+} as const;
+
+export const Page_DocumentTypePublic_Schema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/DocumentTypePublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'Page[DocumentTypePublic]'
+} as const;
+
 export const Page_ItemPublic_Schema = {
     properties: {
         data: {
@@ -1053,6 +1743,25 @@ export const Page_ItemPublic_Schema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'Page[ItemPublic]'
+} as const;
+
+export const Page_PaymentMethodPublic_Schema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/PaymentMethodPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'Page[PaymentMethodPublic]'
 } as const;
 
 export const Page_PermissionPublic_Schema = {
@@ -1186,6 +1895,32 @@ export const Page_UserPublic_Schema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'Page[UserPublic]'
+} as const;
+
+export const PaymentMethodPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        financial_account_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Financial Account Id'
+        },
+        requiere_conciliacion: {
+            type: 'boolean',
+            title: 'Requiere Conciliacion'
+        }
+    },
+    type: 'object',
+    required: ['id', 'name', 'financial_account_id', 'requiere_conciliacion'],
+    title: 'PaymentMethodPublic'
 } as const;
 
 export const PermissionPublicSchema = {

@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AttributesReadAttributesData, AttributesReadAttributesResponse, AttributesCreateAttributeData, AttributesCreateAttributeResponse, AttributesUpdateAttributeData, AttributesUpdateAttributeResponse, AttributesDeleteAttributeData, AttributesDeleteAttributeResponse, BusinessSettingsReadBusinessSettingsResponse, BusinessSettingsUpdateBusinessSettingsData, BusinessSettingsUpdateBusinessSettingsResponse, CategoriesReadCategoriesData, CategoriesReadCategoriesResponse, CategoriesCreateCategoryData, CategoriesCreateCategoryResponse, CategoriesReadCategoryData, CategoriesReadCategoryResponse, CategoriesUpdateCategoryData, CategoriesUpdateCategoryResponse, CategoriesDeleteCategoryData, CategoriesDeleteCategoryResponse, CustomersReadCustomersData, CustomersReadCustomersResponse, CustomersCreateCustomerData, CustomersCreateCustomerResponse, CustomersReadCustomerData, CustomersReadCustomerResponse, CustomersUpdateCustomerData, CustomersUpdateCustomerResponse, CustomersDeleteCustomerData, CustomersDeleteCustomerResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PermissionsReadPermissionsData, PermissionsReadPermissionsResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProductsReadProductsData, ProductsReadProductsResponse, ProductsCreateProductData, ProductsCreateProductResponse, ProductsReadProductData, ProductsReadProductResponse, ProductsUpdateProductData, ProductsUpdateProductResponse, ProductsDeleteProductData, ProductsDeleteProductResponse, ProductsAddBarcodeData, ProductsAddBarcodeResponse, ProductsDeleteBarcodeData, ProductsDeleteBarcodeResponse, ProductsCreateVariantData, ProductsCreateVariantResponse, ProductsDeleteVariantData, ProductsDeleteVariantResponse, RolesReadRolesData, RolesReadRolesResponse, RolesCreateRoleData, RolesCreateRoleResponse, RolesReadRoleData, RolesReadRoleResponse, RolesUpdateRoleData, RolesUpdateRoleResponse, RolesDeleteRoleData, RolesDeleteRoleResponse, SuppliersReadSuppliersData, SuppliersReadSuppliersResponse, SuppliersCreateSupplierData, SuppliersCreateSupplierResponse, SuppliersReadSupplierData, SuppliersReadSupplierResponse, SuppliersUpdateSupplierData, SuppliersUpdateSupplierResponse, SuppliersDeleteSupplierData, SuppliersDeleteSupplierResponse, TaxesReadTaxesData, TaxesReadTaxesResponse, TaxesCreateTaxData, TaxesCreateTaxResponse, TaxesUpdateTaxData, TaxesUpdateTaxResponse, TaxesDeleteTaxData, TaxesDeleteTaxResponse, UomsReadUomsData, UomsReadUomsResponse, UomsCreateUomData, UomsCreateUomResponse, UomsUpdateUomData, UomsUpdateUomResponse, UomsDeleteUomData, UomsDeleteUomResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { AttributesReadAttributesData, AttributesReadAttributesResponse, AttributesCreateAttributeData, AttributesCreateAttributeResponse, AttributesUpdateAttributeData, AttributesUpdateAttributeResponse, AttributesDeleteAttributeData, AttributesDeleteAttributeResponse, BusinessSettingsReadBusinessSettingsResponse, BusinessSettingsUpdateBusinessSettingsData, BusinessSettingsUpdateBusinessSettingsResponse, CategoriesReadCategoriesData, CategoriesReadCategoriesResponse, CategoriesCreateCategoryData, CategoriesCreateCategoryResponse, CategoriesReadCategoryData, CategoriesReadCategoryResponse, CategoriesUpdateCategoryData, CategoriesUpdateCategoryResponse, CategoriesDeleteCategoryData, CategoriesDeleteCategoryResponse, CustomersReadCustomersData, CustomersReadCustomersResponse, CustomersCreateCustomerData, CustomersCreateCustomerResponse, CustomersReadCustomerData, CustomersReadCustomerResponse, CustomersUpdateCustomerData, CustomersUpdateCustomerResponse, CustomersDeleteCustomerData, CustomersDeleteCustomerResponse, DocumentsSuggestFiscalSaleTypeData, DocumentsSuggestFiscalSaleTypeResponse, DocumentsReadDocumentsData, DocumentsReadDocumentsResponse, DocumentsCreateDocumentData, DocumentsCreateDocumentResponse, DocumentsReadDocumentData, DocumentsReadDocumentResponse, DocumentTypesReadDocumentTypesData, DocumentTypesReadDocumentTypesResponse, DocumentTypesUpdateDocumentTypeData, DocumentTypesUpdateDocumentTypeResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PaymentMethodsReadPaymentMethodsData, PaymentMethodsReadPaymentMethodsResponse, PermissionsReadPermissionsData, PermissionsReadPermissionsResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProductsReadProductsData, ProductsReadProductsResponse, ProductsCreateProductData, ProductsCreateProductResponse, ProductsReadProductData, ProductsReadProductResponse, ProductsUpdateProductData, ProductsUpdateProductResponse, ProductsDeleteProductData, ProductsDeleteProductResponse, ProductsAddBarcodeData, ProductsAddBarcodeResponse, ProductsDeleteBarcodeData, ProductsDeleteBarcodeResponse, ProductsCreateVariantData, ProductsCreateVariantResponse, ProductsDeleteVariantData, ProductsDeleteVariantResponse, RolesReadRolesData, RolesReadRolesResponse, RolesCreateRoleData, RolesCreateRoleResponse, RolesReadRoleData, RolesReadRoleResponse, RolesUpdateRoleData, RolesUpdateRoleResponse, RolesDeleteRoleData, RolesDeleteRoleResponse, SuppliersReadSuppliersData, SuppliersReadSuppliersResponse, SuppliersCreateSupplierData, SuppliersCreateSupplierResponse, SuppliersReadSupplierData, SuppliersReadSupplierResponse, SuppliersUpdateSupplierData, SuppliersUpdateSupplierResponse, SuppliersDeleteSupplierData, SuppliersDeleteSupplierResponse, TaxesReadTaxesData, TaxesReadTaxesResponse, TaxesCreateTaxData, TaxesCreateTaxResponse, TaxesUpdateTaxData, TaxesUpdateTaxResponse, TaxesDeleteTaxData, TaxesDeleteTaxResponse, UomsReadUomsData, UomsReadUomsResponse, UomsCreateUomData, UomsCreateUomResponse, UomsUpdateUomData, UomsUpdateUomResponse, UomsDeleteUomData, UomsDeleteUomResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class AttributesService {
     /**
@@ -356,6 +356,147 @@ export class CustomersService {
     }
 }
 
+export class DocumentsService {
+    /**
+     * Suggest Fiscal Sale Type
+     * Resolve Factura A/B/C from the business/customer tax condition combo.
+     *
+     * RI business + RI customer → A; RI business + anyone else → B;
+     * non-RI business → C. Matched by seeded type name.
+     * @param data The data for the request.
+     * @param data.customerId
+     * @returns DocumentTypePublic Successful Response
+     * @throws ApiError
+     */
+    public static suggestFiscalSaleType(data: DocumentsSuggestFiscalSaleTypeData): CancelablePromise<DocumentsSuggestFiscalSaleTypeResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/documents/suggest-type',
+            query: {
+                customer_id: data.customerId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Documents
+     * Retrieve documents with lines, taxes and payments.
+     * @param data The data for the request.
+     * @param data.skip Items to skip
+     * @param data.limit Items per page
+     * @returns Page_DocumentPublic_ Successful Response
+     * @throws ApiError
+     */
+    public static readDocuments(data: DocumentsReadDocumentsData = {}): CancelablePromise<DocumentsReadDocumentsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/documents/',
+            query: {
+                skip: data.skip,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create Document
+     * Create a document with its lines, taxes and payments.
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns DocumentPublic Successful Response
+     * @throws ApiError
+     */
+    public static createDocument(data: DocumentsCreateDocumentData): CancelablePromise<DocumentsCreateDocumentResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/documents/',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Document
+     * Get a specific document by id.
+     * @param data The data for the request.
+     * @param data.documentId
+     * @returns DocumentPublic Successful Response
+     * @throws ApiError
+     */
+    public static readDocument(data: DocumentsReadDocumentData): CancelablePromise<DocumentsReadDocumentResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/documents/{document_id}',
+            path: {
+                document_id: data.documentId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class DocumentTypesService {
+    /**
+     * Read Document Types
+     * Retrieve document types.
+     * @param data The data for the request.
+     * @param data.skip Items to skip
+     * @param data.limit Items per page
+     * @returns Page_DocumentTypePublic_ Successful Response
+     * @throws ApiError
+     */
+    public static readDocumentTypes(data: DocumentTypesReadDocumentTypesData = {}): CancelablePromise<DocumentTypesReadDocumentTypesResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/document-types/',
+            query: {
+                skip: data.skip,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Document Type
+     * Update the editable fields of a document type (name, prefix, active).
+     *
+     * Operation and signs are seed-managed and cannot be changed.
+     * @param data The data for the request.
+     * @param data.documentTypeId
+     * @param data.requestBody
+     * @returns DocumentTypePublic Successful Response
+     * @throws ApiError
+     */
+    public static updateDocumentType(data: DocumentTypesUpdateDocumentTypeData): CancelablePromise<DocumentTypesUpdateDocumentTypeResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/v1/document-types/{document_type_id}',
+            path: {
+                document_type_id: data.documentTypeId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
 export class ItemsService {
     /**
      * Read Items
@@ -556,6 +697,31 @@ export class LoginService {
             url: '/api/v1/password-recovery-html-content/{email}',
             path: {
                 email: data.email
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class PaymentMethodsService {
+    /**
+     * Read Payment Methods
+     * Retrieve payment methods.
+     * @param data The data for the request.
+     * @param data.skip Items to skip
+     * @param data.limit Items per page
+     * @returns Page_PaymentMethodPublic_ Successful Response
+     * @throws ApiError
+     */
+    public static readPaymentMethods(data: PaymentMethodsReadPaymentMethodsData = {}): CancelablePromise<PaymentMethodsReadPaymentMethodsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/payment-methods/',
+            query: {
+                skip: data.skip,
+                limit: data.limit
             },
             errors: {
                 422: 'Validation Error'

@@ -92,6 +92,8 @@ export type CategoryUpdate = {
     parent_id?: (string | null);
 };
 
+export type CounterpartType = 'customer' | 'supplier';
+
 export type CustomerCreate = {
     razon_social: string;
     documento?: (string | null);
@@ -125,6 +127,117 @@ export type CustomerUpdate = {
     address?: (string | null);
     condicion_fiscal?: (TaxCondition | null);
     limite_credito?: (number | string | null);
+    is_active?: (boolean | null);
+};
+
+export type DocumentCreate = {
+    document_type_id: string;
+    contraparte_id?: (string | null);
+    fecha?: (string | null);
+    descuento_total?: (number | string);
+    lines: Array<DocumentLineCreate>;
+    payments?: Array<DocumentPaymentCreate>;
+};
+
+export type DocumentLineCreate = {
+    product_id: string;
+    variant_id?: (string | null);
+    cantidad: (number | string);
+    precio_unit?: (number | string | null);
+    descuento_pct?: (number | string);
+    descuento_monto?: (number | string | null);
+    tax_ids?: (Array<(string)> | null);
+};
+
+export type DocumentLinePublic = {
+    id: string;
+    orden: number;
+    product_id: string;
+    variant_id?: (string | null);
+    cantidad: string;
+    precio_unit: string;
+    costo_unitario: string;
+    descuento_pct: string;
+    descuento_monto: string;
+    subtotal_line: string;
+    taxes?: Array<DocumentLineTaxPublic>;
+};
+
+export type DocumentLineTaxPublic = {
+    id: string;
+    tax_id: string;
+    base: string;
+    monto: string;
+    aplicado: boolean;
+};
+
+export type DocumentOperation = 'venta' | 'compra' | 'cotizacion' | 'ajuste';
+
+export type DocumentPaymentCreate = {
+    payment_method_id: string;
+    monto: (number | string);
+    comision_pct?: (number | string | null);
+    fecha_acreditacion?: (string | null);
+};
+
+export type DocumentPaymentPublic = {
+    id: string;
+    payment_method_id: string;
+    monto: string;
+    comision_pct?: (string | null);
+    fecha_acreditacion?: (string | null);
+    conciliado: boolean;
+};
+
+export type DocumentPublic = {
+    id: string;
+    document_type_id: string;
+    numero: string;
+    year: number;
+    fecha: string;
+    contraparte_type?: (CounterpartType | null);
+    contraparte_id?: (string | null);
+    user_id: string;
+    estado: DocumentStatus;
+    subtotal: string;
+    descuento_total: string;
+    total: string;
+    parent_document_id?: (string | null);
+    created_at?: (string | null);
+    document_type: DocumentTypePublic;
+    lines?: Array<DocumentLinePublic>;
+    taxes?: Array<DocumentTaxPublic>;
+    payments?: Array<DocumentPaymentPublic>;
+    contraparte_name?: (string | null);
+};
+
+export type DocumentStatus = 'active' | 'voided';
+
+export type DocumentTaxPublic = {
+    id: string;
+    tax_id: string;
+    base: string;
+    monto: string;
+};
+
+export type DocumentTypePublic = {
+    id: string;
+    name: string;
+    prefix: string;
+    operation: DocumentOperation;
+    signo_stock: number;
+    signo_caja: number;
+    es_fiscal: boolean;
+    tipo_contraparte?: (CounterpartType | null);
+    is_active: boolean;
+};
+
+/**
+ * Editable fields of a document type; signs and operation stay fixed.
+ */
+export type DocumentTypeUpdate = {
+    name?: (string | null);
+    prefix?: (string | null);
     is_active?: (boolean | null);
 };
 
@@ -174,8 +287,23 @@ export type Page_CustomerPublic_ = {
     count: number;
 };
 
+export type Page_DocumentPublic_ = {
+    data: Array<DocumentPublic>;
+    count: number;
+};
+
+export type Page_DocumentTypePublic_ = {
+    data: Array<DocumentTypePublic>;
+    count: number;
+};
+
 export type Page_ItemPublic_ = {
     data: Array<ItemPublic>;
+    count: number;
+};
+
+export type Page_PaymentMethodPublic_ = {
+    data: Array<PaymentMethodPublic>;
     count: number;
 };
 
@@ -212,6 +340,13 @@ export type Page_UoMPublic_ = {
 export type Page_UserPublic_ = {
     data: Array<UserPublic>;
     count: number;
+};
+
+export type PaymentMethodPublic = {
+    id: string;
+    name: string;
+    financial_account_id: string;
+    requiere_conciliacion: boolean;
 };
 
 export type PermissionPublic = {
@@ -576,6 +711,57 @@ export type CustomersDeleteCustomerData = {
 
 export type CustomersDeleteCustomerResponse = (Message);
 
+export type DocumentsSuggestFiscalSaleTypeData = {
+    customerId: string;
+};
+
+export type DocumentsSuggestFiscalSaleTypeResponse = (DocumentTypePublic);
+
+export type DocumentsReadDocumentsData = {
+    /**
+     * Items per page
+     */
+    limit?: number;
+    /**
+     * Items to skip
+     */
+    skip?: number;
+};
+
+export type DocumentsReadDocumentsResponse = (Page_DocumentPublic_);
+
+export type DocumentsCreateDocumentData = {
+    requestBody: DocumentCreate;
+};
+
+export type DocumentsCreateDocumentResponse = (DocumentPublic);
+
+export type DocumentsReadDocumentData = {
+    documentId: string;
+};
+
+export type DocumentsReadDocumentResponse = (DocumentPublic);
+
+export type DocumentTypesReadDocumentTypesData = {
+    /**
+     * Items per page
+     */
+    limit?: number;
+    /**
+     * Items to skip
+     */
+    skip?: number;
+};
+
+export type DocumentTypesReadDocumentTypesResponse = (Page_DocumentTypePublic_);
+
+export type DocumentTypesUpdateDocumentTypeData = {
+    documentTypeId: string;
+    requestBody: DocumentTypeUpdate;
+};
+
+export type DocumentTypesUpdateDocumentTypeResponse = (DocumentTypePublic);
+
 export type ItemsReadItemsData = {
     /**
      * Items per page
@@ -639,6 +825,19 @@ export type LoginRecoverPasswordHtmlContentData = {
 };
 
 export type LoginRecoverPasswordHtmlContentResponse = (string);
+
+export type PaymentMethodsReadPaymentMethodsData = {
+    /**
+     * Items per page
+     */
+    limit?: number;
+    /**
+     * Items to skip
+     */
+    skip?: number;
+};
+
+export type PaymentMethodsReadPaymentMethodsResponse = (Page_PaymentMethodPublic_);
 
 export type PermissionsReadPermissionsData = {
     /**

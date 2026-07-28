@@ -18,6 +18,7 @@ import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutSuppliersRouteImport } from './routes/_layout/suppliers'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
+import { Route as LayoutDocumentsRouteImport } from './routes/_layout/documents'
 import { Route as LayoutCustomersRouteImport } from './routes/_layout/customers'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutCatalogProductsRouteImport } from './routes/_layout/catalog/products'
@@ -66,6 +67,11 @@ const LayoutItemsRoute = LayoutItemsRouteImport.update({
   path: '/items',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutDocumentsRoute = LayoutDocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutCustomersRoute = LayoutCustomersRouteImport.update({
   id: '/customers',
   path: '/customers',
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
   '/customers': typeof LayoutCustomersRoute
+  '/documents': typeof LayoutDocumentsRoute
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
   '/suppliers': typeof LayoutSuppliersRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
   '/customers': typeof LayoutCustomersRoute
+  '/documents': typeof LayoutDocumentsRoute
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
   '/suppliers': typeof LayoutSuppliersRoute
@@ -117,6 +125,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_layout/admin': typeof LayoutAdminRoute
   '/_layout/customers': typeof LayoutCustomersRoute
+  '/_layout/documents': typeof LayoutDocumentsRoute
   '/_layout/items': typeof LayoutItemsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/suppliers': typeof LayoutSuppliersRoute
@@ -133,6 +142,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin'
     | '/customers'
+    | '/documents'
     | '/items'
     | '/settings'
     | '/suppliers'
@@ -145,6 +155,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin'
     | '/customers'
+    | '/documents'
     | '/items'
     | '/settings'
     | '/suppliers'
@@ -159,6 +170,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_layout/admin'
     | '/_layout/customers'
+    | '/_layout/documents'
     | '/_layout/items'
     | '/_layout/settings'
     | '/_layout/suppliers'
@@ -239,6 +251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutItemsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/documents': {
+      id: '/_layout/documents'
+      path: '/documents'
+      fullPath: '/documents'
+      preLoaderRoute: typeof LayoutDocumentsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/customers': {
       id: '/_layout/customers'
       path: '/customers'
@@ -266,6 +285,7 @@ declare module '@tanstack/react-router' {
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
   LayoutCustomersRoute: typeof LayoutCustomersRoute
+  LayoutDocumentsRoute: typeof LayoutDocumentsRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutSuppliersRoute: typeof LayoutSuppliersRoute
@@ -276,6 +296,7 @@ interface LayoutRouteChildren {
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
   LayoutCustomersRoute: LayoutCustomersRoute,
+  LayoutDocumentsRoute: LayoutDocumentsRoute,
   LayoutItemsRoute: LayoutItemsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutSuppliersRoute: LayoutSuppliersRoute,
