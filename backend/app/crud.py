@@ -4,7 +4,8 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, col, delete, select
+from sqlalchemy.orm import selectinload
+from sqlmodel import Session, col, delete, func, select
 
 from app.core.security import get_password_hash, verify_password
 from app.models import (
@@ -16,12 +17,15 @@ from app.models import (
     Document,
     DocumentCreate,
     DocumentLine,
+    DocumentLineCreate,
     DocumentLineTax,
     DocumentOperation,
     DocumentPayment,
     DocumentSequence,
+    DocumentStatus,
     DocumentTax,
     DocumentType,
+    DocumentVoidCreate,
     Item,
     ItemCreate,
     PaymentMethod,
@@ -219,7 +223,24 @@ def next_document_number(
 def create_document(
     *, session: Session, document_in: DocumentCreate, user_id: uuid.UUID
 ) -> Document:
-    """Create a document with lines, taxes and payments in one transaction.
+    """Create a document with lines, taxes and payments in one transaction."""
+    document = _create_document_in_tx(
+        session=session, document_in=document_in, user_id=user_id
+    )
+    session.commit()
+    session.refresh(document)
+    return document
+
+
+def _create_document_in_tx(
+    *,
+    session: Session,
+    document_in: DocumentCreate,
+    user_id: uuid.UUID,
+    parent_document_id: uuid.UUID | None = None,
+    parent_line_ids: dict[int, uuid.UUID] | None = None,
+) -> Document:
+    """Transactional core of document creation (no commit/refresh).
 
     Prices carry IVA inside (retail convention): line-tax rows are an
     informational breakdown and never change the total; only document-level
@@ -289,6 +310,11 @@ def create_document(
                 else product.precio_venta
             )
         )
+        costo = (
+            line_in.costo_unitario
+            if line_in.costo_unitario is not None
+            else product.costo_actual
+        )
         bruto = _money(precio * line_in.cantidad)
         descuento_monto = (
             _money(line_in.descuento_monto)
@@ -337,7 +363,7 @@ def create_document(
                 line_in.variant_id,
                 line_in.cantidad,
                 precio,
-                product.costo_actual,
+                costo,
                 line_in.descuento_pct,
                 descuento_monto,
                 subtotal_line,
@@ -382,6 +408,7 @@ def create_document(
         subtotal=subtotal,
         descuento_total=document_in.descuento_total,
         total=subtotal - document_in.descuento_total + doc_taxes_total,
+        parent_document_id=parent_document_id,
     )
     session.add(document)
     session.flush()
@@ -409,6 +436,7 @@ def create_document(
             descuento_pct=descuento_pct,
             descuento_monto=descuento_monto,
             subtotal_line=subtotal_line,
+            parent_line_id=(parent_line_ids or {}).get(orden),
         )
         session.add(line)
         for tax_id, base, monto in line_taxes:
@@ -442,9 +470,154 @@ def create_document(
     _stock_movements_hook(session=session, document=document)  # Phase 6
     _financial_movements_hook(session=session, document=document)  # Phase 7
 
-    session.commit()
-    session.refresh(document)
     return document
+
+
+def get_line_voided_quantities(
+    *, session: Session, document: Document
+) -> dict[uuid.UUID, Decimal]:
+    """Cantidad already reverted per line of ``document``, from active NCs."""
+    rows = session.exec(
+        select(DocumentLine.parent_line_id, func.sum(DocumentLine.cantidad))
+        .join(Document, col(Document.id) == DocumentLine.document_id)
+        .where(col(Document.parent_document_id) == document.id)
+        .where(Document.estado == DocumentStatus.ACTIVE)
+        .where(col(DocumentLine.parent_line_id).is_not(None))
+        .group_by(col(DocumentLine.parent_line_id))
+    ).all()
+    return {line_id: total for line_id, total in rows if line_id is not None}
+
+
+def void_document(
+    *,
+    session: Session,
+    document_id: uuid.UUID,
+    void_in: DocumentVoidCreate,
+    user_id: uuid.UUID,
+) -> Document:
+    """Void ``document`` totally or partially by issuing its mirror NC.
+
+    Quantities are line-based; previous NCs count towards the remaining
+    quantity. The original switches to ``voided`` once every line is fully
+    reverted; only then the document-level discount is reversed in the NC
+    (partial NCs keep it attached to the original document).
+    """
+    original = session.exec(
+        select(Document)
+        .where(Document.id == document_id)
+        .options(
+            selectinload(Document.document_type),  # type: ignore
+            selectinload(Document.lines).selectinload(DocumentLine.taxes),  # type: ignore
+            selectinload(Document.taxes),  # type: ignore
+        )
+    ).first()
+    if not original:
+        raise ValueError("Document not found")
+    if original.estado == DocumentStatus.VOIDED:
+        raise ValueError("Document is already voided")
+    original_type = original.document_type
+    if original_type is None:
+        raise ValueError("Document has no document type")
+    nc_type_id = original_type.void_document_type_id
+    if nc_type_id is None:
+        raise ValueError(f"Documents of type '{original_type.name}' are not voidable")
+
+    voided_qty = get_line_voided_quantities(session=session, document=original)
+    remaining = {
+        line.id: line.cantidad - voided_qty.get(line.id, Decimal("0"))
+        for line in original.lines
+    }
+    by_id = {line.id: line for line in original.lines}
+
+    requested: dict[uuid.UUID, Decimal] = {}
+    if void_in.lines:
+        for void_line in void_in.lines:
+            if void_line.document_line_id not in by_id:
+                raise ValueError("A void line does not belong to the document")
+            if remaining[void_line.document_line_id] <= 0:
+                raise ValueError("A void line has nothing left to void")
+            acc = requested.get(void_line.document_line_id, Decimal("0"))
+            requested[void_line.document_line_id] = acc + void_line.cantidad
+    else:
+        requested = {line_id: qty for line_id, qty in remaining.items() if qty > 0}
+    if not requested:
+        raise ValueError("Nothing left to void")
+    for line_id, qty in requested.items():
+        if qty > remaining[line_id]:
+            raise ValueError(
+                f"Void quantity ({qty}) exceeds what is left "
+                f"({remaining[line_id]}) for a line"
+            )
+
+    lines_after = {
+        line.id: remaining[line.id] - requested.get(line.id, Decimal("0"))
+        for line in original.lines
+    }
+    becomes_voided = all(qty <= 0 for qty in lines_after.values())
+
+    # Doc-level taxes assigned to the original document (percepciones).
+    original_doc_tax_ids = {dt.tax_id for dt in original.taxes}
+
+    nc_lines: list[DocumentLineCreate] = []
+    parent_line_ids: dict[int, uuid.UUID] = {}
+    orden = 0
+    for line in sorted(original.lines, key=lambda x: x.orden):
+        void_qty = requested.get(line.id)
+        if void_qty is None:
+            continue
+        orden += 1
+        descuento_pct: Decimal
+        descuento_monto: Decimal | None
+        if line.descuento_pct > 0:
+            descuento_pct, descuento_monto = line.descuento_pct, None
+        elif line.descuento_monto > 0:
+            ratio = void_qty / line.cantidad
+            descuento_pct, descuento_monto = (
+                Decimal("0"),
+                _money(line.descuento_monto * ratio),
+            )
+        else:
+            descuento_pct, descuento_monto = Decimal("0"), None
+        # Line taxes applied to the original line + percepciones still
+        # assigned to the product so the NC reverses them proportionally.
+        product = session.get(Product, line.product_id)
+        product_tax_ids = {t.id for t in product.taxes} if product else set()
+        line_tax_ids = {t.tax_id for t in line.taxes if t.aplicado}
+        tax_ids = sorted(line_tax_ids | (original_doc_tax_ids & product_tax_ids))
+        nc_lines.append(
+            DocumentLineCreate(
+                product_id=line.product_id,
+                variant_id=line.variant_id,
+                cantidad=void_qty,
+                precio_unit=line.precio_unit,
+                descuento_pct=descuento_pct,
+                descuento_monto=descuento_monto,
+                tax_ids=tax_ids,
+                costo_unitario=line.costo_unitario,
+            )
+        )
+        parent_line_ids[orden] = line.id
+
+    nc_in = DocumentCreate(
+        document_type_id=nc_type_id,
+        contraparte_id=original.contraparte_id,
+        descuento_total=original.descuento_total if becomes_voided else Decimal("0"),
+        lines=nc_lines,
+        payments=void_in.payments,
+    )
+    nc = _create_document_in_tx(
+        session=session,
+        document_in=nc_in,
+        user_id=user_id,
+        parent_document_id=original.id,
+        parent_line_ids=parent_line_ids,
+    )
+    if becomes_voided:
+        original.estado = DocumentStatus.VOIDED
+        session.add(original)
+    session.commit()
+    session.refresh(nc)
+    return nc
 
 
 def _purchase_cost_hook(*, session: Session, document: Document) -> None:

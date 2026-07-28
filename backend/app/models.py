@@ -396,6 +396,27 @@ class DocumentLineCreate(SQLModel):
     )
     # None = auto-apply the product's line taxes; a list overrides them.
     tax_ids: list[uuid.UUID] | None = None
+    # Normally omitted (snapshots Product.costo_actual); NC creation passes
+    # the original line's snapshot so the reversal is exact.
+    costo_unitario: Decimal | None = Field(
+        default=None,
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+
+
+class DocumentVoidLine(SQLModel):
+    document_line_id: uuid.UUID
+    cantidad: Decimal = Field(
+        gt=0,
+        sa_type=Numeric(12, 3),  # type: ignore
+    )
+
+
+class DocumentVoidCreate(SQLModel):
+    """Empty ``lines`` voids everything still pending (total void)."""
+
+    lines: list[DocumentVoidLine] = Field(default_factory=list)
+    payments: list["DocumentPaymentCreate"] = Field(default_factory=list)
 
 
 class DocumentPaymentCreate(SQLModel):
@@ -710,6 +731,11 @@ class DocumentType(SQLModel, table=True):
     es_fiscal: bool = Field(default=False)
     tipo_contraparte: CounterpartType | None = Field(default=None, max_length=20)
     is_active: bool = True
+    # Seed-managed: the NC type used to void documents of this type; NULL
+    # means the type is not voidable.
+    void_document_type_id: uuid.UUID | None = Field(
+        default=None, foreign_key="documenttype.id"
+    )
     documents: list["Document"] = Relationship(back_populates="document_type")
 
 
@@ -805,6 +831,10 @@ class DocumentLine(SQLModel, table=True):
     subtotal_line: Decimal = Field(
         default=Decimal("0"),
         sa_type=Numeric(12, 2),  # type: ignore
+    )
+    # Line of the parent document this line reverts (set on NC lines).
+    parent_line_id: uuid.UUID | None = Field(
+        default=None, foreign_key="documentline.id"
     )
     document: Optional[Document] = Relationship(back_populates="lines")  # noqa: UP045
     taxes: list["DocumentLineTax"] = Relationship(
@@ -1008,6 +1038,7 @@ class DocumentTypePublic(SQLModel):
     signo_caja: int
     es_fiscal: bool
     tipo_contraparte: CounterpartType | None = None
+    void_document_type_id: uuid.UUID | None = None
     is_active: bool
 
 
@@ -1031,6 +1062,8 @@ class DocumentLinePublic(SQLModel):
     descuento_monto: Decimal
     subtotal_line: Decimal
     taxes: list[DocumentLineTaxPublic] = []
+    # Quantity still voidable; only filled by the document detail endpoint.
+    cantidad_pendiente: Decimal | None = None
 
 
 class DocumentTaxPublic(SQLModel):

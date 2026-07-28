@@ -167,8 +167,18 @@ SEED_DOCUMENT_TYPES: list[
     ("Remito", "RTO", DocumentOperation.VENTA, -1, 0, False, CounterpartType.CUSTOMER),
     ("Ajuste Stock", "AJS", DocumentOperation.AJUSTE, 0, 0, False, None),
 ]
-
 FISCAL_SALE_TYPE_NAMES = {"A": "Factura A", "B": "Factura B", "C": "Factura C"}
+
+# Voiding: type prefix → mirror NC type prefix (seed-managed, rename-proof).
+VOID_TYPE_MIRROR = {
+    "FA": "NCV",
+    "FB": "NCV",
+    "FC": "NCV",
+    "TCK": "NCV",
+    "NDV": "NCV",
+    "OC": "NCC",
+    "NDC": "NCC",
+}
 
 SEED_MAIN_CASH_ACCOUNT = "Caja Principal"
 SEED_CASH_PAYMENT_METHOD = "Efectivo"
@@ -326,6 +336,16 @@ def init_db(session: Session) -> None:
                     tipo_contraparte=party,
                 )
             )
+    session.commit()
+
+    # Wire the void-mirror NC type per voidable document type (idempotent).
+    types_by_prefix = {t.prefix: t for t in session.exec(select(DocumentType)).all()}
+    for type_prefix, mirror_prefix in VOID_TYPE_MIRROR.items():
+        doc_type = types_by_prefix.get(type_prefix)
+        mirror = types_by_prefix.get(mirror_prefix)
+        if doc_type and mirror and doc_type.void_document_type_id != mirror.id:
+            doc_type.void_document_type_id = mirror.id
+            session.add(doc_type)
     session.commit()
 
     # --- Seed main cash account + cash payment method ---

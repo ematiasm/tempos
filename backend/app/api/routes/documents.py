@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -18,6 +19,7 @@ from app.models import (
     DocumentPublic,
     DocumentType,
     DocumentTypePublic,
+    DocumentVoidCreate,
     Page,
     Supplier,
     TaxCondition,
@@ -147,7 +149,12 @@ def read_document(session: SessionDep, document_id: uuid.UUID) -> Any:
     ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    return _attach_counterpart_names(session, [document])[0]
+    public = _attach_counterpart_names(session, [document])[0]
+    voided = crud.get_line_voided_quantities(session=session, document=document)
+    for line in public.lines:
+        original_qty = next(x.cantidad for x in document.lines if x.id == line.id)
+        line.cantidad_pendiente = original_qty - voided.get(line.id, Decimal("0"))
+    return public
 
 
 @router.post(
@@ -167,3 +174,29 @@ def create_document(
         session.rollback()
         raise HTTPException(status_code=400, detail=str(e)) from e
     return _attach_counterpart_names(session, [document])[0]
+
+
+@router.post(
+    "/{document_id}/void",
+    response_model=DocumentPublic,
+    dependencies=[require_permissions("document.void")],
+)
+def void_document(
+    *,
+    session: SessionDep,
+    document_id: uuid.UUID,
+    void_in: DocumentVoidCreate,
+    current_user: CurrentUser,
+) -> Any:
+    """Void a document totally (empty lines) or partially, issuing its NC."""
+    try:
+        nc = crud.void_document(
+            session=session,
+            document_id=document_id,
+            void_in=void_in,
+            user_id=current_user.id,
+        )
+    except ValueError as e:
+        session.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return _attach_counterpart_names(session, [nc])[0]
