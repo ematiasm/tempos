@@ -147,6 +147,7 @@ export type DocumentLineCreate = {
     descuento_pct?: (number | string);
     descuento_monto?: (number | string | null);
     tax_ids?: (Array<(string)> | null);
+    costo_unitario?: (number | string | null);
 };
 
 export type DocumentLinePublic = {
@@ -161,6 +162,7 @@ export type DocumentLinePublic = {
     descuento_monto: string;
     subtotal_line: string;
     taxes?: Array<DocumentLineTaxPublic>;
+    cantidad_pendiente?: (string | null);
 };
 
 export type DocumentLineTaxPublic = {
@@ -229,6 +231,7 @@ export type DocumentTypePublic = {
     signo_caja: number;
     es_fiscal: boolean;
     tipo_contraparte?: (CounterpartType | null);
+    void_document_type_id?: (string | null);
     is_active: boolean;
 };
 
@@ -239,6 +242,19 @@ export type DocumentTypeUpdate = {
     name?: (string | null);
     prefix?: (string | null);
     is_active?: (boolean | null);
+};
+
+/**
+ * Empty ``lines`` voids everything still pending (total void).
+ */
+export type DocumentVoidCreate = {
+    lines?: Array<DocumentVoidLine>;
+    payments?: Array<DocumentPaymentCreate>;
+};
+
+export type DocumentVoidLine = {
+    document_line_id: string;
+    cantidad: (number | string);
 };
 
 export type HTTPValidationError = {
@@ -741,6 +757,13 @@ export type DocumentsReadDocumentData = {
 };
 
 export type DocumentsReadDocumentResponse = (DocumentPublic);
+
+export type DocumentsVoidDocumentData = {
+    documentId: string;
+    requestBody: DocumentVoidCreate;
+};
+
+export type DocumentsVoidDocumentResponse = (DocumentPublic);
 
 export type DocumentTypesReadDocumentTypesData = {
     /**

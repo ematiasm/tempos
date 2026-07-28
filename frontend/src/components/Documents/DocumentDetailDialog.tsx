@@ -1,12 +1,17 @@
 import { useQuery } from "@tanstack/react-query"
+import { Ban } from "lucide-react"
+import { useState } from "react"
 
 import type { DocumentPublic } from "@/client"
 import { PaymentMethodsService, ProductsService, TaxesService } from "@/client"
+import VoidDocumentDialog from "@/components/Documents/VoidDocumentDialog"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -24,6 +29,7 @@ const DocumentDetailDialog = ({
   open,
   onOpenChange,
 }: DocumentDetailDialogProps) => {
+  const [voidOpen, setVoidOpen] = useState(false)
   const { data: productsData } = useQuery({
     queryFn: () => ProductsService.readProducts({ skip: 0, limit: 1000 }),
     queryKey: ["products"],
@@ -42,6 +48,10 @@ const DocumentDetailDialog = ({
   })
 
   if (!document) return null
+
+  const voidable =
+    document.estado === "active" &&
+    !!document.document_type.void_document_type_id
 
   const productNames = new Map(
     (productsData?.data ?? []).map((p) => [p.id, p.name] as const),
@@ -164,6 +174,24 @@ const DocumentDetailDialog = ({
             </div>
           )}
         </div>
+        {voidable && (
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="text-destructive"
+              onClick={() => setVoidOpen(true)}
+            >
+              <Ban className="mr-2 h-4 w-4" />
+              Void document
+            </Button>
+          </DialogFooter>
+        )}
+        <VoidDocumentDialog
+          document={document}
+          open={voidOpen}
+          onOpenChange={setVoidOpen}
+          onVoided={() => onOpenChange(false)}
+        />
       </DialogContent>
     </Dialog>
   )

@@ -993,6 +993,21 @@ export const DocumentLineCreateSchema = {
                 }
             ],
             title: 'Tax Ids'
+        },
+        costo_unitario: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Costo Unitario'
         }
     },
     type: 'object',
@@ -1065,6 +1080,18 @@ export const DocumentLinePublicSchema = {
             type: 'array',
             title: 'Taxes',
             default: []
+        },
+        cantidad_pendiente: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Cantidad Pendiente'
         }
     },
     type: 'object',
@@ -1426,6 +1453,18 @@ export const DocumentTypePublicSchema = {
                 }
             ]
         },
+        void_document_type_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Void Document Type Id'
+        },
         is_active: {
             type: 'boolean',
             title: 'Is Active'
@@ -1479,6 +1518,54 @@ export const DocumentTypeUpdateSchema = {
     type: 'object',
     title: 'DocumentTypeUpdate',
     description: 'Editable fields of a document type; signs and operation stay fixed.'
+} as const;
+
+export const DocumentVoidCreateSchema = {
+    properties: {
+        lines: {
+            items: {
+                '$ref': '#/components/schemas/DocumentVoidLine'
+            },
+            type: 'array',
+            title: 'Lines'
+        },
+        payments: {
+            items: {
+                '$ref': '#/components/schemas/DocumentPaymentCreate'
+            },
+            type: 'array',
+            title: 'Payments'
+        }
+    },
+    type: 'object',
+    title: 'DocumentVoidCreate',
+    description: 'Empty ``lines`` voids everything still pending (total void).'
+} as const;
+
+export const DocumentVoidLineSchema = {
+    properties: {
+        document_line_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Document Line Id'
+        },
+        cantidad: {
+            anyOf: [
+                {
+                    type: 'number',
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                }
+            ],
+            title: 'Cantidad'
+        }
+    },
+    type: 'object',
+    required: ['document_line_id', 'cantidad'],
+    title: 'DocumentVoidLine'
 } as const;
 
 export const HTTPValidationErrorSchema = {
