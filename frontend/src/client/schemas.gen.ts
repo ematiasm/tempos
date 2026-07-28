@@ -1372,6 +1372,29 @@ export const DocumentPublicSchema = {
                 }
             ],
             title: 'Contraparte Name'
+        },
+        child_document_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Child Document Id'
+        },
+        child_document_numero: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Child Document Numero'
         }
     },
     type: 'object',

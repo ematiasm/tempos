@@ -211,6 +211,8 @@ export type DocumentPublic = {
     taxes?: Array<DocumentTaxPublic>;
     payments?: Array<DocumentPaymentPublic>;
     contraparte_name?: (string | null);
+    child_document_id?: (string | null);
+    child_document_numero?: (string | null);
 };
 
 export type DocumentStatus = 'active' | 'voided';
@@ -764,6 +766,12 @@ export type DocumentsVoidDocumentData = {
 };
 
 export type DocumentsVoidDocumentResponse = (DocumentPublic);
+
+export type DocumentsConvertToInvoiceData = {
+    documentId: string;
+};
+
+export type DocumentsConvertToInvoiceResponse = (DocumentPublic);
 
 export type DocumentTypesReadDocumentTypesData = {
     /**

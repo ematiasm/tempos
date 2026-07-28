@@ -1,9 +1,14 @@
-import { useQuery } from "@tanstack/react-query"
-import { Ban } from "lucide-react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Ban, FileCheck } from "lucide-react"
 import { useState } from "react"
 
 import type { DocumentPublic } from "@/client"
-import { PaymentMethodsService, ProductsService, TaxesService } from "@/client"
+import {
+  DocumentsService,
+  PaymentMethodsService,
+  ProductsService,
+  TaxesService,
+} from "@/client"
 import VoidDocumentDialog from "@/components/Documents/VoidDocumentDialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,6 +20,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import useCustomToast from "@/hooks/useCustomToast"
+import { handleError } from "@/utils"
 
 const money = (value: string | number) => `$${Number(value).toFixed(2)}`
 
@@ -30,6 +37,20 @@ const DocumentDetailDialog = ({
   onOpenChange,
 }: DocumentDetailDialogProps) => {
   const [voidOpen, setVoidOpen] = useState(false)
+  const queryClient = useQueryClient()
+  const { showSuccessToast, showErrorToast } = useCustomToast()
+
+  const convertMutation = useMutation({
+    mutationFn: (documentId: string) =>
+      DocumentsService.convertToInvoice({ documentId }),
+    onSuccess: (invoice) => {
+      showSuccessToast(`Invoice ${invoice.numero} issued`)
+      queryClient.invalidateQueries({ queryKey: ["documents"] })
+      onOpenChange(false)
+    },
+    onError: handleError.bind(showErrorToast),
+  })
+
   const { data: productsData } = useQuery({
     queryFn: () => ProductsService.readProducts({ skip: 0, limit: 1000 }),
     queryKey: ["products"],
@@ -52,6 +73,10 @@ const DocumentDetailDialog = ({
   const voidable =
     document.estado === "active" &&
     !!document.document_type.void_document_type_id
+  const convertible =
+    document.estado === "active" &&
+    document.document_type.operation === "cotizacion" &&
+    !document.child_document_id
 
   const productNames = new Map(
     (productsData?.data ?? []).map((p) => [p.id, p.name] as const),
@@ -174,16 +199,39 @@ const DocumentDetailDialog = ({
             </div>
           )}
         </div>
-        {voidable && (
+        {document.child_document_id && (
+          <div className="flex items-center gap-2 rounded border bg-muted px-3 py-2 text-sm">
+            <FileCheck className="h-4 w-4" />
+            <span>
+              Converted to{" "}
+              <span className="font-mono">
+                {document.child_document_numero}
+              </span>
+            </span>
+          </div>
+        )}
+        {(voidable || convertible) && (
           <DialogFooter>
-            <Button
-              variant="outline"
-              className="text-destructive"
-              onClick={() => setVoidOpen(true)}
-            >
-              <Ban className="mr-2 h-4 w-4" />
-              Void document
-            </Button>
+            {convertible && (
+              <Button
+                variant="outline"
+                disabled={convertMutation.isPending}
+                onClick={() => convertMutation.mutate(document.id)}
+              >
+                <FileCheck className="mr-2 h-4 w-4" />
+                Convert to invoice
+              </Button>
+            )}
+            {voidable && (
+              <Button
+                variant="outline"
+                className="text-destructive"
+                onClick={() => setVoidOpen(true)}
+              >
+                <Ban className="mr-2 h-4 w-4" />
+                Void document
+              </Button>
+            )}
           </DialogFooter>
         )}
         <VoidDocumentDialog
