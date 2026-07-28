@@ -4,15 +4,15 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from sqlmodel import col, func, select
 
-from app.api.deps import CurrentUser, SessionDep
-from app.models import Item, ItemCreate, ItemPublic, ItemsPublic, ItemUpdate, Message
+from app.api.deps import CurrentUser, PaginationDep, SessionDep
+from app.models import Item, ItemCreate, ItemPublic, ItemUpdate, Message, Page
 
 router = APIRouter(prefix="/items", tags=["items"])
 
 
-@router.get("/", response_model=ItemsPublic)
+@router.get("/", response_model=Page[ItemPublic])
 def read_items(
-    session: SessionDep, current_user: CurrentUser, skip: int = 0, limit: int = 100
+    session: SessionDep, current_user: CurrentUser, pagination: PaginationDep
 ) -> Any:
     """
     Retrieve items.
@@ -22,7 +22,10 @@ def read_items(
         count_statement = select(func.count()).select_from(Item)
         count = session.exec(count_statement).one()
         statement = (
-            select(Item).order_by(col(Item.created_at).desc()).offset(skip).limit(limit)
+            select(Item)
+            .order_by(col(Item.created_at).desc())
+            .offset(pagination.skip)
+            .limit(pagination.limit)
         )
         items = session.exec(statement).all()
     else:
@@ -36,13 +39,13 @@ def read_items(
             select(Item)
             .where(Item.owner_id == current_user.id)
             .order_by(col(Item.created_at).desc())
-            .offset(skip)
-            .limit(limit)
+            .offset(pagination.skip)
+            .limit(pagination.limit)
         )
         items = session.exec(statement).all()
 
     items_public = [ItemPublic.model_validate(item) for item in items]
-    return ItemsPublic(data=items_public, count=count)
+    return Page[ItemPublic](data=items_public, count=count)
 
 
 @router.get("/{id}", response_model=ItemPublic)

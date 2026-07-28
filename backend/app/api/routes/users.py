@@ -2,11 +2,13 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import selectinload
 from sqlmodel import col, delete, func, select
 
 from app import crud
 from app.api.deps import (
     CurrentUser,
+    PaginationDep,
     SessionDep,
     get_current_active_superuser,
 )
@@ -15,12 +17,13 @@ from app.core.security import get_password_hash, verify_password
 from app.models import (
     Item,
     Message,
+    Page,
+    Role,
     UpdatePassword,
     User,
     UserCreate,
     UserPublic,
     UserRegister,
-    UsersPublic,
     UserUpdate,
     UserUpdateMe,
 )
@@ -32,9 +35,9 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get(
     "/",
     dependencies=[Depends(get_current_active_superuser)],
-    response_model=UsersPublic,
+    response_model=Page[UserPublic],
 )
-def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
+def read_users(session: SessionDep, pagination: PaginationDep) -> Any:
     """
     Retrieve users.
     """
@@ -43,12 +46,16 @@ def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
     count = session.exec(count_statement).one()
 
     statement = (
-        select(User).order_by(col(User.created_at).desc()).offset(skip).limit(limit)
+        select(User)
+        .options(selectinload(User.roles).selectinload(Role.permissions))  # type: ignore
+        .order_by(col(User.created_at).desc())
+        .offset(pagination.skip)
+        .limit(pagination.limit)
     )
     users = session.exec(statement).all()
 
     users_public = [UserPublic.model_validate(user) for user in users]
-    return UsersPublic(data=users_public, count=count)
+    return Page[UserPublic](data=users_public, count=count)
 
 
 @router.post(

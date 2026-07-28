@@ -38,6 +38,12 @@ build-backend = "hatchling.build"
 strict = true
 exclude = ["venv", ".venv", "alembic"]
 
+# SQLModel relationship kwargs (e.g. ``sa_relationship_kwargs={"remote_side": ...}``)
+# require a ``# type: ignore`` that ``ty`` needs but mypy marks as unused.
+[[tool.mypy.overrides]]
+module = "app.models"
+warn_unused_ignores = false
+
 [tool.ruff]
 target-version = "py314"
 exclude = ["alembic"]
@@ -59,6 +65,10 @@ ignore = [
     "B008",  # do not perform function calls in argument defaults
     "W191",  # indentation contains tabs
     "B904",  # Allow raising exceptions without from e, for HTTPException
+    "UP037", # "Remove quotes from type annotation" breaks SQLModel forward-ref string annotations required for self/cross table relationships
+    "UP045", # `Optional[X]` -> `X | None` rewrites break SQLModel string forward refs in self/cross table relationships
+    "UP046", # Generic class annotation rewrites conflict with SQLModel table=False/True generics
+    "UP007", # `Union[X, Y]` -> `X | Y` rewrites can break SQLModel string forward refs
 ]
 
 [tool.ruff.lint.pyupgrade]
