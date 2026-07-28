@@ -5,8 +5,11 @@ from app.api.routes import (
     business_settings,
     categories,
     customers,
+    document_types,
+    documents,
     items,
     login,
+    payment_methods,
     permissions,
     private,
     products,
@@ -32,6 +35,9 @@ api_router.include_router(products.router)
 api_router.include_router(attributes.router)
 api_router.include_router(customers.router)
 api_router.include_router(suppliers.router)
+api_router.include_router(document_types.router)
+api_router.include_router(documents.router)
+api_router.include_router(payment_methods.router)
 api_router.include_router(utils.router)
 api_router.include_router(items.router)
 

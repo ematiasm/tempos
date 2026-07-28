@@ -14,6 +14,12 @@ from app.models import (
     Barcode,
     Category,
     Customer,
+    Document,
+    DocumentLine,
+    DocumentLineTax,
+    DocumentPayment,
+    DocumentSequence,
+    DocumentTax,
     Item,
     Product,
     ProductTax,
@@ -43,6 +49,12 @@ def db() -> Generator[Session]:
         # Teardown: delete test-created rows in FK-safe order, keeping the
         # init_db seeds (taxes, "unidad" UoM, "Administrador" role, permissions).
         for model in (
+            DocumentLineTax,
+            DocumentLine,
+            DocumentTax,
+            DocumentPayment,
+            Document,
+            DocumentSequence,
             Item,
             User,
             ProductVariantAttribute,

@@ -7,7 +7,13 @@ from app.core.config import settings
 from app.models import (
     CONSUMIDOR_FINAL_NAME,
     BusinessSettings,
+    CounterpartType,
     Customer,
+    DocumentOperation,
+    DocumentType,
+    FinancialAccount,
+    FinancialAccountType,
+    PaymentMethod,
     Permission,
     Role,
     RolePermission,
@@ -70,6 +76,102 @@ SEED_PERMISSIONS: list[tuple[str, str]] = [
     ("transfer.create", "Create internal transfers"),
     ("report.view", "View reports"),
 ]
+
+# Seeded document types. Signs: stock/caja direction of the operation.
+# Only name/prefix are user-editable afterwards.
+SEED_DOCUMENT_TYPES: list[
+    tuple[str, str, DocumentOperation, int, int, bool, CounterpartType | None]
+] = [
+    (
+        "Factura A",
+        "FA",
+        DocumentOperation.VENTA,
+        -1,
+        +1,
+        True,
+        CounterpartType.CUSTOMER,
+    ),
+    (
+        "Factura B",
+        "FB",
+        DocumentOperation.VENTA,
+        -1,
+        +1,
+        True,
+        CounterpartType.CUSTOMER,
+    ),
+    (
+        "Factura C",
+        "FC",
+        DocumentOperation.VENTA,
+        -1,
+        +1,
+        True,
+        CounterpartType.CUSTOMER,
+    ),
+    ("Ticket", "TCK", DocumentOperation.VENTA, -1, +1, False, CounterpartType.CUSTOMER),
+    (
+        "Cotización",
+        "COT",
+        DocumentOperation.COTIZACION,
+        0,
+        0,
+        False,
+        CounterpartType.CUSTOMER,
+    ),
+    (
+        "Nota de Crédito",
+        "NCV",
+        DocumentOperation.VENTA,
+        +1,
+        -1,
+        True,
+        CounterpartType.CUSTOMER,
+    ),
+    (
+        "Nota de Débito",
+        "NDV",
+        DocumentOperation.VENTA,
+        -1,
+        +1,
+        True,
+        CounterpartType.CUSTOMER,
+    ),
+    (
+        "Orden de Compra",
+        "OC",
+        DocumentOperation.COMPRA,
+        +1,
+        -1,
+        False,
+        CounterpartType.SUPPLIER,
+    ),
+    (
+        "NC Compra",
+        "NCC",
+        DocumentOperation.COMPRA,
+        -1,
+        +1,
+        False,
+        CounterpartType.SUPPLIER,
+    ),
+    (
+        "ND Compra",
+        "NDC",
+        DocumentOperation.COMPRA,
+        +1,
+        -1,
+        False,
+        CounterpartType.SUPPLIER,
+    ),
+    ("Remito", "RTO", DocumentOperation.VENTA, -1, 0, False, CounterpartType.CUSTOMER),
+    ("Ajuste Stock", "AJS", DocumentOperation.AJUSTE, 0, 0, False, None),
+]
+
+FISCAL_SALE_TYPE_NAMES = {"A": "Factura A", "B": "Factura B", "C": "Factura C"}
+
+SEED_MAIN_CASH_ACCOUNT = "Caja Principal"
+SEED_CASH_PAYMENT_METHOD = "Efectivo"
 
 
 def init_db(session: Session) -> None:
@@ -196,6 +298,54 @@ def init_db(session: Session) -> None:
             Customer(
                 razon_social=CONSUMIDOR_FINAL_NAME,
                 condicion_fiscal=TaxCondition.CONSUMIDOR_FINAL,
+            )
+        )
+        session.commit()
+
+    # --- Seed document types ---
+    for (
+        name,
+        prefix,
+        operation,
+        signo_stock,
+        signo_caja,
+        es_fiscal,
+        party,
+    ) in SEED_DOCUMENT_TYPES:
+        if not session.exec(
+            select(DocumentType).where(DocumentType.prefix == prefix)
+        ).first():
+            session.add(
+                DocumentType(
+                    name=name,
+                    prefix=prefix,
+                    operation=operation,
+                    signo_stock=signo_stock,
+                    signo_caja=signo_caja,
+                    es_fiscal=es_fiscal,
+                    tipo_contraparte=party,
+                )
+            )
+    session.commit()
+
+    # --- Seed main cash account + cash payment method ---
+    account = session.exec(
+        select(FinancialAccount).where(FinancialAccount.name == SEED_MAIN_CASH_ACCOUNT)
+    ).first()
+    if not account:
+        account = FinancialAccount(
+            name=SEED_MAIN_CASH_ACCOUNT, tipo=FinancialAccountType.EFECTIVO
+        )
+        session.add(account)
+        session.commit()
+        session.refresh(account)
+    if not session.exec(
+        select(PaymentMethod).where(PaymentMethod.name == SEED_CASH_PAYMENT_METHOD)
+    ).first():
+        session.add(
+            PaymentMethod(
+                name=SEED_CASH_PAYMENT_METHOD,
+                financial_account_id=account.id,
             )
         )
         session.commit()

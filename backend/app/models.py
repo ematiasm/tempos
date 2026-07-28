@@ -35,6 +35,32 @@ class TaxAppliesTo(enum.StrEnum):
     DOCUMENTO = "documento"
 
 
+class DocumentOperation(enum.StrEnum):
+    VENTA = "venta"
+    COMPRA = "compra"
+    COTIZACION = "cotizacion"
+    AJUSTE = "ajuste"
+
+
+class CounterpartType(enum.StrEnum):
+    CUSTOMER = "customer"
+    SUPPLIER = "supplier"
+
+
+class DocumentStatus(enum.StrEnum):
+    ACTIVE = "active"
+    VOIDED = "voided"
+
+
+class FinancialAccountType(enum.StrEnum):
+    EFECTIVO = "efectivo"
+    BANCO = "banco"
+    TARJETA = "tarjeta"
+    DIGITAL = "digital"
+    CUENTA_CLIENTE = "cuenta_cliente"
+    CUENTA_PROVEEDOR = "cuenta_proveedor"
+
+
 # ---------------------------------------------------------------------------
 # User schemas (input)
 # ---------------------------------------------------------------------------
@@ -336,6 +362,69 @@ class SupplierUpdate(SQLModel):
 
 
 # ---------------------------------------------------------------------------
+# Document input schemas
+# ---------------------------------------------------------------------------
+class DocumentTypeUpdate(SQLModel):
+    """Editable fields of a document type; signs and operation stay fixed."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    prefix: str | None = Field(default=None, min_length=1, max_length=10)
+    is_active: bool | None = None
+
+
+class DocumentLineCreate(SQLModel):
+    product_id: uuid.UUID
+    variant_id: uuid.UUID | None = None
+    cantidad: Decimal = Field(
+        gt=0,
+        sa_type=Numeric(12, 3),  # type: ignore
+    )
+    precio_unit: Decimal | None = Field(
+        default=None,
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    descuento_pct: Decimal = Field(
+        default=Decimal("0"),
+        ge=0,
+        le=100,
+        sa_type=Numeric(5, 2),  # type: ignore
+    )
+    descuento_monto: Decimal | None = Field(
+        default=None,
+        ge=0,
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    # None = auto-apply the product's line taxes; a list overrides them.
+    tax_ids: list[uuid.UUID] | None = None
+
+
+class DocumentPaymentCreate(SQLModel):
+    payment_method_id: uuid.UUID
+    monto: Decimal = Field(
+        gt=0,
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    comision_pct: Decimal | None = Field(
+        default=None,
+        sa_type=Numeric(5, 2),  # type: ignore
+    )
+    fecha_acreditacion: datetime | None = None
+
+
+class DocumentCreate(SQLModel):
+    document_type_id: uuid.UUID
+    contraparte_id: uuid.UUID | None = None
+    fecha: datetime | None = None
+    descuento_total: Decimal = Field(
+        default=Decimal("0"),
+        ge=0,
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    lines: list[DocumentLineCreate] = Field(min_length=1)
+    payments: list[DocumentPaymentCreate] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
 # Link tables (must be defined before main tables that reference them
 # as ``link_model`` in Relationship calls)
 # ---------------------------------------------------------------------------
@@ -580,6 +669,207 @@ class Supplier(SupplierBase, table=True):
 
 
 # ---------------------------------------------------------------------------
+# Finance tables (schema only in phase 4a; ledger lands with phases 6+7)
+# ---------------------------------------------------------------------------
+class FinancialAccount(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(max_length=100)
+    tipo: FinancialAccountType = Field(max_length=20)
+    saldo: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    currency: str = Field(default="ARS", max_length=10)
+    payment_methods: list["PaymentMethod"] = Relationship(
+        back_populates="financial_account"
+    )
+
+
+class PaymentMethod(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(max_length=100)
+    financial_account_id: uuid.UUID = Field(
+        foreign_key="financialaccount.id", nullable=False
+    )
+    requiere_conciliacion: bool = Field(default=False)
+    financial_account: Optional[FinancialAccount] = Relationship(  # noqa: UP045
+        back_populates="payment_methods"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Document tables (Odoo-style unified documents)
+# ---------------------------------------------------------------------------
+class DocumentType(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(max_length=100)
+    prefix: str = Field(unique=True, index=True, max_length=10)
+    operation: DocumentOperation = Field(max_length=20)
+    signo_stock: int = Field(default=0)
+    signo_caja: int = Field(default=0)
+    es_fiscal: bool = Field(default=False)
+    tipo_contraparte: CounterpartType | None = Field(default=None, max_length=20)
+    is_active: bool = True
+    documents: list["Document"] = Relationship(back_populates="document_type")
+
+
+class DocumentSequence(SQLModel, table=True):
+    """Per document type / year counters; claimed with SELECT FOR UPDATE."""
+
+    document_type_id: uuid.UUID = Field(
+        foreign_key="documenttype.id", primary_key=True, ondelete="CASCADE"
+    )
+    year: int = Field(primary_key=True)
+    last_number: int = Field(default=0)
+
+
+class Document(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    document_type_id: uuid.UUID = Field(foreign_key="documenttype.id", nullable=False)
+    numero: str = Field(unique=True, index=True, max_length=30)
+    year: int
+    fecha: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    contraparte_type: CounterpartType | None = Field(default=None, max_length=20)
+    contraparte_id: uuid.UUID | None = Field(default=None, index=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False)
+    estado: DocumentStatus = Field(default=DocumentStatus.ACTIVE, max_length=20)
+    subtotal: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    descuento_total: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    total: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    parent_document_id: uuid.UUID | None = Field(
+        default=None, foreign_key="document.id"
+    )
+    # Reserved for the future AFIP/ARCA integration; unused until then.
+    cae: str | None = Field(default=None, max_length=20)
+    cae_vto: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    document_type: Optional[DocumentType] = Relationship(back_populates="documents")  # noqa: UP045
+    lines: list["DocumentLine"] = Relationship(
+        back_populates="document", cascade_delete=True
+    )
+    taxes: list["DocumentTax"] = Relationship(
+        back_populates="document", cascade_delete=True
+    )
+    payments: list["DocumentPayment"] = Relationship(
+        back_populates="document", cascade_delete=True
+    )
+
+
+class DocumentLine(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    document_id: uuid.UUID = Field(
+        foreign_key="document.id", nullable=False, ondelete="CASCADE"
+    )
+    orden: int = Field(default=0)
+    product_id: uuid.UUID = Field(foreign_key="product.id", nullable=False)
+    variant_id: uuid.UUID | None = Field(default=None, foreign_key="productvariant.id")
+    cantidad: Decimal = Field(
+        default=Decimal("1"),
+        sa_type=Numeric(12, 3),  # type: ignore
+    )
+    precio_unit: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    # Sale-time cost snapshot; required for historical margin reports.
+    costo_unitario: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    descuento_pct: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(5, 2),  # type: ignore
+    )
+    descuento_monto: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    subtotal_line: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    document: Optional[Document] = Relationship(back_populates="lines")  # noqa: UP045
+    taxes: list["DocumentLineTax"] = Relationship(
+        back_populates="line", cascade_delete=True
+    )
+
+
+class DocumentLineTax(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    document_line_id: uuid.UUID = Field(
+        foreign_key="documentline.id", nullable=False, ondelete="CASCADE"
+    )
+    tax_id: uuid.UUID = Field(foreign_key="tax.id", nullable=False)
+    base: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    monto: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    aplicado: bool = Field(default=True)
+    line: Optional[DocumentLine] = Relationship(back_populates="taxes")  # noqa: UP045
+
+
+class DocumentTax(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    document_id: uuid.UUID = Field(
+        foreign_key="document.id", nullable=False, ondelete="CASCADE"
+    )
+    tax_id: uuid.UUID = Field(foreign_key="tax.id", nullable=False)
+    base: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    monto: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    document: Optional[Document] = Relationship(back_populates="taxes")  # noqa: UP045
+
+
+class DocumentPayment(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    document_id: uuid.UUID = Field(
+        foreign_key="document.id", nullable=False, ondelete="CASCADE"
+    )
+    payment_method_id: uuid.UUID = Field(foreign_key="paymentmethod.id", nullable=False)
+    monto: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    comision_pct: Decimal | None = Field(
+        default=None,
+        sa_type=Numeric(5, 2),  # type: ignore
+    )
+    fecha_acreditacion: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    conciliado: bool = Field(default=False)
+    document: Optional[Document] = Relationship(back_populates="payments")  # noqa: UP045
+
+
+# ---------------------------------------------------------------------------
 # Output schemas (no table)
 # ---------------------------------------------------------------------------
 class PermissionPublic(SQLModel):
@@ -689,6 +979,97 @@ class SupplierPublic(SupplierBase):
     id: uuid.UUID
     saldo: Decimal
     created_at: datetime | None = None
+
+
+# ---------------------------------------------------------------------------
+# Finance / document output schemas
+# ---------------------------------------------------------------------------
+class FinancialAccountPublic(SQLModel):
+    id: uuid.UUID
+    name: str
+    tipo: FinancialAccountType
+    saldo: Decimal
+    currency: str
+
+
+class PaymentMethodPublic(SQLModel):
+    id: uuid.UUID
+    name: str
+    financial_account_id: uuid.UUID
+    requiere_conciliacion: bool
+
+
+class DocumentTypePublic(SQLModel):
+    id: uuid.UUID
+    name: str
+    prefix: str
+    operation: DocumentOperation
+    signo_stock: int
+    signo_caja: int
+    es_fiscal: bool
+    tipo_contraparte: CounterpartType | None = None
+    is_active: bool
+
+
+class DocumentLineTaxPublic(SQLModel):
+    id: uuid.UUID
+    tax_id: uuid.UUID
+    base: Decimal
+    monto: Decimal
+    aplicado: bool
+
+
+class DocumentLinePublic(SQLModel):
+    id: uuid.UUID
+    orden: int
+    product_id: uuid.UUID
+    variant_id: uuid.UUID | None = None
+    cantidad: Decimal
+    precio_unit: Decimal
+    costo_unitario: Decimal
+    descuento_pct: Decimal
+    descuento_monto: Decimal
+    subtotal_line: Decimal
+    taxes: list[DocumentLineTaxPublic] = []
+
+
+class DocumentTaxPublic(SQLModel):
+    id: uuid.UUID
+    tax_id: uuid.UUID
+    base: Decimal
+    monto: Decimal
+
+
+class DocumentPaymentPublic(SQLModel):
+    id: uuid.UUID
+    payment_method_id: uuid.UUID
+    monto: Decimal
+    comision_pct: Decimal | None = None
+    fecha_acreditacion: datetime | None = None
+    conciliado: bool
+
+
+class DocumentPublic(SQLModel):
+    id: uuid.UUID
+    document_type_id: uuid.UUID
+    numero: str
+    year: int
+    fecha: datetime
+    contraparte_type: CounterpartType | None = None
+    contraparte_id: uuid.UUID | None = None
+    user_id: uuid.UUID
+    estado: DocumentStatus
+    subtotal: Decimal
+    descuento_total: Decimal
+    total: Decimal
+    parent_document_id: uuid.UUID | None = None
+    created_at: datetime | None = None
+    document_type: DocumentTypePublic
+    lines: list[DocumentLinePublic] = []
+    taxes: list[DocumentTaxPublic] = []
+    payments: list[DocumentPaymentPublic] = []
+    # Resolved from the polymorphic counterpart (customer/supplier name).
+    contraparte_name: str | None = None
 
 
 # ---------------------------------------------------------------------------
