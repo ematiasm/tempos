@@ -305,8 +305,10 @@ This is the high-level module map. For the full locked design table, see
 ### Documents (Odoo-style unified)
 - `DocumentType` (name + prefix editable, `operation`
   [venta/compra/cotizacion/ajuste], signo_stock, signo_caja, es_fiscal,
-  tipo_contraparte — seed-managed). Seeded types: Factura A/B/C, Ticket,
-  Cotización, NC, ND, OC, NC Compra, ND Compra, Remito, Ajuste Stock.
+  tipo_contraparte, `void_document_type_id` (seed-managed mirror NC type;
+  NULL = not voidable)). Seeded types: Factura A/B/C, Ticket, Cotización, NC,
+  ND, OC, NC Compra, ND Compra, Remito, Ajuste Stock. Void mirrors:
+  FA/FB/FC/TCK/NDV → NCV; OC/NDC → NCC.
 - `DocumentSequence` (document_type_id, year, last_number) — used with
   `SELECT FOR UPDATE` to claim next number.
 - `Document` (type_id, numero `YYYY-PREFIX-NUM`, year, fecha,
@@ -315,7 +317,8 @@ This is the high-level module map. For the full locked design table, see
   Cotización→Factura link), `cae?`, `cae_vto?` reserved for future ARCA).
 - `DocumentLine` (product_id, variant_id, cantidad, precio_unit,
   costo_unitario (sale-time cost snapshot, required for historical margin
-  reports), descuento_pct, descuento_monto, subtotal_line).
+  reports), descuento_pct, descuento_monto, subtotal_line, parent_line_id
+  (set on NC lines to track what they revert)).
 - `DocumentLineTax` (tax_id, base, monto, aplicado bool default true).
 - `DocumentTax` (tax_id, base, monto).
 - `DocumentPayment` (payment_method_id, monto, comision_pct?,
@@ -389,8 +392,12 @@ This is the high-level module map. For the full locked design table, see
   (`GET /documents/suggest-type`); `FinancialAccount`/`PaymentMethod` tables +
   seeds; hook points (no-op) for phases 5/6/7 inside `crud.create_document`;
   admin tab "Document Types" + read-only `/documents` view.
-- [ ] **Phase 4b** — Voiding total/partial (NC via `parent_document_id`);
-  states `active`/`voided`.
+- [x] **Phase 4b** — Voiding: `POST /documents/{id}/void` issues the mirror
+  NC (line-quantity-based, accumulated remaining validated against active
+  NCs); the original flips to `voided` only when fully reverted and only then
+  the document-level discount is reversed in the NC (partial NCs keep it
+  attached to the original); `cantidad_pendiente` in document detail; void
+  dialog in `/documents` UI.
 - [ ] **Phase 4c** — Cotización→Factura 1 click via `parent_document_id`.
 - [ ] **Phase 6+7** — Unified ledgers: `StockMovement` (append-only,
   negative-stock config, atomic stock UPDATE) + finance (`AccountMovement`,
