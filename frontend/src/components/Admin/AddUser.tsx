@@ -1,11 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus } from "lucide-react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import { type UserCreate, UsersService } from "@/client"
+import { RolesService, type UserCreate, UsersService } from "@/client"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -44,6 +44,7 @@ const formSchema = z
       .min(1, { message: "Please confirm your password" }),
     is_superuser: z.boolean(),
     is_active: z.boolean(),
+    role_ids: z.array(z.string()),
   })
   .refine((data) => data.password === data.confirm_password, {
     message: "The passwords don't match",
@@ -57,6 +58,13 @@ const AddUser = () => {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
+  const { data: rolesData } = useQuery({
+    queryFn: () => RolesService.readRoles({ skip: 0, limit: 100 }),
+    queryKey: ["roles"],
+  })
+
+  const roles = rolesData?.data ?? []
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     mode: "onBlur",
@@ -68,12 +76,22 @@ const AddUser = () => {
       confirm_password: "",
       is_superuser: false,
       is_active: false,
+      role_ids: [],
     },
   })
 
   const mutation = useMutation({
-    mutationFn: (data: UserCreate) =>
-      UsersService.createUser({ requestBody: data }),
+    mutationFn: (data: FormData) => {
+      const requestBody: UserCreate = {
+        email: data.email,
+        full_name: data.full_name || null,
+        password: data.password,
+        is_superuser: data.is_superuser,
+        is_active: data.is_active,
+        role_ids: data.role_ids,
+      }
+      return UsersService.createUser({ requestBody })
+    },
     onSuccess: () => {
       showSuccessToast("User created successfully")
       form.reset()
@@ -87,6 +105,18 @@ const AddUser = () => {
 
   const onSubmit = (data: FormData) => {
     mutation.mutate(data)
+  }
+
+  const toggleRole = (roleId: string, checked: boolean) => {
+    const current = form.getValues("role_ids")
+    if (checked) {
+      form.setValue("role_ids", [...current, roleId])
+    } else {
+      form.setValue(
+        "role_ids",
+        current.filter((id) => id !== roleId),
+      )
+    }
   }
 
   return (
@@ -216,6 +246,39 @@ const AddUser = () => {
                   </FormItem>
                 )}
               />
+
+              {roles.length > 0 && (
+                <div>
+                  <FormLabel>Roles</FormLabel>
+                  <div className="flex flex-col gap-2 mt-2">
+                    {roles.map((role) => {
+                      const isChecked = form
+                        .getValues("role_ids")
+                        .includes(role.id)
+                      return (
+                        <div key={role.id} className="flex items-center gap-3">
+                          <Checkbox
+                            checked={isChecked}
+                            onCheckedChange={(checked) =>
+                              toggleRole(role.id, checked === true)
+                            }
+                          />
+                          <div>
+                            <span className="text-sm font-medium">
+                              {role.name}
+                            </span>
+                            {role.description && (
+                              <p className="text-xs text-muted-foreground">
+                                {role.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <DialogFooter>

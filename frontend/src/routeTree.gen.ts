@@ -15,9 +15,12 @@ import { Route as RecoverPasswordRouteImport } from './routes/recover-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
+import { Route as LayoutSuppliersRouteImport } from './routes/_layout/suppliers'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
+import { Route as LayoutCustomersRouteImport } from './routes/_layout/customers'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
+import { Route as LayoutCatalogProductsRouteImport } from './routes/_layout/catalog/products'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -48,6 +51,11 @@ const LayoutIndexRoute = LayoutIndexRouteImport.update({
   path: '/',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutSuppliersRoute = LayoutSuppliersRouteImport.update({
+  id: '/suppliers',
+  path: '/suppliers',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -58,9 +66,19 @@ const LayoutItemsRoute = LayoutItemsRouteImport.update({
   path: '/items',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutCustomersRoute = LayoutCustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutAdminRoute = LayoutAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutCatalogProductsRoute = LayoutCatalogProductsRouteImport.update({
+  id: '/catalog/products',
+  path: '/catalog/products',
   getParentRoute: () => LayoutRoute,
 } as any)
 
@@ -71,8 +89,11 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
+  '/customers': typeof LayoutCustomersRoute
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
+  '/suppliers': typeof LayoutSuppliersRoute
+  '/catalog/products': typeof LayoutCatalogProductsRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -80,9 +101,12 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
+  '/customers': typeof LayoutCustomersRoute
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
+  '/suppliers': typeof LayoutSuppliersRoute
   '/': typeof LayoutIndexRoute
+  '/catalog/products': typeof LayoutCatalogProductsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -92,9 +116,12 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/_layout/admin': typeof LayoutAdminRoute
+  '/_layout/customers': typeof LayoutCustomersRoute
   '/_layout/items': typeof LayoutItemsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
+  '/_layout/suppliers': typeof LayoutSuppliersRoute
   '/_layout/': typeof LayoutIndexRoute
+  '/_layout/catalog/products': typeof LayoutCatalogProductsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -105,8 +132,11 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
+    | '/customers'
     | '/items'
     | '/settings'
+    | '/suppliers'
+    | '/catalog/products'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -114,9 +144,12 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
+    | '/customers'
     | '/items'
     | '/settings'
+    | '/suppliers'
     | '/'
+    | '/catalog/products'
   id:
     | '__root__'
     | '/_layout'
@@ -125,9 +158,12 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/_layout/admin'
+    | '/_layout/customers'
     | '/_layout/items'
     | '/_layout/settings'
+    | '/_layout/suppliers'
     | '/_layout/'
+    | '/_layout/catalog/products'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -182,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutIndexRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/suppliers': {
+      id: '/_layout/suppliers'
+      path: '/suppliers'
+      fullPath: '/suppliers'
+      preLoaderRoute: typeof LayoutSuppliersRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/settings': {
       id: '/_layout/settings'
       path: '/settings'
@@ -196,6 +239,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutItemsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/customers': {
+      id: '/_layout/customers'
+      path: '/customers'
+      fullPath: '/customers'
+      preLoaderRoute: typeof LayoutCustomersRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/admin': {
       id: '/_layout/admin'
       path: '/admin'
@@ -203,21 +253,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/catalog/products': {
+      id: '/_layout/catalog/products'
+      path: '/catalog/products'
+      fullPath: '/catalog/products'
+      preLoaderRoute: typeof LayoutCatalogProductsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
   }
 }
 
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
+  LayoutCustomersRoute: typeof LayoutCustomersRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
+  LayoutSuppliersRoute: typeof LayoutSuppliersRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
+  LayoutCatalogProductsRoute: typeof LayoutCatalogProductsRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
+  LayoutCustomersRoute: LayoutCustomersRoute,
   LayoutItemsRoute: LayoutItemsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
+  LayoutSuppliersRoute: LayoutSuppliersRoute,
   LayoutIndexRoute: LayoutIndexRoute,
+  LayoutCatalogProductsRoute: LayoutCatalogProductsRoute,
 }
 
 const LayoutRouteWithChildren =

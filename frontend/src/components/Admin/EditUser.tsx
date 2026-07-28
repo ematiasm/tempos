@@ -1,11 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Pencil } from "lucide-react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import { type UserPublic, UsersService } from "@/client"
+import { RolesService, type UserPublic, UsersService } from "@/client"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -43,6 +43,7 @@ const formSchema = z
     confirm_password: z.string().optional(),
     is_superuser: z.boolean().optional(),
     is_active: z.boolean().optional(),
+    role_ids: z.array(z.string()),
   })
   .refine((data) => !data.password || data.password === data.confirm_password, {
     message: "The passwords don't match",
@@ -61,6 +62,14 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
+  const { data: rolesData } = useQuery({
+    queryFn: () => RolesService.readRoles({ skip: 0, limit: 100 }),
+    queryKey: ["roles"],
+  })
+
+  const roles = rolesData?.data ?? []
+  const currentUserRoleIds = user.roles?.map((r) => r.id) ?? []
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     mode: "onBlur",
@@ -70,12 +79,24 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
       full_name: user.full_name ?? undefined,
       is_superuser: user.is_superuser,
       is_active: user.is_active,
+      role_ids: currentUserRoleIds,
     },
   })
 
   const mutation = useMutation({
-    mutationFn: (data: FormData) =>
-      UsersService.updateUser({ userId: user.id, requestBody: data }),
+    mutationFn: (data: FormData) => {
+      const requestBody: Record<string, unknown> = {
+        email: data.email,
+        full_name: data.full_name || null,
+        is_superuser: data.is_superuser,
+        is_active: data.is_active,
+        role_ids: data.role_ids,
+      }
+      if (data.password) {
+        requestBody.password = data.password
+      }
+      return UsersService.updateUser({ userId: user.id, requestBody })
+    },
     onSuccess: () => {
       showSuccessToast("User updated successfully")
       setIsOpen(false)
@@ -88,12 +109,23 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
   })
 
   const onSubmit = (data: FormData) => {
-    // exclude confirm_password from submission data and remove password if empty
     const { confirm_password: _, ...submitData } = data
     if (!submitData.password) {
       delete submitData.password
     }
-    mutation.mutate(submitData)
+    mutation.mutate(submitData as FormData)
+  }
+
+  const toggleRole = (roleId: string, checked: boolean) => {
+    const current = form.getValues("role_ids")
+    if (checked) {
+      form.setValue("role_ids", [...current, roleId])
+    } else {
+      form.setValue(
+        "role_ids",
+        current.filter((id) => id !== roleId),
+      )
+    }
   }
 
   return (
@@ -217,6 +249,39 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
                   </FormItem>
                 )}
               />
+
+              {roles.length > 0 && (
+                <div>
+                  <FormLabel>Roles</FormLabel>
+                  <div className="flex flex-col gap-2 mt-2">
+                    {roles.map((role) => {
+                      const isChecked = form
+                        .getValues("role_ids")
+                        .includes(role.id)
+                      return (
+                        <div key={role.id} className="flex items-center gap-3">
+                          <Checkbox
+                            checked={isChecked}
+                            onCheckedChange={(checked) =>
+                              toggleRole(role.id, checked === true)
+                            }
+                          />
+                          <div>
+                            <span className="text-sm font-medium">
+                              {role.name}
+                            </span>
+                            {role.description && (
+                              <p className="text-xs text-muted-foreground">
+                                {role.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <DialogFooter>
