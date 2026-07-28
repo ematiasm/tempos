@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Phase 4a — Document structure
+- Odoo-style unified documents: 12 seeded `DocumentType` (editable name/prefix; locked signs), `DocumentSequence` numbering (`YYYY-PREFIX-00000001`, `SELECT FOR UPDATE` + savepoint race fallback), `Document` with lines (sale-time `costo_unitario` snapshot), line/document tax snapshots and payments; no-op integration hooks for phases 5/6/7 inside the creation transaction.
+- Pricing convention locked: `precio_venta` carries IVA inside; line taxes are informational, only percepciones add to the total; discounts per line (pct or amount) and per document.
+- `GET /documents/suggest-type` resolves Factura A/B/C from the business/customer tax condition combo (RI+RI→A, RI+other→B, non-RI→C).
+- `FinancialAccount`/"Caja Principal" + `PaymentMethod`/"Efectivo" tables and seeds (ledger lands in phase 6+7); `GET /payment-methods`.
+- Admin tab "Document Types" + read-only `/documents` list with detail dialog.
+- Roadmap reordered: unified 6+7 (stock + finance ledgers) now lands before 5 (costs) so the document hooks activate before real usage.
+
 ### Phase 0 — Foundations
 - `Page[T]` pagination envelope + `PaginationDep` with bounds; `AGENTS.md` agent guide.
 

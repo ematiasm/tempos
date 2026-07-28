@@ -303,10 +303,10 @@ This is the high-level module map. For the full locked design table, see
   protected from delete/deactivation, like the "Administrador" role.
 
 ### Documents (Odoo-style unified)
-- `DocumentType` (name, prefix editable (e.g. VEN/BTA), operation_type,
-  signo_stock, signo_caja, es_fiscal, tipo_contraparte). Seeded types: Factura
-  A/B/C, Ticket, Cotización, NC, ND, OC, NC Compra, ND Compra, Remito,
-  Ajuste Stock.
+- `DocumentType` (name + prefix editable, `operation`
+  [venta/compra/cotizacion/ajuste], signo_stock, signo_caja, es_fiscal,
+  tipo_contraparte — seed-managed). Seeded types: Factura A/B/C, Ticket,
+  Cotización, NC, ND, OC, NC Compra, ND Compra, Remito, Ajuste Stock.
 - `DocumentSequence` (document_type_id, year, last_number) — used with
   `SELECT FOR UPDATE` to claim next number.
 - `Document` (type_id, numero `YYYY-PREFIX-NUM`, year, fecha,
@@ -334,9 +334,18 @@ This is the high-level module map. For the full locked design table, see
 - Stock current is `Product.stock_current` cache, reconciled from the ledger
   via atomic `UPDATE Product SET stock_current = Product.stock_current + :delta`.
 
+### Pricing convention
+- `Product.precio_venta` **carries IVA inside** (shelf price). `DocumentLineTax`
+  rows computed from line-level taxes are an informational breakdown and never
+  change the total; only document-level taxes (percepciones,
+  `aplica_a = documento`) add on top: `total = subtotal - descuento_total +
+  Σ percepciones`.
+
 ### Finance (append-only ledger)
 - `FinancialAccount` (name, tipo [efectivo/banco/tarjeta/digital/
-  cuenta_cliente/cuenta_proveedor], saldo signed, currency "ARS").
+  cuenta_cliente/cuenta_proveedor], saldo signed, currency "ARS") — table and
+  "Caja Principal" + "Efectivo" seeds introduced in phase 4a for
+  `DocumentPayment`; the `AccountMovement` ledger lands in phase 6+7.
 - `PaymentMethod` (name, `financial_account_id` N:1, requiere_conciliacion).
 - `AccountMovement` (financial_account_id, document_id?, payment_method_id?,
   transfer_id?, monto **signed**, tipo, fecha, fecha_acreditacion?,
@@ -372,20 +381,26 @@ This is the high-level module map. For the full locked design table, see
   Consumidor Final seed, `Supplier` without limite) + Customers and Suppliers
   sections. `documento` = nullable, unique when present, CUIT/CUIL with mod-11
   DV only.
-- [ ] **Phase 4a** — Document structure: seeded `DocumentType` (+ prefixes),
-  `DocumentSequence` (`SELECT FOR UPDATE`), `Document` + `DocumentLine` (with
-  `costo_unitario` snapshot) + `DocumentLineTax` + `DocumentTax` +
-  `DocumentPayment`; creation; tax condition → A/B/C; discounts; hook points
-  for phases 5/6/7.
+- [x] **Phase 4a** — Document structure: seeded 12 `DocumentType` (+ editable
+  prefixes), `DocumentSequence` (`SELECT FOR UPDATE` + savepoint race
+  fallback), `Document` + `DocumentLine` (with `costo_unitario` snapshot) +
+  `DocumentLineTax` + `DocumentTax` + `DocumentPayment`; creation with
+  discounts and auto-applied/removable line taxes; tax condition → A/B/C
+  (`GET /documents/suggest-type`); `FinancialAccount`/`PaymentMethod` tables +
+  seeds; hook points (no-op) for phases 5/6/7 inside `crud.create_document`;
+  admin tab "Document Types" + read-only `/documents` view.
 - [ ] **Phase 4b** — Voiding total/partial (NC via `parent_document_id`);
   states `active`/`voided`.
 - [ ] **Phase 4c** — Cotización→Factura 1 click via `parent_document_id`.
+- [ ] **Phase 6+7** — Unified ledgers: `StockMovement` (append-only,
+  negative-stock config, atomic stock UPDATE) + finance (`AccountMovement`,
+  `Transfer`, card commission + deferred accreditation, current-account
+  ledgers with atomic `saldo` UPDATE, `limite_credito` validation). Activates
+  the 4a hooks in the document transaction.
 - [ ] **Phase 5** — Costs (`SupplierProduct`); purchase cost trigger.
-- [ ] **Phase 6** — Stock ledger (`StockMovement`); configurable negative
-  stock; cache reconciliation.
-- [ ] **Phase 7** — Finance: `FinancialAccount`, `PaymentMethod` (N→1),
-  `AccountMovement`, `Transfer`, card commission + deferred accreditation,
-  current-account ledgers with atomic saldo UPDATE.
+- [ ] **Phase 8** — Operational UX + reports + HTML voucher with
+  `window.print()`.
+- [ ] **Phase 9** — i18n/es + Playwright E2E of critical flows + deploy.
 - [ ] **Phase 8** — Operational UX (Sales, Purchases, Stock, Catalog,
   Customers, Suppliers) + reports + HTML voucher with `window.print()`.
 - [ ] **Phase 9** — i18n/es + Playwright E2E of critical flows + deploy.

@@ -24,7 +24,8 @@ Scope: single store, single currency (ARS), single warehouse.
 | VAT / taxes | Product → N taxes (`Tax` table + `product_tax` M:N); perceptions (IIBB / PercGan) **auto-applied, removable per line** |
 | Default customer | "Consumidor Final" seeded in `init_db` |
 | Cost | Last cost from **reference supplier** |
-| Sale price | `cost * (1 + margin)`, single margin per product |
+| Sale price | `cost * (1 + margin)`, single margin per product; **precio_venta carries IVA inside** (shelf price): line taxes are an informational breakdown, only document-level taxes (percepciones) add to the total |
+| Phase order | After 4c: unified **6+7** (stock + finance ledgers activate the 4a hooks in the same tx, including `limite_credito` validation), then 5 (costs), 8, 9 |
 | Product without supplier | Cost/price entered manually on create; trigger activates when reference supplier is assigned |
 | Variants | Global toggle in admin; configurable attributes only when enabled |
 | Navigation | Operational sidebar + `/admin` with tabs |
@@ -104,9 +105,8 @@ Scope: single store, single currency (ARS), single warehouse.
 | **4a** | Document structure: seeded `DocumentType` (prefixes per section F) + `DocumentSequence` (`SELECT FOR UPDATE`) + `Document` + `DocumentLine` (with `costo_unitario` snapshot) + `DocumentLineTax` + `DocumentTax` + `DocumentPayment`; document creation; numbering `YYYY-PREFIX-NUM`; tax condition → A/B/C; per-line and per-document discounts; taxes auto-applied, removable per line (`aplicado` flag). Explicit hook points for costs (5), stock (6) and finance ledger (7) |
 | **4b** | Voiding: total and partial (NC against original via `parent_document_id`); states `active`/`voided` |
 | **4c** | Quote → Invoice in 1 click, link via `parent_document_id` |
+| **6+7** | Unified ledgers: `StockMovement` (append-only, negative-stock validation, atomic `Product.stock_current` UPDATE) + finance (`AccountMovement`, `Transfer`, card commission + deferred accreditation, `CustomerAccountMovement`/`SupplierAccountMovement` with atomic `saldo` UPDATE, `limite_credito` validation on credit sales). Activates the 4a hooks in the document transaction. (`FinancialAccount`/`PaymentMethod` tables + seeds already landed in 4a for `DocumentPayment`) |
 | **5** | Costs (`SupplierProduct` N:M + history); trigger on purchase: flag if new cost != current + option to update |
-| **6** | Stock ledger (`StockMovement` append-only); configurable negative-stock validation; reconciliation with `Product.stock_current` (atomic UPDATE) |
-| **7** | Finance: `FinancialAccount`, `PaymentMethod` (N→1), `AccountMovement` append-only ledger, `Transfer`, card commission + deferred accreditation, customer/supplier signed balances + `CustomerAccountMovement`/`SupplierAccountMovement` ledgers (atomic cache UPDATE) |
 | **8** | Operational UX (Sales, Purchases, Stock, Catalog, Customers, Suppliers) + reports (sales/day, low stock, balances, VAT/perceptions, margin per product, current-account ledger, to-order with supplier/category filter, cash/bank movements) + HTML voucher view with `window.print()` |
 | **9** | i18n/es + Playwright E2E of critical flows + deploy |
 
