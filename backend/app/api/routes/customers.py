@@ -8,9 +8,12 @@ from app.api.deps import PaginationDep, SessionDep, require_permissions
 from app.models import (
     CONSUMIDOR_FINAL_NAME,
     Customer,
+    CustomerAccountMovement,
+    CustomerAccountMovementPublic,
     CustomerCreate,
     CustomerPublic,
     CustomerUpdate,
+    Document,
     Message,
     Page,
 )
@@ -132,3 +135,43 @@ def delete_customer(session: SessionDep, customer_id: uuid.UUID) -> Any:
     session.add(customer)
     session.commit()
     return Message(message="Customer deactivated successfully")
+
+
+@router.get(
+    "/{customer_id}/account-movements",
+    response_model=Page[CustomerAccountMovementPublic],
+    dependencies=[require_permissions("customer.read")],
+)
+def read_customer_account_movements(
+    session: SessionDep, customer_id: uuid.UUID, pagination: PaginationDep
+) -> Any:
+    """Retrieve the customer's current-account ledger (append-only)."""
+    customer = session.get(Customer, customer_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    conditions = [col(CustomerAccountMovement.customer_id) == customer_id]
+    count = session.exec(
+        select(func.count()).select_from(CustomerAccountMovement).where(*conditions)
+    ).one()
+    movements = session.exec(
+        select(CustomerAccountMovement)
+        .where(*conditions)
+        .order_by(col(CustomerAccountMovement.created_at).desc())
+        .offset(pagination.skip)
+        .limit(pagination.limit)
+    ).all()
+    document_ids = {m.document_id for m in movements if m.document_id}
+    numbers = {
+        d.id: d.numero
+        for d in session.exec(
+            select(Document).where(col(Document.id).in_(document_ids))
+        ).all()
+    }
+    publics = []
+    for movement in movements:
+        public = CustomerAccountMovementPublic.model_validate(movement)
+        public.document_numero = (
+            numbers.get(movement.document_id) if movement.document_id else None
+        )
+        publics.append(public)
+    return Page[CustomerAccountMovementPublic](data=publics, count=count)

@@ -36,10 +36,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
-  razon_social: z.string().min(1, { message: "Name is required" }),
+  razon_social: z.string().min(1, { message: "El nombre es obligatorio" }),
   documento: z.string().optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
   email: z.string().optional().or(z.literal("")),
@@ -55,6 +56,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>
 
 const AddSupplier = () => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -87,7 +89,7 @@ const AddSupplier = () => {
         },
       }),
     onSuccess: () => {
-      showSuccessToast("Supplier created successfully")
+      showSuccessToast(t("suppliers.created"))
       form.reset()
       setIsOpen(false)
     },
@@ -110,15 +112,13 @@ const AddSupplier = () => {
       <DialogTrigger asChild>
         <Button className="my-4">
           <Plus className="mr-2" />
-          Add Supplier
+          {t("suppliers.add")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Supplier</DialogTitle>
-          <DialogDescription>
-            Document is optional and must be a valid CUIT/CUIL when present.
-          </DialogDescription>
+          <DialogTitle>{t("suppliers.add")}</DialogTitle>
+          <DialogDescription>{t("suppliers.addHint")}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -129,11 +129,12 @@ const AddSupplier = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Business name <span className="text-destructive">*</span>
+                      {t("suppliers.businessName")}{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="e.g. Distribuidora Sur SA"
+                        placeholder={t("suppliers.businessNamePlaceholder")}
                         {...field}
                       />
                     </FormControl>
@@ -147,7 +148,7 @@ const AddSupplier = () => {
                   name="documento"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Document</FormLabel>
+                      <FormLabel>{t("suppliers.document")}</FormLabel>
                       <FormControl>
                         <Input placeholder="30-12345678-9" {...field} />
                       </FormControl>
@@ -160,20 +161,23 @@ const AddSupplier = () => {
                   name="condicion_fiscal"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tax Condition</FormLabel>
+                      <FormLabel>{t("suppliers.taxCondition")}</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         value={field.value}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select" />
+                            <SelectValue placeholder={t("common.select")} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {TAX_CONDITIONS.map((t) => (
-                            <SelectItem key={t.value} value={t.value}>
-                              {t.label}
+                          {TAX_CONDITIONS.map((tOption) => (
+                            <SelectItem
+                              key={tOption.value}
+                              value={tOption.value}
+                            >
+                              {tOption.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -188,9 +192,9 @@ const AddSupplier = () => {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone</FormLabel>
+                    <FormLabel>{t("suppliers.phone")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="Optional" {...field} />
+                      <Input placeholder={t("common.optional")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -201,9 +205,13 @@ const AddSupplier = () => {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>{t("auth.email")}</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="Optional" {...field} />
+                      <Input
+                        type="email"
+                        placeholder={t("common.optional")}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -214,9 +222,9 @@ const AddSupplier = () => {
                 name="address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Address</FormLabel>
+                    <FormLabel>{t("suppliers.address")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="Optional" {...field} />
+                      <Input placeholder={t("common.optional")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -226,11 +234,11 @@ const AddSupplier = () => {
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline" disabled={mutation.isPending}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </DialogClose>
               <LoadingButton type="submit" loading={mutation.isPending}>
-                Save
+                {t("common.save")}
               </LoadingButton>
             </DialogFooter>
           </form>

@@ -35,10 +35,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: "Name is required" }),
+  name: z.string().min(1, { message: "El nombre es obligatorio" }),
   parent_id: z.string().optional().or(z.literal("")),
 })
 
@@ -50,6 +51,7 @@ interface EditCategoryProps {
 }
 
 const EditCategory = ({ category, onSuccess }: EditCategoryProps) => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -83,7 +85,7 @@ const EditCategory = ({ category, onSuccess }: EditCategoryProps) => {
       })
     },
     onSuccess: () => {
-      showSuccessToast("Category updated successfully")
+      showSuccessToast(t("admin.categories.updated"))
       setIsOpen(false)
       onSuccess()
     },
@@ -102,15 +104,15 @@ const EditCategory = ({ category, onSuccess }: EditCategoryProps) => {
         onClick={() => setIsOpen(true)}
       >
         <Pencil />
-        Edit Category
+        {t("admin.categories.edit")}
       </DropdownMenuItem>
       <DialogContent className="sm:max-w-md">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
-              <DialogTitle>Edit Category</DialogTitle>
+              <DialogTitle>{t("admin.categories.edit")}</DialogTitle>
               <DialogDescription>
-                Update the category name or its parent.
+                {t("admin.categories.editDescription")}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -120,10 +122,14 @@ const EditCategory = ({ category, onSuccess }: EditCategoryProps) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Name <span className="text-destructive">*</span>
+                      {t("common.name")}{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="Category name" {...field} />
+                      <Input
+                        placeholder={t("admin.categories.namePlaceholder")}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -134,11 +140,13 @@ const EditCategory = ({ category, onSuccess }: EditCategoryProps) => {
                 name="parent_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Parent Category</FormLabel>
+                    <FormLabel>{t("admin.categories.parent")}</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="No parent (top-level)" />
+                          <SelectValue
+                            placeholder={t("admin.categories.noParent")}
+                          />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -157,11 +165,11 @@ const EditCategory = ({ category, onSuccess }: EditCategoryProps) => {
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline" disabled={mutation.isPending}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </DialogClose>
               <LoadingButton type="submit" loading={mutation.isPending}>
-                Save
+                {t("common.save")}
               </LoadingButton>
             </DialogFooter>
           </form>

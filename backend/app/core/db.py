@@ -12,7 +12,6 @@ from app.models import (
     DocumentOperation,
     DocumentType,
     FinancialAccount,
-    FinancialAccountType,
     PaymentMethod,
     Permission,
     Role,
@@ -34,7 +33,6 @@ engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
 
 # make sure all SQLModel models are imported (app.models) before initializing DB
 # otherwise, SQLModel might fail to initialize relationships properly
-# for more details: https://github.com/fastapi/full-stack-fastapi-template/issues/28
 
 # Seeded permission codes following the ``resource.action`` convention.
 SEED_PERMISSIONS: list[tuple[str, str]] = [
@@ -65,9 +63,15 @@ SEED_PERMISSIONS: list[tuple[str, str]] = [
     ("supplier.create", "Create suppliers"),
     ("supplier.update", "Update suppliers"),
     ("supplier.delete", "Delete suppliers"),
+    ("cost.read", "View supplier costs"),
+    ("cost.create", "Register supplier costs"),
+    ("cost.update", "Update supplier costs"),
+    ("cost.delete", "Delete supplier costs"),
     ("document.read", "View documents"),
     ("document.create", "Create documents"),
     ("document.void", "Void documents"),
+    ("payment.read", "View receipts and outstanding documents"),
+    ("payment.create", "Register payments (receipts)"),
     ("stock.read", "View stock movements"),
     ("stock.adjust", "Adjust stock"),
     ("finance.read", "View financial accounts"),
@@ -75,6 +79,11 @@ SEED_PERMISSIONS: list[tuple[str, str]] = [
     ("finance.update", "Update financial transactions"),
     ("transfer.create", "Create internal transfers"),
     ("report.view", "View reports"),
+    ("backup.read", "View backups and backup schedule"),
+    ("backup.create", "Create backups"),
+    ("backup.delete", "Delete backups"),
+    ("backup.schedule", "Configure the backup schedule"),
+    ("backup.restore", "Restore the database from a backup"),
 ]
 
 # Seeded document types. Signs: stock/caja direction of the operation.
@@ -166,6 +175,24 @@ SEED_DOCUMENT_TYPES: list[
     ),
     ("Remito", "RTO", DocumentOperation.VENTA, -1, 0, False, CounterpartType.CUSTOMER),
     ("Ajuste Stock", "AJS", DocumentOperation.AJUSTE, 0, 0, False, None),
+    (
+        "Recibo de Cobro",
+        "RC",
+        DocumentOperation.RECIBO,
+        0,
+        +1,
+        False,
+        CounterpartType.CUSTOMER,
+    ),
+    (
+        "Recibo de Pago",
+        "RP",
+        DocumentOperation.RECIBO,
+        0,
+        -1,
+        False,
+        CounterpartType.SUPPLIER,
+    ),
 ]
 # Voiding: type prefix → mirror NC type prefix (seed-managed, rename-proof).
 VOID_TYPE_MIRROR = {
@@ -180,6 +207,8 @@ VOID_TYPE_MIRROR = {
 
 SEED_MAIN_CASH_ACCOUNT = "Caja Principal"
 SEED_CASH_PAYMENT_METHOD = "Efectivo"
+SEED_CREDIT_ACCOUNT = "Crédito"
+SEED_CREDIT_PAYMENT_METHOD = "Crédito"
 
 
 def init_db(session: Session) -> None:
@@ -351,9 +380,7 @@ def init_db(session: Session) -> None:
         select(FinancialAccount).where(FinancialAccount.name == SEED_MAIN_CASH_ACCOUNT)
     ).first()
     if not account:
-        account = FinancialAccount(
-            name=SEED_MAIN_CASH_ACCOUNT, tipo=FinancialAccountType.EFECTIVO
-        )
+        account = FinancialAccount(name=SEED_MAIN_CASH_ACCOUNT)
         session.add(account)
         session.commit()
         session.refresh(account)
@@ -364,6 +391,29 @@ def init_db(session: Session) -> None:
             PaymentMethod(
                 name=SEED_CASH_PAYMENT_METHOD,
                 financial_account_id=account.id,
+            )
+        )
+        session.commit()
+
+    # --- Seed the current-account (credit) account + payment method ---
+    # Credit payments never mark documents as paid and generate no account
+    # movement: the amount stays in the counterpart's balance delta.
+    credit_account = session.exec(
+        select(FinancialAccount).where(FinancialAccount.name == SEED_CREDIT_ACCOUNT)
+    ).first()
+    if not credit_account:
+        credit_account = FinancialAccount(name=SEED_CREDIT_ACCOUNT)
+        session.add(credit_account)
+        session.commit()
+        session.refresh(credit_account)
+    if not session.exec(
+        select(PaymentMethod).where(PaymentMethod.name == SEED_CREDIT_PAYMENT_METHOD)
+    ).first():
+        session.add(
+            PaymentMethod(
+                name=SEED_CREDIT_PAYMENT_METHOD,
+                financial_account_id=credit_account.id,
+                marks_paid=False,
             )
         )
         session.commit()

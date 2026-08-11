@@ -15,7 +15,7 @@ def test_seeded_document_types(
     )
     assert r.status_code == 200
     rows = {row["prefix"]: row for row in r.json()["data"]}
-    assert len(rows) == 12
+    assert len(rows) == 14
     # Spot-check the locked seed table
     assert rows["FA"]["name"] == "Factura A"
     assert rows["FA"]["signo_stock"] == -1
@@ -29,6 +29,11 @@ def test_seeded_document_types(
     assert rows["NCV"]["signo_caja"] == -1
     assert rows["AJS"]["tipo_contraparte"] is None
     assert rows["RTO"]["signo_caja"] == 0
+    assert rows["RC"]["operation"] == "recibo"
+    assert rows["RC"]["signo_caja"] == 1
+    assert rows["RC"]["tipo_contraparte"] == "customer"
+    assert rows["RP"]["signo_caja"] == -1
+    assert rows["RP"]["tipo_contraparte"] == "supplier"
 
 
 def test_update_document_type_name_and_prefix(

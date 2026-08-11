@@ -1,14 +1,23 @@
 import type { TaxAppliesTo, TaxType } from "@/client"
+import type { useT } from "@/i18n"
 
-export const TAX_TYPES: { value: TaxType; label: string }[] = [
-  { value: "IVA", label: "IVA" },
-  { value: "IIBB", label: "IIBB (Ingresos Brutos)" },
-  { value: "PercGan", label: "PercGan (Percepción Ganancias)" },
-  { value: "Interno", label: "Interno" },
-  { value: "Otro", label: "Otro" },
-]
+export function getTaxTypes(
+  t: ReturnType<typeof useT>,
+): { value: TaxType; label: string }[] {
+  return [
+    { value: "IVA", label: t("admin.taxes.typeIva") },
+    { value: "IIBB", label: t("admin.taxes.typeIibb") },
+    { value: "PercGan", label: t("admin.taxes.typePercGan") },
+    { value: "Interno", label: t("admin.taxes.typeInterno") },
+    { value: "Otro", label: t("admin.taxes.typeOtro") },
+  ]
+}
 
-export const TAX_APPLIES_TO: { value: TaxAppliesTo; label: string }[] = [
-  { value: "linea", label: "Per line" },
-  { value: "documento", label: "Per document" },
-]
+export function getTaxAppliesTo(
+  t: ReturnType<typeof useT>,
+): { value: TaxAppliesTo; label: string }[] {
+  return [
+    { value: "linea", label: t("admin.taxes.appliesLine") },
+    { value: "documento", label: t("admin.taxes.appliesDocument") },
+  ]
+}

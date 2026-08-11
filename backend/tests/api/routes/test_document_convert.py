@@ -3,6 +3,7 @@
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
+from tests.utils.ledger import load_stock
 from tests.utils.utils import random_lower_string
 
 
@@ -86,6 +87,8 @@ def _make_quote(client: TestClient, headers: dict[str, str]) -> dict:
     customer = _create_customer(client, headers)
     iva21 = _iva21_id(client, headers)
     product = _create_product(client, headers, [iva21])
+    # stock for the invoice created on conversion (2 + 1 units)
+    load_stock(client, headers, product["id"], "3")
     cot = _doc_type_id(client, headers, "COT")
     return _create_doc(
         client,
@@ -151,7 +154,7 @@ def test_convert_quote_to_invoice_exact_copy(
 
     r = _convert(client, superuser_token_headers, quote["id"])
     assert r.status_code == 400
-    assert "already converted" in r.json()["detail"]
+    assert "already converted" in r.json()["detail"]["message"]
 
     # restore seeded business condition
     client.patch(
@@ -187,6 +190,7 @@ def test_convert_rejects_non_quote(
 ) -> None:
     customer = _create_customer(client, superuser_token_headers)
     product = _create_product(client, superuser_token_headers)
+    load_stock(client, superuser_token_headers, product["id"], "1")
     tck = _doc_type_id(client, superuser_token_headers, "TCK")
     sale = _create_doc(
         client,
@@ -199,4 +203,4 @@ def test_convert_rejects_non_quote(
     )
     r = _convert(client, superuser_token_headers, sale["id"])
     assert r.status_code == 400
-    assert "Only quotes" in r.json()["detail"]
+    assert "Only quotes" in r.json()["detail"]["message"]

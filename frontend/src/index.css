@@ -122,3 +122,31 @@
     cursor: pointer;
   }
 }
+
+@media print {
+  .no-print {
+    display: none;
+  }
+  .voucher-overlay {
+    position: static;
+    overflow: visible;
+  }
+  .voucher-scroll {
+    overflow: visible;
+    height: auto;
+    padding: 0;
+  }
+  body * {
+    visibility: hidden;
+  }
+  #voucher-print,
+  #voucher-print * {
+    visibility: visible;
+  }
+  #voucher-print {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    max-width: none;
+  }
+}

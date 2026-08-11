@@ -353,3 +353,48 @@ def test_add_barcode_scoped_to_variant(
     )
     assert r.status_code == 400
     assert "Variant not found" in r.json()["detail"]
+
+
+def test_search_products_by_name_sku_and_barcode(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    product = _create_product(client, superuser_token_headers)
+    other = _create_product(client, superuser_token_headers)
+    code = random_lower_string()[:13]
+    r = client.post(
+        f"{settings.API_V1_STR}/products/{product['id']}/barcodes",
+        headers=superuser_token_headers,
+        json={"code": code, "product_id": product["id"]},
+    )
+    assert r.status_code == 200, r.text
+
+    def _search(q: str) -> list[dict]:
+        r = client.get(
+            f"{settings.API_V1_STR}/products/search",
+            headers=superuser_token_headers,
+            params={"q": q},
+        )
+        assert r.status_code == 200, r.text
+        return r.json()["data"]
+
+    # by barcode code (partial match)
+    assert [p["id"] for p in _search(code[:-2])] == [product["id"]]
+    # by sku (partial, case-insensitive)
+    sku = product["sku"]
+    assert [p["id"] for p in _search(sku[:3])] == [product["id"]]
+    # by name fragment
+    assert [p["id"] for p in _search(product["name"][:6])] == [product["id"]]
+    # inactive products are excluded
+    r = client.delete(
+        f"{settings.API_V1_STR}/products/{other['id']}",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+    assert all(p["id"] != other["id"] for p in _search(other["name"][:6]))
+    # an empty term is rejected by the schema
+    r = client.get(
+        f"{settings.API_V1_STR}/products/search",
+        headers=superuser_token_headers,
+        params={"q": ""},
+    )
+    assert r.status_code == 422

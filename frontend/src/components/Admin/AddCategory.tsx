@@ -35,10 +35,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: "Name is required" }),
+  name: z.string().min(1, { message: "El nombre es obligatorio" }),
   parent_id: z.string().optional().or(z.literal("")),
 })
 
@@ -49,6 +50,7 @@ interface AddCategoryProps {
 }
 
 const AddCategory = ({ excludeId }: AddCategoryProps = {}) => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -78,7 +80,7 @@ const AddCategory = ({ excludeId }: AddCategoryProps = {}) => {
       return CategoriesService.createCategory({ requestBody })
     },
     onSuccess: () => {
-      showSuccessToast("Category created successfully")
+      showSuccessToast(t("admin.categories.created"))
       form.reset()
       setIsOpen(false)
     },
@@ -95,14 +97,14 @@ const AddCategory = ({ excludeId }: AddCategoryProps = {}) => {
       <DialogTrigger asChild>
         <Button className="my-4">
           <Plus className="mr-2" />
-          Add Category
+          {t("admin.categories.add")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Category</DialogTitle>
+          <DialogTitle>{t("admin.categories.add")}</DialogTitle>
           <DialogDescription>
-            Create a category. Optionally nest it under an existing one.
+            {t("admin.categories.addDescription")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -114,10 +116,14 @@ const AddCategory = ({ excludeId }: AddCategoryProps = {}) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Name <span className="text-destructive">*</span>
+                      {t("common.name")}{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="Category name" {...field} />
+                      <Input
+                        placeholder={t("admin.categories.namePlaceholder")}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -128,11 +134,13 @@ const AddCategory = ({ excludeId }: AddCategoryProps = {}) => {
                 name="parent_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Parent Category</FormLabel>
+                    <FormLabel>{t("admin.categories.parent")}</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="No parent (top-level)" />
+                          <SelectValue
+                            placeholder={t("admin.categories.noParent")}
+                          />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -151,11 +159,11 @@ const AddCategory = ({ excludeId }: AddCategoryProps = {}) => {
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline" disabled={mutation.isPending}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </DialogClose>
               <LoadingButton type="submit" loading={mutation.isPending}>
-                Save
+                {t("common.save")}
               </LoadingButton>
             </DialogFooter>
           </form>

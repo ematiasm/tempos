@@ -1,7 +1,7 @@
-# FastEmpre — Agent Guide
+# tempos — Agent Guide
 
 This document is the source of truth for any AI agent (or human contributor)
-working on the FastEmpre codebase. Read it before making any change.
+working on the tempos codebase. Read it before making any change.
 
 > The conversation with the user happens in **Spanish**, but **every artifact
 > produced in the repo** (code, comments, docstrings, README content, commit
@@ -14,8 +14,8 @@ The full product plan, design decisions, and phase breakdown live in
 
 ## 1. Project purpose and scope
 
-FastEmpre is a retail / mixed-business management system built on top of the
-[Full Stack FastAPI Template](https://github.com/fastapi/full-stack-fastapi-template).
+tempos is a retail / mixed-business management system built on top of the
+the full-stack template it was forked from.
 
 Confirmed scope (see `plan.md` for the locked design table):
 
@@ -259,7 +259,7 @@ This dumps `openapi.json`, regenerates `frontend/src/client/*` and runs frontend
     components scoped to a single domain.
 
 13. **Do not modify the template's behavior unrelated to the task.** The
-    Full Stack FastAPI Template is the foundation; extend it, don't refactor
+    the upstream template is the foundation; extend it, don't refactor
     unrelated parts without an explicit reason.
 
 14. **Do not commit secrets.** The `.env` file is in the repo for local dev
@@ -323,13 +323,25 @@ This is the high-level module map. For the full locked design table, see
 - `DocumentTax` (tax_id, base, monto).
 - `DocumentPayment` (payment_method_id, monto, comision_pct?,
   fecha_acreditacion?, conciliado).
+- `DocumentPaymentAllocation` (receipt_document_id → Document, document_id →
+  Document, monto) — documents settled by a RECIBO (RC/RP) document, FIFO by
+  document date. Standalone receipts: `POST /payments/receipts` (RC for
+  customers, RP for suppliers) allocates the total across outstanding
+  documents (oldest first, remaining tracked via
+  `GET /payments/outstanding`), overpayments stay as on-account credit.
+  Receipts always use methods that `marks_paid`; the account/current-account
+  ledger rows are emitted in the same transaction.
 
 ### Costs
 - `SupplierProduct` (supplier_id, product_id, costo_anterior, costo_actual,
   fecha_actualizacion, es_referencia, es_default) composite PK. **Reference
   supplier's `costo_actual` is the source for `Product.costo_actual`.**
-  Trigger on purchase: if new cost != current cost → flag in frontend +
-  option to update.
+  Purchase trigger is suggestion-only: `POST /documents` returns
+  `cost_change_suggestions` only for lines whose price exceeds
+  `Product.costo_actual` (never auto-applies; the user confirms). Confirming
+  a suggestion (create/update with `es_referencia`) promotes the pair to
+  reference, replacing any previous one, so the product cost + `precio_venta`
+  follow the confirmed cost.
 
 ### Stock ledger (append-only, immutable)
 - `StockMovement` (product_id, variant_id, document_id, document_line_id,
@@ -345,11 +357,15 @@ This is the high-level module map. For the full locked design table, see
   Σ percepciones`.
 
 ### Finance (append-only ledger)
-- `FinancialAccount` (name, tipo [efectivo/banco/tarjeta/digital/
-  cuenta_cliente/cuenta_proveedor], saldo signed, currency "ARS") — table and
-  "Caja Principal" + "Efectivo" seeds introduced in phase 4a for
-  `DocumentPayment`; the `AccountMovement` ledger lands in phase 6+7.
-- `PaymentMethod` (name, `financial_account_id` N:1, requiere_conciliacion).
+- `FinancialAccount` (name, saldo signed, currency "ARS") — a pure balance
+  container with no business semantics; "Caja Principal" + "Efectivo" seeds
+  introduced in phase 4a for `DocumentPayment`; the `AccountMovement` ledger
+  lands in phase 6+7.
+- `PaymentMethod` (name, `financial_account_id` N:1, `marks_paid` default
+  true, `requiere_conciliacion`). `marks_paid = false` marks a
+  current-account/credit method: payments via it neither count as paid nor
+  generate an `AccountMovement` — the amount stays in the counterpart's
+  balance delta (credit sale/purchase).
 - `AccountMovement` (financial_account_id, document_id?, payment_method_id?,
   transfer_id?, monto **signed**, tipo, fecha, fecha_acreditacion?,
   conciliado, user_id, created_at).
@@ -358,8 +374,14 @@ This is the high-level module map. For the full locked design table, see
 
 ### Current-account ledgers (append-only)
 - `CustomerAccountMovement` (customer_id, document_id, monto signed,
-  created_at). Sum = `Customer.saldo`.
+  created_at). Sum = `Customer.saldo`. Credit sales (unpaid remainder or
+  payments via a `marks_paid = false` method) increase it; the mirror NC of a
+  void reverses it.
 - `SupplierAccountMovement` (mirror).
+- Receipts (RC/RP) reduce the counterpart balance by the full receipt total
+  (`-total` for customers, `+total` reversed for suppliers); the UI shows the
+  receipt action in the counterpart sheet (when there is a balance) and the
+  `payments.read` permission gates the `/payments` section.
 
 ## 7. Reserved future hooks (do not activate yet)
 
@@ -404,22 +426,21 @@ This is the high-level module map. For the full locked design table, see
   conversion time; the quote stays active and is not re-invoicable while an
   ACTIVE invoice child exists (voiding the invoice unlocks conversion); the
   document payload exposes `child_document_id/numero`.
-- [ ] **Phase 6+7** — Unified ledgers: `StockMovement` (append-only,
+- [x] **Phase 6+7** — Unified ledgers: `StockMovement` (append-only,
   negative-stock config, atomic stock UPDATE) + finance (`AccountMovement`,
   `Transfer`, card commission + deferred accreditation, current-account
   ledgers with atomic `saldo` UPDATE, `limite_credito` validation). Activates
-  the 4a hooks in the document transaction.
-- [ ] **Phase 5** — Costs (`SupplierProduct`); purchase cost trigger.
-- [ ] **Phase 8** — Operational UX + reports + HTML voucher with
-  `window.print()`.
-- [ ] **Phase 9** — i18n/es + Playwright E2E of critical flows + deploy.
-- [ ] **Phase 8** — Operational UX (Sales, Purchases, Stock, Catalog,
-  Customers, Suppliers) + reports + HTML voucher with `window.print()`.
-- [ ] **Phase 9** — i18n/es + Playwright E2E of critical flows + deploy.
+  the 4a hooks in the document transaction. AJS uses signed per-line
+  quantities; void NCs mirror the original payments (scaled to the voided
+  fraction) so cash/commission are reversed on void; admin tab "Finance"
+  (accounts + payment methods CRUD; conciliation UI deferred to phase 8).
+- [x] **Phase 5** — Costs (`SupplierProduct` composite PK + `costo_anterior`/`costo_actual`/`fecha_actualizacion` + `es_referencia`/`es_default`; reference supplier drives `Product.costo_actual` and recomputes `precio_venta` atomically; purchase trigger is suggestion-only via `POST /documents` → `cost_change_suggestions` for lines whose price exceeds `Product.costo_actual`; confirming a suggestion promotes the pair to reference, replacing any previous one; `cost.*` seed permissions; Costs tab in the product detail sheet).
+- [x] **Phase 8** — Operational UX + reports + HTML voucher with `window.print()`.
+- [x] **Phase 9** — i18n/es (react-intl, default es + en, locale switch in User Settings, backend error `code`s mapped in `handleError`) + Playwright E2E of critical flows (73 specs green, template specs migrated to Spanish UI) + deploy (DO VPS + Traefik: `scripts/deploy.sh`, `docs/DEPLOY.md`, `.env.production.example`).
 
 ## 9. Known issues / footnotes
 
-- The Full Stack FastAPI Template historically shipped with
+- The the upstream template historically shipped with
   `except InvalidTokenError, ValidationError:` (no parentheses) at
   `backend/app/api/deps.py`. It was a syntax error pre-3.14; the project now
   requires Python >=3.14, where PEP 758 makes the tuple form valid again. The

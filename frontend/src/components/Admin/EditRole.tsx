@@ -2,11 +2,11 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Pencil } from "lucide-react"
 import { useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { z } from "zod"
 
 import { PermissionsService, type RolePublic, RolesService } from "@/client"
-import { Checkbox } from "@/components/ui/checkbox"
+import PermissionPicker from "@/components/Admin/PermissionPicker"
 import {
   Dialog,
   DialogClose,
@@ -28,32 +28,16 @@ import {
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: "Role name is required" }),
+  name: z.string().min(1, { message: "El nombre del rol es obligatorio" }),
   description: z.string().optional(),
   permission_ids: z.array(z.string()),
 })
 
 type FormData = z.infer<typeof formSchema>
-
-function groupPermissionsByResource(
-  permissions: { id: string; code: string; description?: string | null }[],
-) {
-  const groups: Record<
-    string,
-    { id: string; code: string; description?: string | null }[]
-  > = {}
-  for (const perm of permissions) {
-    const resource = perm.code.split(".")[0] ?? "other"
-    if (!groups[resource]) {
-      groups[resource] = []
-    }
-    groups[resource].push(perm)
-  }
-  return groups
-}
 
 interface EditRoleProps {
   role: RolePublic
@@ -61,17 +45,17 @@ interface EditRoleProps {
 }
 
 const EditRole = ({ role, onSuccess }: EditRoleProps) => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
-  const { data: permissionsData } = useQuery({
+  const { data: permissionsData, isLoading: permissionsLoading } = useQuery({
     queryFn: () => PermissionsService.readPermissions({ skip: 0, limit: 1000 }),
     queryKey: ["permissions"],
   })
 
   const permissions = permissionsData?.data ?? []
-  const permissionGroups = groupPermissionsByResource(permissions)
 
   const currentPermissionIds = role.permissions?.map((p) => p.id) ?? []
 
@@ -86,6 +70,9 @@ const EditRole = ({ role, onSuccess }: EditRoleProps) => {
     },
   })
 
+  const watchedPermissionIds =
+    useWatch({ control: form.control, name: "permission_ids" }) ?? []
+
   const mutation = useMutation({
     mutationFn: (data: FormData) =>
       RolesService.updateRole({
@@ -97,7 +84,7 @@ const EditRole = ({ role, onSuccess }: EditRoleProps) => {
         },
       }),
     onSuccess: () => {
-      showSuccessToast("Role updated successfully")
+      showSuccessToast(t("admin.roles.updated"))
       setIsOpen(false)
       onSuccess()
     },
@@ -111,18 +98,6 @@ const EditRole = ({ role, onSuccess }: EditRoleProps) => {
     mutation.mutate(data)
   }
 
-  const togglePermission = (permId: string, checked: boolean) => {
-    const current = form.getValues("permission_ids")
-    if (checked) {
-      form.setValue("permission_ids", [...current, permId])
-    } else {
-      form.setValue(
-        "permission_ids",
-        current.filter((id) => id !== permId),
-      )
-    }
-  }
-
   const isSystemRole = role.name === "Administrador"
 
   return (
@@ -132,15 +107,15 @@ const EditRole = ({ role, onSuccess }: EditRoleProps) => {
         onClick={() => setIsOpen(true)}
       >
         <Pencil />
-        Edit Role
+        {t("admin.roles.edit")}
       </DropdownMenuItem>
       <DialogContent className="sm:max-w-lg">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
-              <DialogTitle>Edit Role</DialogTitle>
+              <DialogTitle>{t("admin.roles.edit")}</DialogTitle>
               <DialogDescription>
-                Update the role details and permissions.
+                {t("admin.roles.editDescription")}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -150,18 +125,19 @@ const EditRole = ({ role, onSuccess }: EditRoleProps) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Name <span className="text-destructive">*</span>
+                      {t("common.name")}{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Role name"
+                        placeholder={t("admin.roles.namePlaceholder")}
                         {...field}
                         disabled={isSystemRole}
                       />
                     </FormControl>
                     {isSystemRole && (
                       <p className="text-xs text-muted-foreground">
-                        The system role name cannot be changed
+                        {t("admin.roles.systemNameLocked")}
                       </p>
                     )}
                     <FormMessage />
@@ -174,9 +150,12 @@ const EditRole = ({ role, onSuccess }: EditRoleProps) => {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                    <FormLabel>{t("admin.roles.description")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="Role description" {...field} />
+                      <Input
+                        placeholder={t("admin.roles.descriptionPlaceholder")}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -184,57 +163,24 @@ const EditRole = ({ role, onSuccess }: EditRoleProps) => {
               />
 
               <div>
-                <FormLabel>Permissions</FormLabel>
-                <div className="h-64 w-full overflow-y-auto rounded-md border p-4">
-                  <div className="flex flex-col gap-4">
-                    {Object.entries(permissionGroups).map(
-                      ([resource, perms]) => (
-                        <div key={resource} className="flex flex-col gap-2">
-                          <p className="text-sm font-semibold capitalize">
-                            {resource}
-                          </p>
-                          {perms.map((perm) => {
-                            const isChecked = form
-                              .getValues("permission_ids")
-                              .includes(perm.id)
-                            return (
-                              <div
-                                key={perm.id}
-                                className="flex items-center gap-3 ml-4"
-                              >
-                                <Checkbox
-                                  checked={isChecked}
-                                  onCheckedChange={(checked) =>
-                                    togglePermission(perm.id, checked === true)
-                                  }
-                                />
-                                <div>
-                                  <span className="text-sm font-mono">
-                                    {perm.code}
-                                  </span>
-                                  {perm.description && (
-                                    <p className="text-xs text-muted-foreground">
-                                      {perm.description}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      ),
-                    )}
-                  </div>
-                </div>
+                <FormLabel>{t("admin.roles.permissions")}</FormLabel>
+                <PermissionPicker
+                  permissions={permissions}
+                  value={watchedPermissionIds}
+                  onChange={(ids) => form.setValue("permission_ids", ids)}
+                  loading={permissionsLoading}
+                />
               </div>
             </div>
 
             <DialogFooter>
               <DialogClose asChild>
-                <LoadingButton variant="outline">Cancel</LoadingButton>
+                <LoadingButton variant="outline">
+                  {t("common.cancel")}
+                </LoadingButton>
               </DialogClose>
               <LoadingButton type="submit" loading={mutation.isPending}>
-                Save
+                {t("common.save")}
               </LoadingButton>
             </DialogFooter>
           </form>

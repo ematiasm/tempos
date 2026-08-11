@@ -1,4 +1,16 @@
-import { FileText, Home, Package, Truck, UserRound, Users } from "lucide-react"
+import {
+  BarChart3,
+  Boxes,
+  FileText,
+  HandCoins,
+  Home,
+  Package,
+  ShoppingBasket,
+  ShoppingCart,
+  Truck,
+  UserRound,
+  Users,
+} from "lucide-react"
 
 import { SidebarAppearance } from "@/components/Common/Appearance"
 import { Logo } from "@/components/Common/Logo"
@@ -13,18 +25,23 @@ import { type Item, Main } from "./Main"
 import { User } from "./User"
 
 const baseItems: Item[] = [
-  { icon: Home, title: "Dashboard", path: "/" },
-  { icon: Package, title: "Products", path: "/catalog/products" },
-  { icon: UserRound, title: "Customers", path: "/customers" },
-  { icon: Truck, title: "Suppliers", path: "/suppliers" },
-  { icon: FileText, title: "Documents", path: "/documents" },
+  { icon: Home, titleKey: "nav.dashboard", path: "/" },
+  { icon: ShoppingCart, titleKey: "nav.sell", path: "/sell" },
+  { icon: ShoppingBasket, titleKey: "nav.buy", path: "/buy" },
+  { icon: Boxes, titleKey: "nav.stock", path: "/stock" },
+  { icon: Package, titleKey: "nav.products", path: "/catalog/products" },
+  { icon: UserRound, titleKey: "nav.customers", path: "/customers" },
+  { icon: Truck, titleKey: "nav.suppliers", path: "/suppliers" },
+  { icon: FileText, titleKey: "nav.documents", path: "/documents" },
+  { icon: HandCoins, titleKey: "nav.payments", path: "/payments" },
+  { icon: BarChart3, titleKey: "nav.reports", path: "/reports" },
 ]
 
 export function AppSidebar() {
   const { user: currentUser } = useAuth()
 
-  const items = currentUser?.is_superuser
-    ? [...baseItems, { icon: Users, title: "Admin", path: "/admin" }]
+  const items: Item[] = currentUser?.is_superuser
+    ? [...baseItems, { icon: Users, titleKey: "nav.admin", path: "/admin" }]
     : baseItems
 
   return (

@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useT } from "@/i18n"
 
 interface AttributeValuesEditorProps {
   values: string[]
@@ -18,6 +19,7 @@ const AttributeValuesEditor = ({
   values,
   onChange,
 }: AttributeValuesEditorProps) => {
+  const t = useT()
   const [draft, setDraft] = useState("")
 
   const addValue = () => {
@@ -35,7 +37,7 @@ const AttributeValuesEditor = ({
     <div className="flex flex-col gap-2">
       <div className="flex gap-2">
         <Input
-          placeholder="e.g. Red, Large..."
+          placeholder={t("admin.attributes.valuesPlaceholder")}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
@@ -56,7 +58,7 @@ const AttributeValuesEditor = ({
       </div>
       {values.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No values yet. Add at least one.
+          {t("admin.attributes.noValuesYet")}
         </p>
       ) : (
         <div className="flex flex-wrap gap-1.5">
@@ -65,7 +67,7 @@ const AttributeValuesEditor = ({
               {value}
               <button
                 type="button"
-                aria-label={`Remove ${value}`}
+                aria-label={t("admin.attributes.removeValue", { value })}
                 onClick={() => onChange(values.filter((v) => v !== value))}
                 className="cursor-pointer rounded-full hover:text-destructive"
               >

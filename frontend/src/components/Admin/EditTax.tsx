@@ -37,14 +37,15 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
-import { TAX_APPLIES_TO, TAX_TYPES } from "./taxOptions"
+import { getTaxAppliesTo, getTaxTypes } from "./taxOptions"
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: "Name is required" }),
-  code: z.string().min(1, { message: "Code is required" }),
+  name: z.string().min(1, { message: "El nombre es obligatorio" }),
+  code: z.string().min(1, { message: "El código es obligatorio" }),
   tipo: z.enum(["IVA", "IIBB", "PercGan", "Interno", "Otro"] as const),
-  rate: z.string().min(1, { message: "Rate is required" }),
+  rate: z.string().min(1, { message: "La tasa es obligatoria" }),
   is_percent: z.boolean(),
   aplica_a: z.enum(["linea", "documento"] as const),
   is_default: z.boolean(),
@@ -59,9 +60,13 @@ interface EditTaxProps {
 }
 
 const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
+
+  const taxTypes = getTaxTypes(t)
+  const taxAppliesTo = getTaxAppliesTo(t)
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -94,7 +99,7 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
       return TaxesService.updateTax({ taxId: tax.id, requestBody })
     },
     onSuccess: () => {
-      showSuccessToast("Tax updated successfully")
+      showSuccessToast(t("admin.taxes.updated"))
       setIsOpen(false)
       onSuccess()
     },
@@ -113,14 +118,16 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
         onClick={() => setIsOpen(true)}
       >
         <Pencil />
-        Edit Tax
+        {t("admin.taxes.edit")}
       </DropdownMenuItem>
       <DialogContent className="sm:max-w-md">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
-              <DialogTitle>Edit Tax</DialogTitle>
-              <DialogDescription>Update the tax details.</DialogDescription>
+              <DialogTitle>{t("admin.taxes.edit")}</DialogTitle>
+              <DialogDescription>
+                {t("admin.taxes.editDescription")}
+              </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <FormField
@@ -129,7 +136,8 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Name <span className="text-destructive">*</span>
+                      {t("common.name")}{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input {...field} />
@@ -144,7 +152,8 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Code <span className="text-destructive">*</span>
+                      {t("admin.taxes.code")}{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input {...field} />
@@ -159,7 +168,8 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Type <span className="text-destructive">*</span>
+                      {t("common.type")}{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
@@ -168,9 +178,9 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {TAX_TYPES.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>
-                            {t.label}
+                        {taxTypes.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -186,7 +196,8 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Rate <span className="text-destructive">*</span>
+                        {t("admin.taxes.rate")}{" "}
+                        <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
                         <Input type="number" step="0.01" {...field} />
@@ -200,7 +211,7 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
                   name="aplica_a"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Applies to</FormLabel>
+                      <FormLabel>{t("admin.taxes.appliesTo")}</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         value={field.value}
@@ -211,9 +222,9 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {TAX_APPLIES_TO.map((t) => (
-                            <SelectItem key={t.value} value={t.value}>
-                              {t.label}
+                          {taxAppliesTo.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -236,7 +247,7 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
                         />
                       </FormControl>
                       <FormLabel className="font-normal">
-                        Is percentage
+                        {t("admin.taxes.isPercentage")}
                       </FormLabel>
                     </FormItem>
                   )}
@@ -252,7 +263,9 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
                           onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                      <FormLabel className="font-normal">Is default</FormLabel>
+                      <FormLabel className="font-normal">
+                        {t("admin.taxes.isDefault")}
+                      </FormLabel>
                     </FormItem>
                   )}
                 />
@@ -267,7 +280,9 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
                           onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                      <FormLabel className="font-normal">Is active</FormLabel>
+                      <FormLabel className="font-normal">
+                        {t("admin.taxes.isActive")}
+                      </FormLabel>
                     </FormItem>
                   )}
                 />
@@ -276,11 +291,11 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline" disabled={mutation.isPending}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </DialogClose>
               <LoadingButton type="submit" loading={mutation.isPending}>
-                Save
+                {t("common.save")}
               </LoadingButton>
             </DialogFooter>
           </form>

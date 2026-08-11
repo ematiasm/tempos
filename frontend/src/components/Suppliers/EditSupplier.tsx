@@ -38,10 +38,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
-  razon_social: z.string().min(1, { message: "Name is required" }),
+  razon_social: z.string().min(1, { message: "El nombre es obligatorio" }),
   documento: z.string().optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
   email: z.string().optional().or(z.literal("")),
@@ -63,6 +64,7 @@ interface EditSupplierProps {
 }
 
 const EditSupplier = ({ supplier, onSuccess }: EditSupplierProps) => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -97,7 +99,7 @@ const EditSupplier = ({ supplier, onSuccess }: EditSupplierProps) => {
         },
       }),
     onSuccess: () => {
-      showSuccessToast("Supplier updated successfully")
+      showSuccessToast(t("suppliers.updated"))
       setIsOpen(false)
       onSuccess()
     },
@@ -116,17 +118,14 @@ const EditSupplier = ({ supplier, onSuccess }: EditSupplierProps) => {
         onClick={() => setIsOpen(true)}
       >
         <Pencil />
-        Edit Supplier
+        {t("suppliers.edit")}
       </DropdownMenuItem>
       <DialogContent className="sm:max-w-md">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
-              <DialogTitle>Edit Supplier</DialogTitle>
-              <DialogDescription>
-                Update the supplier details. Document must be a valid CUIT/CUIL
-                when present.
-              </DialogDescription>
+              <DialogTitle>{t("suppliers.edit")}</DialogTitle>
+              <DialogDescription>{t("suppliers.editHint")}</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <FormField
@@ -135,7 +134,8 @@ const EditSupplier = ({ supplier, onSuccess }: EditSupplierProps) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Business name <span className="text-destructive">*</span>
+                      {t("suppliers.businessName")}{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input {...field} />
@@ -150,7 +150,7 @@ const EditSupplier = ({ supplier, onSuccess }: EditSupplierProps) => {
                   name="documento"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Document</FormLabel>
+                      <FormLabel>{t("suppliers.document")}</FormLabel>
                       <FormControl>
                         <Input placeholder="30-12345678-9" {...field} />
                       </FormControl>
@@ -163,7 +163,7 @@ const EditSupplier = ({ supplier, onSuccess }: EditSupplierProps) => {
                   name="condicion_fiscal"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tax Condition</FormLabel>
+                      <FormLabel>{t("suppliers.taxCondition")}</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         value={field.value}
@@ -174,9 +174,12 @@ const EditSupplier = ({ supplier, onSuccess }: EditSupplierProps) => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {TAX_CONDITIONS.map((t) => (
-                            <SelectItem key={t.value} value={t.value}>
-                              {t.label}
+                          {TAX_CONDITIONS.map((tOption) => (
+                            <SelectItem
+                              key={tOption.value}
+                              value={tOption.value}
+                            >
+                              {tOption.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -191,7 +194,7 @@ const EditSupplier = ({ supplier, onSuccess }: EditSupplierProps) => {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone</FormLabel>
+                    <FormLabel>{t("suppliers.phone")}</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -204,7 +207,7 @@ const EditSupplier = ({ supplier, onSuccess }: EditSupplierProps) => {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>{t("auth.email")}</FormLabel>
                     <FormControl>
                       <Input type="email" {...field} />
                     </FormControl>
@@ -217,7 +220,7 @@ const EditSupplier = ({ supplier, onSuccess }: EditSupplierProps) => {
                 name="address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Address</FormLabel>
+                    <FormLabel>{t("suppliers.address")}</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -236,7 +239,9 @@ const EditSupplier = ({ supplier, onSuccess }: EditSupplierProps) => {
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                    <FormLabel className="font-normal">Is active</FormLabel>
+                    <FormLabel className="font-normal">
+                      {t("suppliers.isActive")}
+                    </FormLabel>
                   </FormItem>
                 )}
               />
@@ -244,11 +249,11 @@ const EditSupplier = ({ supplier, onSuccess }: EditSupplierProps) => {
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline" disabled={mutation.isPending}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </DialogClose>
               <LoadingButton type="submit" loading={mutation.isPending}>
-                Save
+                {t("common.save")}
               </LoadingButton>
             </DialogFooter>
           </form>

@@ -8,6 +8,10 @@ import {
   CategoriesService,
   type CategoryPublic,
   DocumentTypesService,
+  type FinancialAccountPublic,
+  FinancialAccountsService,
+  type PaymentMethodPublic,
+  PaymentMethodsService,
   type RolePublic,
   RolesService,
   TaxesService,
@@ -17,41 +21,56 @@ import {
 } from "@/client"
 import AddAttribute from "@/components/Admin/AddAttribute"
 import AddCategory from "@/components/Admin/AddCategory"
+import AddFinancialAccount from "@/components/Admin/AddFinancialAccount"
+import AddPaymentMethod from "@/components/Admin/AddPaymentMethod"
 import AddRole from "@/components/Admin/AddRole"
 import AddTax from "@/components/Admin/AddTax"
 import AddUoM from "@/components/Admin/AddUoM"
 import AddUser from "@/components/Admin/AddUser"
 import {
   type AttributeTableData,
-  columns as attributeColumns,
+  getColumns as getAttributeColumns,
 } from "@/components/Admin/attributeColumns"
+import BackupsTab from "@/components/Admin/Backup/BackupsTab"
 import {
   buildCategoryRows,
   type CategoryTableData,
-  columns as categoryColumns,
+  getColumns as getCategoryColumns,
 } from "@/components/Admin/categoryColumns"
 import {
+  getColumns as getUserColumns,
   type UserTableData,
-  columns as userColumns,
 } from "@/components/Admin/columns"
 import {
   type DocumentTypeTableData,
-  columns as documentTypeColumns,
+  getColumns as getDocumentTypeColumns,
 } from "@/components/Admin/documentTypeColumns"
-import GeneralSettings from "@/components/Admin/GeneralSettings"
-import { type RoleTableData, roleColumns } from "@/components/Admin/roleColumns"
 import {
+  type FinancialAccountTableData,
+  getColumns as getFinancialAccountColumns,
+} from "@/components/Admin/financialAccountColumns"
+import GeneralSettings from "@/components/Admin/GeneralSettings"
+import {
+  getColumns as getPaymentMethodColumns,
+  type PaymentMethodTableData,
+} from "@/components/Admin/paymentMethodColumns"
+import {
+  getRoleColumns,
+  type RoleTableData,
+} from "@/components/Admin/roleColumns"
+import {
+  getColumns as getTaxColumns,
   type TaxTableData,
-  columns as taxColumns,
 } from "@/components/Admin/taxColumns"
 import {
+  getColumns as getUoMColumns,
   type UoMTableData,
-  columns as uomColumns,
 } from "@/components/Admin/uomColumns"
 import { DataTable } from "@/components/Common/DataTable"
 import PendingUsers from "@/components/Pending/PendingUsers"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
+import { formatStatic, useT } from "@/i18n"
 
 function getUsersQueryOptions() {
   return {
@@ -103,6 +122,22 @@ function getDocumentTypesQueryOptions() {
   }
 }
 
+function getFinancialAccountsQueryOptions() {
+  return {
+    queryFn: () =>
+      FinancialAccountsService.readFinancialAccounts({ skip: 0, limit: 100 }),
+    queryKey: ["financial-accounts"],
+  }
+}
+
+function getPaymentMethodsQueryOptions() {
+  return {
+    queryFn: () =>
+      PaymentMethodsService.readPaymentMethods({ skip: 0, limit: 100 }),
+    queryKey: ["payment-methods"],
+  }
+}
+
 export const Route = createFileRoute("/_layout/admin")({
   component: Admin,
   beforeLoad: async () => {
@@ -116,13 +151,14 @@ export const Route = createFileRoute("/_layout/admin")({
   head: () => ({
     meta: [
       {
-        title: "Admin - FastEmpre",
+        title: `${formatStatic("admin.title")} - tempos`,
       },
     ],
   }),
 })
 
 function UsersTableContent() {
+  const t = useT()
   const { user: currentUser } = useAuth()
   const { data: users } = useSuspenseQuery(getUsersQueryOptions())
 
@@ -131,7 +167,7 @@ function UsersTableContent() {
     isCurrentUser: currentUser?.id === user.id,
   }))
 
-  return <DataTable columns={userColumns} data={tableData} />
+  return <DataTable columns={getUserColumns(t)} data={tableData} />
 }
 
 function UsersTable() {
@@ -143,13 +179,14 @@ function UsersTable() {
 }
 
 function RolesTableContent() {
+  const t = useT()
   const { data: roles } = useSuspenseQuery(getRolesQueryOptions())
 
   const tableData: RoleTableData[] = roles.data.map((role: RolePublic) => ({
     ...role,
   }))
 
-  return <DataTable columns={roleColumns} data={tableData} />
+  return <DataTable columns={getRoleColumns(t)} data={tableData} />
 }
 
 function RolesTable() {
@@ -161,20 +198,23 @@ function RolesTable() {
 }
 
 function UsersAndRolesTab() {
+  const t = useT()
   return (
     <div className="flex flex-col gap-6">
       <Tabs defaultValue="users">
         <TabsList>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="roles">Roles</TabsTrigger>
+          <TabsTrigger value="users">{t("admin.users.title")}</TabsTrigger>
+          <TabsTrigger value="roles">{t("admin.roles.title")}</TabsTrigger>
         </TabsList>
         <TabsContent value="users">
           <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold tracking-tight">Users</h2>
+                <h2 className="text-xl font-bold tracking-tight">
+                  {t("admin.users.title")}
+                </h2>
                 <p className="text-muted-foreground">
-                  Manage user accounts and role assignments
+                  {t("admin.users.subtitle")}
                 </p>
               </div>
               <AddUser />
@@ -186,9 +226,11 @@ function UsersAndRolesTab() {
           <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold tracking-tight">Roles</h2>
+                <h2 className="text-xl font-bold tracking-tight">
+                  {t("admin.roles.title")}
+                </h2>
                 <p className="text-muted-foreground">
-                  Manage roles and their permissions
+                  {t("admin.roles.subtitle")}
                 </p>
               </div>
               <AddRole />
@@ -202,6 +244,7 @@ function UsersAndRolesTab() {
 }
 
 function CategoriesTabContent() {
+  const t = useT()
   const { data: categories } = useSuspenseQuery(getCategoriesQueryOptions())
 
   if (categories.data.length === 0) {
@@ -210,9 +253,11 @@ function CategoriesTabContent() {
         <div className="rounded-full bg-muted p-4 mb-4">
           <Search className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h3 className="text-lg font-semibold">No categories yet</h3>
+        <h3 className="text-lg font-semibold">
+          {t("admin.categories.emptyTitle")}
+        </h3>
         <p className="text-muted-foreground">
-          Add a category to organize your products
+          {t("admin.categories.emptyHint")}
         </p>
       </div>
     )
@@ -221,17 +266,20 @@ function CategoriesTabContent() {
   const rows: (CategoryTableData & { depth: number })[] = buildCategoryRows(
     categories.data as CategoryPublic[],
   )
-  return <DataTable columns={categoryColumns} data={rows} />
+  return <DataTable columns={getCategoryColumns(t)} data={rows} />
 }
 
 function CategoriesTab() {
+  const t = useT()
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Categories</h2>
+          <h2 className="text-xl font-bold tracking-tight">
+            {t("admin.categories.title")}
+          </h2>
           <p className="text-muted-foreground">
-            Hierarchical product categories
+            {t("admin.categories.subtitle")}
           </p>
         </div>
         <AddCategory />
@@ -244,6 +292,7 @@ function CategoriesTab() {
 }
 
 function UoMsTabContent() {
+  const t = useT()
   const { data: uoms } = useSuspenseQuery(getUomsQueryOptions())
 
   if (uoms.data.length === 0) {
@@ -252,26 +301,27 @@ function UoMsTabContent() {
         <div className="rounded-full bg-muted p-4 mb-4">
           <Search className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h3 className="text-lg font-semibold">No units yet</h3>
-        <p className="text-muted-foreground">
-          Add at least one unit of measure (e.g. Unit, Kilogram)
-        </p>
+        <h3 className="text-lg font-semibold">{t("admin.units.emptyTitle")}</h3>
+        <p className="text-muted-foreground">{t("admin.units.emptyHint")}</p>
       </div>
     )
   }
 
-  return <DataTable columns={uomColumns} data={uoms.data as UoMTableData[]} />
+  return (
+    <DataTable columns={getUoMColumns(t)} data={uoms.data as UoMTableData[]} />
+  )
 }
 
 function UoMsTab() {
+  const t = useT()
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Units of Measure</h2>
-          <p className="text-muted-foreground">
-            Units used to stock and sell products
-          </p>
+          <h2 className="text-xl font-bold tracking-tight">
+            {t("admin.units.title")}
+          </h2>
+          <p className="text-muted-foreground">{t("admin.units.subtitle")}</p>
         </div>
         <AddUoM />
       </div>
@@ -283,6 +333,7 @@ function UoMsTab() {
 }
 
 function TaxesTabContent() {
+  const t = useT()
   const { data: taxes } = useSuspenseQuery(getTaxesQueryOptions())
 
   if (taxes.data.length === 0) {
@@ -291,26 +342,27 @@ function TaxesTabContent() {
         <div className="rounded-full bg-muted p-4 mb-4">
           <Search className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h3 className="text-lg font-semibold">No taxes yet</h3>
-        <p className="text-muted-foreground">
-          Add taxes (VAT, perceptions) to apply them to products
-        </p>
+        <h3 className="text-lg font-semibold">{t("admin.taxes.emptyTitle")}</h3>
+        <p className="text-muted-foreground">{t("admin.taxes.emptyHint")}</p>
       </div>
     )
   }
 
-  return <DataTable columns={taxColumns} data={taxes.data as TaxTableData[]} />
+  return (
+    <DataTable columns={getTaxColumns(t)} data={taxes.data as TaxTableData[]} />
+  )
 }
 
 function TaxesTab() {
+  const t = useT()
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Taxes</h2>
-          <p className="text-muted-foreground">
-            VAT, perceptions and other taxes
-          </p>
+          <h2 className="text-xl font-bold tracking-tight">
+            {t("admin.taxes.title")}
+          </h2>
+          <p className="text-muted-foreground">{t("admin.taxes.subtitle")}</p>
         </div>
         <AddTax />
       </div>
@@ -322,6 +374,7 @@ function TaxesTab() {
 }
 
 function AttributesTabContent() {
+  const t = useT()
   const { data: attributes } = useSuspenseQuery(getAttributesQueryOptions())
 
   if (attributes.data.length === 0) {
@@ -330,9 +383,11 @@ function AttributesTabContent() {
         <div className="rounded-full bg-muted p-4 mb-4">
           <Search className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h3 className="text-lg font-semibold">No attributes yet</h3>
+        <h3 className="text-lg font-semibold">
+          {t("admin.attributes.emptyTitle")}
+        </h3>
         <p className="text-muted-foreground">
-          Add attributes (e.g. Color, Size) to define product variants
+          {t("admin.attributes.emptyHint")}
         </p>
       </div>
     )
@@ -340,20 +395,23 @@ function AttributesTabContent() {
 
   return (
     <DataTable
-      columns={attributeColumns}
+      columns={getAttributeColumns(t)}
       data={attributes.data as AttributeTableData[]}
     />
   )
 }
 
 function AttributesTab() {
+  const t = useT()
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Attributes</h2>
+          <h2 className="text-xl font-bold tracking-tight">
+            {t("admin.attributes.title")}
+          </h2>
           <p className="text-muted-foreground">
-            Attributes and values used to build product variants
+            {t("admin.attributes.subtitle")}
           </p>
         </div>
         <AddAttribute />
@@ -366,26 +424,29 @@ function AttributesTab() {
 }
 
 function DocumentTypesTabContent() {
+  const t = useT()
   const { data: documentTypes } = useSuspenseQuery(
     getDocumentTypesQueryOptions(),
   )
 
   return (
     <DataTable
-      columns={documentTypeColumns}
+      columns={getDocumentTypeColumns(t)}
       data={documentTypes.data as DocumentTypeTableData[]}
     />
   )
 }
 
 function DocumentTypesTab() {
+  const t = useT()
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h2 className="text-xl font-bold tracking-tight">Document Types</h2>
+        <h2 className="text-xl font-bold tracking-tight">
+          {t("admin.documentTypes.title")}
+        </h2>
         <p className="text-muted-foreground">
-          Sales, purchases and other operations. Signs and operation are
-          seed-managed; name and prefix are editable.
+          {t("admin.documentTypes.subtitle")}
         </p>
       </div>
       <Suspense fallback={<PendingUsers />}>
@@ -395,25 +456,140 @@ function DocumentTypesTab() {
   )
 }
 
+function FinancialAccountsTabContent() {
+  const t = useT()
+  const { data: accounts } = useSuspenseQuery(
+    getFinancialAccountsQueryOptions(),
+  )
+
+  return (
+    <DataTable
+      columns={getFinancialAccountColumns(t)}
+      data={accounts.data as FinancialAccountTableData[]}
+    />
+  )
+}
+
+function AccountsTab() {
+  const t = useT()
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight">
+            {t("admin.finance.accountsTitle")}
+          </h2>
+          <p className="text-muted-foreground">
+            {t("admin.finance.accountsSubtitle")}
+          </p>
+        </div>
+        <AddFinancialAccount />
+      </div>
+      <Suspense fallback={<PendingUsers />}>
+        <FinancialAccountsTabContent />
+      </Suspense>
+    </div>
+  )
+}
+
+function PaymentMethodsTabContent() {
+  const t = useT()
+  const { data: accounts } = useSuspenseQuery(
+    getFinancialAccountsQueryOptions(),
+  )
+  const { data: paymentMethods } = useSuspenseQuery(
+    getPaymentMethodsQueryOptions(),
+  )
+  const accountNames = new Map(
+    accounts.data.map((a: FinancialAccountPublic) => [a.id, a.name]),
+  )
+
+  const rows: PaymentMethodTableData[] = paymentMethods.data.map(
+    (pm: PaymentMethodPublic) => ({
+      ...pm,
+      account_name: accountNames.get(pm.financial_account_id),
+    }),
+  )
+
+  return <DataTable columns={getPaymentMethodColumns(t)} data={rows} />
+}
+
+function PaymentMethodsTab() {
+  const t = useT()
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight">
+            {t("admin.finance.paymentMethodsTitle")}
+          </h2>
+          <p className="text-muted-foreground">
+            {t("admin.finance.paymentMethodsSubtitle")}
+          </p>
+        </div>
+        <AddPaymentMethod />
+      </div>
+      <Suspense fallback={<PendingUsers />}>
+        <PaymentMethodsTabContent />
+      </Suspense>
+    </div>
+  )
+}
+
+function FinanceTab() {
+  const t = useT()
+  return (
+    <div className="flex flex-col gap-6">
+      <Tabs defaultValue="accounts">
+        <TabsList>
+          <TabsTrigger value="accounts">
+            {t("admin.finance.tabAccounts")}
+          </TabsTrigger>
+          <TabsTrigger value="payment-methods">
+            {t("admin.finance.tabPaymentMethods")}
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="accounts">
+          <AccountsTab />
+        </TabsContent>
+        <TabsContent value="payment-methods">
+          <PaymentMethodsTab />
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
+
 function Admin() {
+  const t = useT()
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Admin</h1>
-        <p className="text-muted-foreground">
-          Configure your business, users, roles and master catalog data
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">
+          {t("admin.title")}
+        </h1>
+        <p className="text-muted-foreground">{t("admin.subtitle")}</p>
       </div>
 
       <Tabs defaultValue="general">
         <TabsList className="flex flex-wrap h-auto">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="users-roles">Users and Roles</TabsTrigger>
-          <TabsTrigger value="categories">Categories</TabsTrigger>
-          <TabsTrigger value="units">Units</TabsTrigger>
-          <TabsTrigger value="taxes">Taxes</TabsTrigger>
-          <TabsTrigger value="attributes">Attributes</TabsTrigger>
-          <TabsTrigger value="document-types">Document Types</TabsTrigger>
+          <TabsTrigger value="general">{t("admin.tabGeneral")}</TabsTrigger>
+          <TabsTrigger value="users-roles">
+            {t("admin.tabUsersRoles")}
+          </TabsTrigger>
+          <TabsTrigger value="categories">
+            {t("admin.tabCategories")}
+          </TabsTrigger>
+          <TabsTrigger value="units">{t("admin.tabUnits")}</TabsTrigger>
+          <TabsTrigger value="taxes">{t("admin.tabTaxes")}</TabsTrigger>
+          <TabsTrigger value="attributes">
+            {t("admin.tabAttributes")}
+          </TabsTrigger>
+          <TabsTrigger value="document-types">
+            {t("admin.tabDocumentTypes")}
+          </TabsTrigger>
+          <TabsTrigger value="finance">{t("admin.tabFinance")}</TabsTrigger>
+          <TabsTrigger value="backups">{t("admin.tabBackups")}</TabsTrigger>
         </TabsList>
         <TabsContent value="general">
           <GeneralSettings />
@@ -435,6 +611,12 @@ function Admin() {
         </TabsContent>
         <TabsContent value="document-types">
           <DocumentTypesTab />
+        </TabsContent>
+        <TabsContent value="finance">
+          <FinanceTab />
+        </TabsContent>
+        <TabsContent value="backups">
+          <BackupsTab />
         </TabsContent>
       </Tabs>
     </div>

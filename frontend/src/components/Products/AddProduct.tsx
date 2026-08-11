@@ -44,16 +44,17 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: "Name is required" }),
+  name: z.string().min(1, { message: "El nombre es obligatorio" }),
   sku: z.string().optional().or(z.literal("")),
-  uom_id: z.string().min(1, { message: "Unit of measure is required" }),
+  uom_id: z.string().min(1, { message: "La unidad de medida es obligatoria" }),
   category_id: z.string().optional().or(z.literal("")),
   description: z.string().optional().or(z.literal("")),
-  margen_pct: z.string().min(1, { message: "Margin is required" }),
-  costo_actual: z.string().min(1, { message: "Cost is required" }),
+  margen_pct: z.string().min(1, { message: "El margen es obligatorio" }),
+  costo_actual: z.string().min(1, { message: "El costo es obligatorio" }),
   stock_minimo: z.string().optional().or(z.literal("")),
   stock_maximo: z.string().optional().or(z.literal("")),
   tax_ids: z.array(z.string()),
@@ -62,6 +63,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>
 
 const AddProduct = () => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const [tab, setTab] = useState("details")
   const [newBarcode, setNewBarcode] = useState("")
@@ -141,7 +143,7 @@ const AddProduct = () => {
       return product
     },
     onSuccess: () => {
-      showSuccessToast("Product created successfully")
+      showSuccessToast(t("products.created"))
       form.reset()
       setBarcodes([])
       setNewBarcode("")
@@ -172,7 +174,7 @@ const AddProduct = () => {
     const code = newBarcode.trim()
     if (!code) return
     if (barcodes.includes(code)) {
-      showErrorToast("Barcode already added")
+      showErrorToast(t("products.barcodeDuplicate"))
       return
     }
     setBarcodes([...barcodes, code])
@@ -195,23 +197,25 @@ const AddProduct = () => {
       <DialogTrigger asChild>
         <Button className="my-4">
           <Plus className="mr-2" />
-          Add Product
+          {t("products.add")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg sm:max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add Product</DialogTitle>
-          <DialogDescription>
-            Create a product with details, taxes and barcodes.
-          </DialogDescription>
+          <DialogTitle>{t("products.add")}</DialogTitle>
+          <DialogDescription>{t("products.addHint")}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} id="add-product-form">
             <Tabs value={tab} onValueChange={setTab}>
               <TabsList>
-                <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="taxes">Taxes</TabsTrigger>
-                <TabsTrigger value="barcodes">Barcodes</TabsTrigger>
+                <TabsTrigger value="details">
+                  {t("products.details")}
+                </TabsTrigger>
+                <TabsTrigger value="taxes">{t("products.taxes")}</TabsTrigger>
+                <TabsTrigger value="barcodes">
+                  {t("products.barcodes")}
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="details">
@@ -222,10 +226,14 @@ const AddProduct = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          Name <span className="text-destructive">*</span>
+                          {t("products.name")}{" "}
+                          <span className="text-destructive">*</span>
                         </FormLabel>
                         <FormControl>
-                          <Input placeholder="Product name" {...field} />
+                          <Input
+                            placeholder={t("products.namePlaceholder")}
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -237,9 +245,12 @@ const AddProduct = () => {
                       name="sku"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>SKU</FormLabel>
+                          <FormLabel>{t("products.sku")}</FormLabel>
                           <FormControl>
-                            <Input placeholder="Optional" {...field} />
+                            <Input
+                              placeholder={t("common.optional")}
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -251,7 +262,8 @@ const AddProduct = () => {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>
-                            Unit <span className="text-destructive">*</span>
+                            {t("products.unit")}{" "}
+                            <span className="text-destructive">*</span>
                           </FormLabel>
                           <Select
                             onValueChange={field.onChange}
@@ -259,7 +271,9 @@ const AddProduct = () => {
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Select unit" />
+                                <SelectValue
+                                  placeholder={t("products.selectUnit")}
+                                />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
@@ -280,14 +294,16 @@ const AddProduct = () => {
                     name="category_id"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Category</FormLabel>
+                        <FormLabel>{t("products.category")}</FormLabel>
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
                         >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="No category" />
+                              <SelectValue
+                                placeholder={t("products.noCategory")}
+                              />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -311,7 +327,8 @@ const AddProduct = () => {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>
-                            Cost <span className="text-destructive">*</span>
+                            {t("products.cost")}{" "}
+                            <span className="text-destructive">*</span>
                           </FormLabel>
                           <FormControl>
                             <Input type="number" step="0.01" {...field} />
@@ -326,7 +343,8 @@ const AddProduct = () => {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>
-                            Margin % <span className="text-destructive">*</span>
+                            {t("products.marginPct")}{" "}
+                            <span className="text-destructive">*</span>
                           </FormLabel>
                           <FormControl>
                             <Input type="number" step="0.01" {...field} />
@@ -336,7 +354,7 @@ const AddProduct = () => {
                       )}
                     />
                     <FormItem>
-                      <FormLabel>Sale Price</FormLabel>
+                      <FormLabel>{t("products.salePrice")}</FormLabel>
                       <Input
                         value={`$${precioPreview}`}
                         disabled
@@ -350,12 +368,12 @@ const AddProduct = () => {
                       name="stock_minimo"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Min Stock</FormLabel>
+                          <FormLabel>{t("products.minStock")}</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
                               step="0.001"
-                              placeholder="Optional"
+                              placeholder={t("common.optional")}
                               {...field}
                             />
                           </FormControl>
@@ -368,12 +386,12 @@ const AddProduct = () => {
                       name="stock_maximo"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Max Stock</FormLabel>
+                          <FormLabel>{t("products.maxStock")}</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
                               step="0.001"
-                              placeholder="Optional"
+                              placeholder={t("common.optional")}
                               {...field}
                             />
                           </FormControl>
@@ -387,9 +405,12 @@ const AddProduct = () => {
                     name="description"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Description</FormLabel>
+                        <FormLabel>{t("products.description")}</FormLabel>
                         <FormControl>
-                          <Input placeholder="Optional" {...field} />
+                          <Input
+                            placeholder={t("common.optional")}
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -401,11 +422,11 @@ const AddProduct = () => {
               <TabsContent value="taxes">
                 <div className="grid gap-3 py-4">
                   <p className="text-sm text-muted-foreground">
-                    Select which taxes apply to this product.
+                    {t("products.taxesHint")}
                   </p>
                   {taxes.length === 0 && (
                     <p className="text-sm text-muted-foreground">
-                      No taxes defined. Add taxes in Admin → Taxes first.
+                      {t("products.noTaxes")}
                     </p>
                   )}
                   {taxes.map((tax) => {
@@ -436,12 +457,11 @@ const AddProduct = () => {
               <TabsContent value="barcodes">
                 <div className="grid gap-3 py-4">
                   <p className="text-sm text-muted-foreground">
-                    Add barcodes. They will be saved after the product is
-                    created.
+                    {t("products.barcodesAddHint")}
                   </p>
                   <div className="flex gap-2">
                     <Input
-                      placeholder="Scan or type barcode"
+                      placeholder={t("products.barcodePlaceholder")}
                       value={newBarcode}
                       onChange={(e) => setNewBarcode(e.target.value)}
                       onKeyDown={(e) => {
@@ -462,7 +482,7 @@ const AddProduct = () => {
                   </div>
                   {barcodes.length === 0 && (
                     <p className="text-sm text-muted-foreground">
-                      No barcodes added yet (optional).
+                      {t("products.noBarcodes")}
                     </p>
                   )}
                   <ul className="divide-y rounded border">
@@ -492,7 +512,7 @@ const AddProduct = () => {
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline" disabled={mutation.isPending}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </DialogClose>
               <LoadingButton
@@ -500,7 +520,7 @@ const AddProduct = () => {
                 form="add-product-form"
                 loading={mutation.isPending}
               >
-                Save
+                {t("common.save")}
               </LoadingButton>
             </DialogFooter>
           </form>

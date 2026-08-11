@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
@@ -12,14 +13,18 @@ from app.models import (
     CounterpartType,
     Customer,
     Document,
+    DocumentAllocationPublic,
     DocumentCreate,
     DocumentLine,
+    DocumentPaymentAllocation,
     DocumentPublic,
     DocumentStatus,
     DocumentTypePublic,
     DocumentVoidCreate,
     Page,
     Supplier,
+    User,
+    UserPublic,
 )
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -102,8 +107,28 @@ def suggest_fiscal_sale_type(session: SessionDep, customer_id: uuid.UUID) -> Any
     """Resolve Factura A/B/C from the business/customer tax condition combo."""
     try:
         return crud.suggest_fiscal_sale_type(session=session, customer_id=customer_id)
+    except crud.BusinessError as e:
+        raise HTTPException(
+            status_code=400, detail={"code": e.code, "message": e.message}
+        ) from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.get(
+    "/creators",
+    response_model=list[UserPublic],
+    dependencies=[require_permissions("document.read")],
+)
+def read_document_creators(session: SessionDep) -> Any:
+    """List the users who created at least one document (for filtering)."""
+    users = session.exec(
+        select(User)
+        .join(Document, col(Document.user_id) == col(User.id))
+        .distinct()
+        .order_by(col(User.full_name), col(User.email))
+    ).all()
+    return users
 
 
 @router.get(
@@ -111,12 +136,32 @@ def suggest_fiscal_sale_type(session: SessionDep, customer_id: uuid.UUID) -> Any
     response_model=Page[DocumentPublic],
     dependencies=[require_permissions("document.read")],
 )
-def read_documents(session: SessionDep, pagination: PaginationDep) -> Any:
-    """Retrieve documents with lines, taxes and payments."""
-    count = session.exec(select(func.count()).select_from(Document)).one()
+def read_documents(
+    session: SessionDep,
+    pagination: PaginationDep,
+    document_type_id: uuid.UUID | None = None,
+    fecha_desde: datetime | None = None,
+    fecha_hasta: datetime | None = None,
+    user_id: uuid.UUID | None = None,
+) -> Any:
+    """Retrieve documents with lines, taxes and payments, optionally filtered
+    by document type, a date range (both bounds inclusive) and creator."""
+    clauses = []
+    if document_type_id is not None:
+        clauses.append(col(Document.document_type_id) == document_type_id)
+    if fecha_desde is not None:
+        clauses.append(col(Document.fecha) >= fecha_desde)
+    if fecha_hasta is not None:
+        clauses.append(col(Document.fecha) <= fecha_hasta)
+    if user_id is not None:
+        clauses.append(col(Document.user_id) == user_id)
+    count = session.exec(
+        select(func.count()).select_from(Document).where(*clauses)
+    ).one()
     documents = session.exec(
         select(Document)
         .options(*_document_query_options())
+        .where(*clauses)
         .order_by(col(Document.created_at).desc())
         .offset(pagination.skip)
         .limit(pagination.limit)
@@ -148,6 +193,39 @@ def read_document(session: SessionDep, document_id: uuid.UUID) -> Any:
     return public
 
 
+@router.get(
+    "/{document_id}/allocations",
+    response_model=list[DocumentAllocationPublic],
+    dependencies=[require_permissions("document.read")],
+)
+def read_document_allocations(session: SessionDep, document_id: uuid.UUID) -> Any:
+    """Receipts imputed to a document (incoming allocations)."""
+    document = session.get(Document, document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    rows = session.exec(
+        select(DocumentPaymentAllocation, Document)
+        .join(
+            Document,
+            col(Document.id) == col(DocumentPaymentAllocation.receipt_document_id),
+        )
+        .where(
+            col(DocumentPaymentAllocation.document_id) == document_id,
+            col(Document.estado) == DocumentStatus.ACTIVE,
+        )
+        .order_by(col(Document.fecha).asc(), col(Document.numero).asc())
+    ).all()
+    return [
+        DocumentAllocationPublic(
+            receipt_document_id=receipt.id,
+            receipt_numero=receipt.numero,
+            fecha=receipt.fecha,
+            monto=allocation.monto,
+        )
+        for allocation, receipt in rows
+    ]
+
+
 @router.post(
     "/",
     response_model=DocumentPublic,
@@ -158,13 +236,20 @@ def create_document(
 ) -> Any:
     """Create a document with its lines, taxes and payments."""
     try:
-        document = crud.create_document(
+        document, cost_suggestions = crud.create_document(
             session=session, document_in=document_in, user_id=current_user.id
         )
+    except crud.BusinessError as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=400, detail={"code": e.code, "message": e.message}
+        ) from e
     except ValueError as e:
         session.rollback()
         raise HTTPException(status_code=400, detail=str(e)) from e
-    return _attach_counterpart_names(session, [document])[0]
+    public = _attach_counterpart_names(session, [document])[0]
+    public.cost_change_suggestions = cost_suggestions
+    return public
 
 
 @router.post(
@@ -187,6 +272,11 @@ def void_document(
             void_in=void_in,
             user_id=current_user.id,
         )
+    except crud.BusinessError as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=400, detail={"code": e.code, "message": e.message}
+        ) from e
     except ValueError as e:
         session.rollback()
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -206,6 +296,11 @@ def convert_to_invoice(
         invoice = crud.convert_quote_to_invoice(
             session=session, document_id=document_id, user_id=current_user.id
         )
+    except crud.BusinessError as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=400, detail={"code": e.code, "message": e.message}
+        ) from e
     except ValueError as e:
         session.rollback()
         raise HTTPException(status_code=400, detail=str(e)) from e

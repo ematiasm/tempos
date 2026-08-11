@@ -1,14 +1,17 @@
 """Tests for the /documents endpoints."""
 
 import re
+import uuid
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
+from app import crud
 from app.core.config import settings
-from app.models import PaymentMethod
-from tests.utils.utils import random_lower_string
+from app.models import PaymentMethod, Role, UserCreate
+from tests.utils.ledger import load_stock
+from tests.utils.utils import random_email, random_lower_string
 
 
 def _create_uom(client: TestClient, headers: dict[str, str]) -> dict:
@@ -111,6 +114,7 @@ def test_create_sale_document_computes_totals_and_taxes(
     product = _create_product(
         client, superuser_token_headers, tax_ids=[iva21]
     )  # precio_venta = 121.00
+    load_stock(client, superuser_token_headers, product["id"], "3")
     type_id = _doc_type_id(client, superuser_token_headers, "TCK")
     payload = {
         "document_type_id": type_id,
@@ -171,6 +175,7 @@ def test_document_numbering_sequential_per_type(
 ) -> None:
     customer = _create_customer(client, superuser_token_headers)
     product = _create_product(client, superuser_token_headers)
+    load_stock(client, superuser_token_headers, product["id"], "2")
     type_id = _doc_type_id(client, superuser_token_headers, "TCK")
     payload = {
         "document_type_id": type_id,
@@ -227,6 +232,7 @@ def test_document_level_percepciones_add_to_total(
     assert r.status_code == 200, r.text
     iibb_id = r.json()["id"]
     product = _create_product(client, superuser_token_headers, tax_ids=[iibb_id])
+    load_stock(client, superuser_token_headers, product["id"], "2")
     type_id = _doc_type_id(client, superuser_token_headers, "TCK")
     doc = _create_doc(
         client,
@@ -250,6 +256,7 @@ def test_line_tax_override_removes_taxes_from_line(
     customer = _create_customer(client, superuser_token_headers)
     iva21 = _iva21_id(client, superuser_token_headers)
     product = _create_product(client, superuser_token_headers, tax_ids=[iva21])
+    load_stock(client, superuser_token_headers, product["id"], "1")
     type_id = _doc_type_id(client, superuser_token_headers, "TCK")
     doc = _create_doc(
         client,
@@ -280,7 +287,7 @@ def test_create_document_validation_errors(
         json={**base, "document_type_id": tck},
     )
     assert r.status_code == 400
-    assert "requires a counterpart" in r.json()["detail"]
+    assert "requires a counterpart" in r.json()["detail"]["message"]
 
     # supplier id used as a customer
     r = client.post(
@@ -289,7 +296,7 @@ def test_create_document_validation_errors(
         json={**base, "document_type_id": tck, "contraparte_id": supplier["id"]},
     )
     assert r.status_code == 400
-    assert "Counterpart not found" in r.json()["detail"]
+    assert "Counterpart not found" in r.json()["detail"]["message"]
 
     # adjustment type does not take a counterpart
     r = client.post(
@@ -298,7 +305,7 @@ def test_create_document_validation_errors(
         json={**base, "document_type_id": ajs, "contraparte_id": customer["id"]},
     )
     assert r.status_code == 400
-    assert "does not take a counterpart" in r.json()["detail"]
+    assert "does not take a counterpart" in r.json()["detail"]["message"]
 
     # document discount above subtotal
     r = client.post(
@@ -312,7 +319,7 @@ def test_create_document_validation_errors(
         },
     )
     assert r.status_code == 400
-    assert "exceeds" in r.json()["detail"]
+    assert "exceeds" in r.json()["detail"]["message"]
 
 
 def test_suggest_fiscal_sale_type(
@@ -382,6 +389,7 @@ def test_read_document_detail(
 ) -> None:
     customer = _create_customer(client, superuser_token_headers)
     product = _create_product(client, superuser_token_headers)
+    load_stock(client, superuser_token_headers, product["id"], "1")
     type_id = _doc_type_id(client, superuser_token_headers, "TCK")
     doc = _create_doc(
         client,
@@ -406,3 +414,161 @@ def test_read_document_detail(
     r = client.get(f"{settings.API_V1_STR}/documents/", headers=superuser_token_headers)
     assert r.status_code == 200
     assert any(d["id"] == doc["id"] for d in r.json()["data"])
+
+
+def test_read_documents_filters_by_type_and_date_range(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    customer = _create_customer(client, superuser_token_headers)
+    product = _create_product(client, superuser_token_headers)
+    load_stock(client, superuser_token_headers, product["id"], "3")
+    tck = _doc_type_id(client, superuser_token_headers, "TCK")
+    cot = _doc_type_id(client, superuser_token_headers, "COT")
+    base = {"contraparte_id": customer["id"]}
+
+    older = _create_doc(
+        client,
+        superuser_token_headers,
+        {
+            **base,
+            "document_type_id": cot,
+            "fecha": "2025-01-15T12:00:00Z",
+            "lines": [{"product_id": product["id"], "cantidad": "1"}],
+        },
+    )
+    newer = _create_doc(
+        client,
+        superuser_token_headers,
+        {
+            **base,
+            "document_type_id": tck,
+            "fecha": "2025-06-20T12:00:00Z",
+            "lines": [{"product_id": product["id"], "cantidad": "1"}],
+        },
+    )
+
+    # by type
+    r = client.get(
+        f"{settings.API_V1_STR}/documents/",
+        headers=superuser_token_headers,
+        params={"document_type_id": tck, "limit": 100},
+    )
+    assert r.status_code == 200
+    ids = {d["id"] for d in r.json()["data"]}
+    assert newer["id"] in ids
+    assert older["id"] not in ids
+
+    # by date range (bounds inclusive)
+    r = client.get(
+        f"{settings.API_V1_STR}/documents/",
+        headers=superuser_token_headers,
+        params={
+            "fecha_desde": "2025-01-01T00:00:00Z",
+            "fecha_hasta": "2025-02-01T00:00:00Z",
+            "limit": 100,
+        },
+    )
+    assert r.status_code == 200
+    ids = {d["id"] for d in r.json()["data"]}
+    assert older["id"] in ids
+    assert newer["id"] not in ids
+
+    # combined: type + range only matches the newer document
+    r = client.get(
+        f"{settings.API_V1_STR}/documents/",
+        headers=superuser_token_headers,
+        params={
+            "document_type_id": tck,
+            "fecha_desde": "2025-01-01T00:00:00Z",
+            "fecha_hasta": "2025-12-31T23:59:59Z",
+            "limit": 100,
+        },
+    )
+    assert r.status_code == 200
+    ids = {d["id"] for d in r.json()["data"]}
+    assert newer["id"] in ids
+    assert older["id"] not in ids
+
+    # count reflects the combined filter
+    assert r.json()["count"] >= 1
+    assert older["id"] not in {d["id"] for d in r.json()["data"]}
+
+
+def test_read_documents_filters_by_user_and_creators(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    customer = _create_customer(client, superuser_token_headers)
+    product = _create_product(client, superuser_token_headers)
+    load_stock(client, superuser_token_headers, product["id"], "2")
+    tck = _doc_type_id(client, superuser_token_headers, "TCK")
+    base = {"contraparte_id": customer["id"]}
+
+    superuser_doc = _create_doc(
+        client,
+        superuser_token_headers,
+        {
+            **base,
+            "document_type_id": tck,
+            "lines": [{"product_id": product["id"], "cantidad": "1"}],
+        },
+    )
+
+    # second user with its own token creates another document
+    password = random_lower_string()
+    admin_role = db.exec(select(Role).where(Role.name == "Administrador")).first()
+    assert admin_role is not None
+    other = crud.create_user(
+        session=db,
+        user_create=UserCreate(
+            email=random_email(),
+            password=password,
+            full_name="Filter User",
+            role_ids=[admin_role.id],
+        ),
+    )
+    r = client.post(
+        f"{settings.API_V1_STR}/login/access-token",
+        data={"username": other.email, "password": password},
+    )
+    assert r.status_code == 200, r.text
+    other_headers = {"Authorization": f"Bearer {r.json()['access_token']}"}
+    other_doc = _create_doc(
+        client,
+        other_headers,
+        {
+            **base,
+            "document_type_id": tck,
+            "lines": [{"product_id": product["id"], "cantidad": "1"}],
+        },
+    )
+    assert other_doc["user_id"] != superuser_doc["user_id"]
+
+    # /documents/creators lists both creators
+    r = client.get(
+        f"{settings.API_V1_STR}/documents/creators",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+    emails = {u["email"] for u in r.json()}
+    assert settings.FIRST_SUPERUSER in emails
+    assert other.email in emails
+
+    # filter by the second user returns only their document
+    r = client.get(
+        f"{settings.API_V1_STR}/documents/",
+        headers=superuser_token_headers,
+        params={"user_id": str(other.id), "limit": 100},
+    )
+    assert r.status_code == 200
+    ids = {d["id"] for d in r.json()["data"]}
+    assert other_doc["id"] in ids
+    assert superuser_doc["id"] not in ids
+
+    # a random user id matches nothing
+    r = client.get(
+        f"{settings.API_V1_STR}/documents/",
+        headers=superuser_token_headers,
+        params={"user_id": str(uuid.uuid4()), "limit": 100},
+    )
+    assert r.status_code == 200
+    assert r.json()["count"] == 0

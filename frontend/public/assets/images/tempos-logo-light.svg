@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="260" height="64" viewBox="0 0 260 64">
+  <circle cx="28" cy="32" r="22" fill="#ffffff"/>
+  <path d="M 27.0 21.3 L 38.8 21.3 L 27.2 30.5 L 33.4 30.5 L 18.6 43.6 L 22.6 35.1 L 24.1 30.5 Z" fill="#009688"/>
+  <text x="62" y="44" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="40" font-weight="700" letter-spacing="-0.5" fill="#ffffff">tempos</text>
+</svg>

@@ -6,9 +6,12 @@ from sqlmodel import col, func, select
 
 from app.api.deps import PaginationDep, SessionDep, require_permissions
 from app.models import (
+    Document,
     Message,
     Page,
     Supplier,
+    SupplierAccountMovement,
+    SupplierAccountMovementPublic,
     SupplierCreate,
     SupplierPublic,
     SupplierUpdate,
@@ -115,3 +118,43 @@ def delete_supplier(session: SessionDep, supplier_id: uuid.UUID) -> Any:
     session.add(supplier)
     session.commit()
     return Message(message="Supplier deactivated successfully")
+
+
+@router.get(
+    "/{supplier_id}/account-movements",
+    response_model=Page[SupplierAccountMovementPublic],
+    dependencies=[require_permissions("supplier.read")],
+)
+def read_supplier_account_movements(
+    session: SessionDep, supplier_id: uuid.UUID, pagination: PaginationDep
+) -> Any:
+    """Retrieve the supplier's current-account ledger (append-only)."""
+    supplier = session.get(Supplier, supplier_id)
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    conditions = [col(SupplierAccountMovement.supplier_id) == supplier_id]
+    count = session.exec(
+        select(func.count()).select_from(SupplierAccountMovement).where(*conditions)
+    ).one()
+    movements = session.exec(
+        select(SupplierAccountMovement)
+        .where(*conditions)
+        .order_by(col(SupplierAccountMovement.created_at).desc())
+        .offset(pagination.skip)
+        .limit(pagination.limit)
+    ).all()
+    document_ids = {m.document_id for m in movements if m.document_id}
+    numbers = {
+        d.id: d.numero
+        for d in session.exec(
+            select(Document).where(col(Document.id).in_(document_ids))
+        ).all()
+    }
+    publics = []
+    for movement in movements:
+        public = SupplierAccountMovementPublic.model_validate(movement)
+        public.document_numero = (
+            numbers.get(movement.document_id) if movement.document_id else None
+        )
+        publics.append(public)
+    return Page[SupplierAccountMovementPublic](data=publics, count=count)

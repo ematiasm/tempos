@@ -2,6 +2,7 @@ import { EllipsisVertical } from "lucide-react"
 import { useState } from "react"
 
 import type { CustomerPublic } from "@/client"
+import { AccountMovementsDialog } from "@/components/Common/AccountMovementsDialog"
 import { CONSUMIDOR_FINAL_NAME } from "@/components/Common/conditionOptions"
 import { Button } from "@/components/ui/button"
 import {
@@ -29,6 +30,11 @@ export const CustomerActionsMenu = ({ customer }: CustomerActionsMenuProps) => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <EditCustomer customer={customer} onSuccess={() => setOpen(false)} />
+        <AccountMovementsDialog
+          counterpart={customer}
+          type="customer"
+          onClose={() => setOpen(false)}
+        />
         {!isConsumidorFinal && (
           <DeleteCustomer
             customer={customer}

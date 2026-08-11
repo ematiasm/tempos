@@ -16,6 +16,7 @@ import {
 } from "@/client"
 import { buildCategoryRows } from "@/components/Admin/categoryColumns"
 import DeleteProduct from "@/components/Products/DeleteProduct"
+import SupplierCostsTab from "@/components/Products/SupplierCostsTab"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -46,17 +47,18 @@ import {
 } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 
 const detailsSchema = z.object({
-  name: z.string().min(1, { message: "Name is required" }),
+  name: z.string().min(1, { message: "El nombre es obligatorio" }),
   sku: z.string().optional().or(z.literal("")),
   category_id: z.string().optional().or(z.literal("")),
-  uom_id: z.string().min(1, { message: "Unit is required" }),
+  uom_id: z.string().min(1, { message: "La unidad es obligatoria" }),
   description: z.string().optional().or(z.literal("")),
-  margen_pct: z.string().min(1, { message: "Margin is required" }),
-  costo_actual: z.string().min(1, { message: "Cost is required" }),
+  margen_pct: z.string().min(1, { message: "El margen es obligatorio" }),
+  costo_actual: z.string().min(1, { message: "El costo es obligatorio" }),
   stock_minimo: z.string().optional().or(z.literal("")),
   stock_maximo: z.string().optional().or(z.literal("")),
   is_active: z.boolean(),
@@ -75,6 +77,7 @@ const ProductDetailSheet = ({
   open,
   onOpenChange,
 }: ProductDetailSheetProps) => {
+  const t = useT()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [newBarcode, setNewBarcode] = useState("")
@@ -169,7 +172,7 @@ const ProductDetailSheet = ({
       })
     },
     onSuccess: () => {
-      showSuccessToast("Product updated successfully")
+      showSuccessToast(t("products.updated"))
     },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
@@ -186,7 +189,7 @@ const ProductDetailSheet = ({
       })
     },
     onSuccess: () => {
-      showSuccessToast("Taxes updated successfully")
+      showSuccessToast(t("products.taxesUpdated"))
     },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
@@ -203,7 +206,7 @@ const ProductDetailSheet = ({
       })
     },
     onSuccess: () => {
-      showSuccessToast("Barcode added successfully")
+      showSuccessToast(t("products.barcodeAdded"))
       setNewBarcode("")
     },
     onError: handleError.bind(showErrorToast),
@@ -216,7 +219,7 @@ const ProductDetailSheet = ({
     mutationFn: (barcodeId: string) =>
       ProductsService.deleteBarcode({ barcodeId }),
     onSuccess: () => {
-      showSuccessToast("Barcode removed successfully")
+      showSuccessToast(t("products.barcodeRemoved"))
     },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
@@ -237,7 +240,7 @@ const ProductDetailSheet = ({
       })
     },
     onSuccess: () => {
-      showSuccessToast("Variant created successfully")
+      showSuccessToast(t("products.variantCreated"))
       setNewVariantSuffix("")
       setNewVariantValueIds([])
     },
@@ -251,7 +254,7 @@ const ProductDetailSheet = ({
     mutationFn: (variantId: string) =>
       ProductsService.deleteVariant({ variantId }),
     onSuccess: () => {
-      showSuccessToast("Variant deleted successfully")
+      showSuccessToast(t("products.variantDeleted"))
     },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
@@ -283,22 +286,23 @@ const ProductDetailSheet = ({
         <SheetHeader>
           <SheetTitle className="text-xl">{product.name}</SheetTitle>
           <SheetDescription>
-            SKU: {product.sku || "—"} · Click Edit to update product details
+            {t("products.sheetHint", { sku: product.sku || "—" })}
           </SheetDescription>
         </SheetHeader>
 
         <Tabs defaultValue="details" className="mt-4">
           <TabsList>
-            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="details">{t("products.details")}</TabsTrigger>
             <TabsTrigger value="taxes">
-              Taxes ({(product.taxes ?? []).length})
+              {t("products.taxes")} ({(product.taxes ?? []).length})
             </TabsTrigger>
             <TabsTrigger value="barcodes">
-              Barcodes ({barcodeList.length})
+              {t("products.barcodes")} ({barcodeList.length})
             </TabsTrigger>
+            <TabsTrigger value="costs">{t("products.costs")}</TabsTrigger>
             {enableVariants && (
               <TabsTrigger value="variants">
-                Variants ({(product.variants ?? []).length})
+                {t("products.variants")} ({(product.variants ?? []).length})
               </TabsTrigger>
             )}
           </TabsList>
@@ -318,7 +322,8 @@ const ProductDetailSheet = ({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          Name <span className="text-destructive">*</span>
+                          {t("products.name")}{" "}
+                          <span className="text-destructive">*</span>
                         </FormLabel>
                         <FormControl>
                           <Input {...field} />
@@ -333,7 +338,7 @@ const ProductDetailSheet = ({
                       name="sku"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>SKU</FormLabel>
+                          <FormLabel>{t("products.sku")}</FormLabel>
                           <FormControl>
                             <Input {...field} />
                           </FormControl>
@@ -347,7 +352,8 @@ const ProductDetailSheet = ({
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>
-                            Unit <span className="text-destructive">*</span>
+                            {t("products.unit")}{" "}
+                            <span className="text-destructive">*</span>
                           </FormLabel>
                           <Select
                             onValueChange={field.onChange}
@@ -355,7 +361,9 @@ const ProductDetailSheet = ({
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Select unit" />
+                                <SelectValue
+                                  placeholder={t("products.selectUnit")}
+                                />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
@@ -376,14 +384,16 @@ const ProductDetailSheet = ({
                     name="category_id"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Category</FormLabel>
+                        <FormLabel>{t("products.category")}</FormLabel>
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
                         >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="No category" />
+                              <SelectValue
+                                placeholder={t("products.noCategory")}
+                              />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -407,7 +417,8 @@ const ProductDetailSheet = ({
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>
-                            Cost <span className="text-destructive">*</span>
+                            {t("products.cost")}{" "}
+                            <span className="text-destructive">*</span>
                           </FormLabel>
                           <FormControl>
                             <Input type="number" step="0.01" {...field} />
@@ -422,7 +433,8 @@ const ProductDetailSheet = ({
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>
-                            Margin % <span className="text-destructive">*</span>
+                            {t("products.marginPct")}{" "}
+                            <span className="text-destructive">*</span>
                           </FormLabel>
                           <FormControl>
                             <Input type="number" step="0.01" {...field} />
@@ -432,7 +444,7 @@ const ProductDetailSheet = ({
                       )}
                     />
                     <FormItem>
-                      <FormLabel>Sale Price</FormLabel>
+                      <FormLabel>{t("products.salePrice")}</FormLabel>
                       <Input
                         value={`$${precioPreview}`}
                         disabled
@@ -446,12 +458,12 @@ const ProductDetailSheet = ({
                       name="stock_minimo"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Min Stock</FormLabel>
+                          <FormLabel>{t("products.minStock")}</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
                               step="0.001"
-                              placeholder="Optional"
+                              placeholder={t("common.optional")}
                               {...field}
                             />
                           </FormControl>
@@ -464,12 +476,12 @@ const ProductDetailSheet = ({
                       name="stock_maximo"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Max Stock</FormLabel>
+                          <FormLabel>{t("products.maxStock")}</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
                               step="0.001"
-                              placeholder="Optional"
+                              placeholder={t("common.optional")}
                               {...field}
                             />
                           </FormControl>
@@ -483,7 +495,7 @@ const ProductDetailSheet = ({
                     name="description"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Description</FormLabel>
+                        <FormLabel>{t("products.description")}</FormLabel>
                         <FormControl>
                           <Input {...field} />
                         </FormControl>
@@ -502,7 +514,9 @@ const ProductDetailSheet = ({
                             onCheckedChange={field.onChange}
                           />
                         </FormControl>
-                        <FormLabel className="font-normal">Is active</FormLabel>
+                        <FormLabel className="font-normal">
+                          {t("products.isActive")}
+                        </FormLabel>
                       </FormItem>
                     )}
                   />
@@ -517,7 +531,7 @@ const ProductDetailSheet = ({
                     form="product-details-form"
                     loading={updateMutation.isPending}
                   >
-                    Save changes
+                    {t("products.saveChanges")}
                   </LoadingButton>
                 </SheetFooter>
               </form>
@@ -527,11 +541,11 @@ const ProductDetailSheet = ({
           <TabsContent value="taxes">
             <div className="flex flex-col gap-3 py-2">
               <p className="text-sm text-muted-foreground">
-                Toggle which taxes apply to this product.
+                {t("products.taxesToggleHint")}
               </p>
               {taxes.length === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  No taxes defined. Add taxes in Admin → Taxes first.
+                  {t("products.noTaxes")}
                 </p>
               )}
               {taxes.map((tax: TaxPublic) => {
@@ -574,7 +588,7 @@ const ProductDetailSheet = ({
                   loading={saveTaxesMutation.isPending}
                   onClick={() => saveTaxesMutation.mutate()}
                 >
-                  Save taxes
+                  {t("products.saveTaxes")}
                 </LoadingButton>
               </SheetFooter>
             </div>
@@ -583,11 +597,11 @@ const ProductDetailSheet = ({
           <TabsContent value="barcodes">
             <div className="flex flex-col gap-3 py-2">
               <p className="text-sm text-muted-foreground">
-                Add barcodes for fast lookup at checkout.
+                {t("products.barcodesHint")}
               </p>
               <div className="flex gap-2">
                 <Input
-                  placeholder="Scan or type barcode"
+                  placeholder={t("products.barcodePlaceholder")}
                   value={newBarcode}
                   onChange={(e) => setNewBarcode(e.target.value)}
                 />
@@ -602,7 +616,7 @@ const ProductDetailSheet = ({
               </div>
               {barcodeList.length === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  No barcodes for this product yet.
+                  {t("products.noBarcodesForProduct")}
                 </p>
               )}
               <ul className="divide-y rounded border">
@@ -627,13 +641,18 @@ const ProductDetailSheet = ({
             </div>
           </TabsContent>
 
+          <TabsContent value="costs">
+            <SupplierCostsTab
+              productId={product.id}
+              productName={product.name}
+            />
+          </TabsContent>
+
           {enableVariants && (
             <TabsContent value="variants">
               <div className="flex flex-col gap-3 py-2">
                 <p className="text-sm text-muted-foreground">
-                  Variants are combinations of attribute values (e.g. Color:
-                  Red) with their own stock. The attribute combination must be
-                  unique per product.
+                  {t("products.variantsHint")}
                 </p>
 
                 <ul className="divide-y rounded border">
@@ -654,7 +673,9 @@ const ProductDetailSheet = ({
                           </Badge>
                         ))}
                         <span className="text-xs text-muted-foreground ml-1">
-                          stock: {Number(variant.stock_current)}
+                          {t("products.variantStock", {
+                            stock: Number(variant.stock_current),
+                          })}
                         </span>
                       </div>
                       <Button
@@ -671,21 +692,22 @@ const ProductDetailSheet = ({
                 </ul>
                 {(product.variants ?? []).length === 0 && (
                   <p className="text-sm text-muted-foreground">
-                    No variants for this product yet.
+                    {t("products.noVariants")}
                   </p>
                 )}
 
                 <div className="mt-2 flex flex-col gap-3 rounded border p-3">
-                  <span className="text-sm font-medium">Add variant</span>
+                  <span className="text-sm font-medium">
+                    {t("products.addVariant")}
+                  </span>
                   <Input
-                    placeholder="SKU suffix (optional, e.g. RED)"
+                    placeholder={t("products.variantSuffixPlaceholder")}
                     value={newVariantSuffix}
                     onChange={(e) => setNewVariantSuffix(e.target.value)}
                   />
                   {attributes.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                      No attributes defined. Add them in Admin → Attributes to
-                      build meaningful variants.
+                      {t("products.noAttributes")}
                     </p>
                   ) : (
                     attributes.map((attribute) => (
@@ -729,7 +751,7 @@ const ProductDetailSheet = ({
                     onClick={() => createVariantMutation.mutate()}
                   >
                     <Plus className="mr-2 h-4 w-4" />
-                    Add variant
+                    {t("products.addVariant")}
                   </LoadingButton>
                 </div>
               </div>

@@ -41,10 +41,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
-  razon_social: z.string().min(1, { message: "Name is required" }),
+  razon_social: z.string().min(1, { message: "El nombre es obligatorio" }),
   documento: z.string().optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
   email: z.string().optional().or(z.literal("")),
@@ -67,6 +68,7 @@ interface EditCustomerProps {
 }
 
 const EditCustomer = ({ customer, onSuccess }: EditCustomerProps) => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -104,7 +106,7 @@ const EditCustomer = ({ customer, onSuccess }: EditCustomerProps) => {
         },
       }),
     onSuccess: () => {
-      showSuccessToast("Customer updated successfully")
+      showSuccessToast(t("customers.updated"))
       setIsOpen(false)
       onSuccess()
     },
@@ -123,17 +125,14 @@ const EditCustomer = ({ customer, onSuccess }: EditCustomerProps) => {
         onClick={() => setIsOpen(true)}
       >
         <Pencil />
-        Edit Customer
+        {t("customers.edit")}
       </DropdownMenuItem>
       <DialogContent className="sm:max-w-md">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
-              <DialogTitle>Edit Customer</DialogTitle>
-              <DialogDescription>
-                Update the customer details. Document must be a valid CUIT/CUIL
-                when present.
-              </DialogDescription>
+              <DialogTitle>{t("customers.edit")}</DialogTitle>
+              <DialogDescription>{t("customers.editHint")}</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <FormField
@@ -142,7 +141,7 @@ const EditCustomer = ({ customer, onSuccess }: EditCustomerProps) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Name / Business name{" "}
+                      {t("customers.nameBusiness")}{" "}
                       <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
@@ -158,7 +157,7 @@ const EditCustomer = ({ customer, onSuccess }: EditCustomerProps) => {
                   name="documento"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Document</FormLabel>
+                      <FormLabel>{t("customers.document")}</FormLabel>
                       <FormControl>
                         <Input placeholder="20-12345678-9" {...field} />
                       </FormControl>
@@ -171,7 +170,7 @@ const EditCustomer = ({ customer, onSuccess }: EditCustomerProps) => {
                   name="condicion_fiscal"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tax Condition</FormLabel>
+                      <FormLabel>{t("customers.taxCondition")}</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         value={field.value}
@@ -182,9 +181,12 @@ const EditCustomer = ({ customer, onSuccess }: EditCustomerProps) => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {TAX_CONDITIONS.map((t) => (
-                            <SelectItem key={t.value} value={t.value}>
-                              {t.label}
+                          {TAX_CONDITIONS.map((tOption) => (
+                            <SelectItem
+                              key={tOption.value}
+                              value={tOption.value}
+                            >
+                              {tOption.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -200,7 +202,7 @@ const EditCustomer = ({ customer, onSuccess }: EditCustomerProps) => {
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone</FormLabel>
+                      <FormLabel>{t("customers.phone")}</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -213,12 +215,12 @@ const EditCustomer = ({ customer, onSuccess }: EditCustomerProps) => {
                   name="limite_credito"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Credit Limit</FormLabel>
+                      <FormLabel>{t("customers.creditLimit")}</FormLabel>
                       <FormControl>
                         <Input type="number" step="0.01" {...field} />
                       </FormControl>
                       <p className="text-xs text-muted-foreground">
-                        0 = no limit
+                        {t("customers.noLimitHint")}
                       </p>
                       <FormMessage />
                     </FormItem>
@@ -230,7 +232,7 @@ const EditCustomer = ({ customer, onSuccess }: EditCustomerProps) => {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>{t("auth.email")}</FormLabel>
                     <FormControl>
                       <Input type="email" {...field} />
                     </FormControl>
@@ -243,7 +245,7 @@ const EditCustomer = ({ customer, onSuccess }: EditCustomerProps) => {
                 name="address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Address</FormLabel>
+                    <FormLabel>{t("customers.address")}</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -263,7 +265,9 @@ const EditCustomer = ({ customer, onSuccess }: EditCustomerProps) => {
                           onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                      <FormLabel className="font-normal">Is active</FormLabel>
+                      <FormLabel className="font-normal">
+                        {t("customers.isActive")}
+                      </FormLabel>
                     </FormItem>
                   )}
                 />
@@ -272,11 +276,11 @@ const EditCustomer = ({ customer, onSuccess }: EditCustomerProps) => {
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline" disabled={mutation.isPending}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </DialogClose>
               <LoadingButton type="submit" loading={mutation.isPending}>
-                Save
+                {t("common.save")}
               </LoadingButton>
             </DialogFooter>
           </form>

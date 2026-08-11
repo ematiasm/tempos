@@ -28,17 +28,19 @@ import {
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 import AttributeValuesEditor from "./attributeValuesEditor"
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: "Name is required" }),
+  name: z.string().min(1, { message: "El nombre es obligatorio" }),
   values: z.array(z.string()),
 })
 
 type FormData = z.infer<typeof formSchema>
 
 const AddAttribute = () => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -62,7 +64,7 @@ const AddAttribute = () => {
       return AttributesService.createAttribute({ requestBody })
     },
     onSuccess: () => {
-      showSuccessToast("Attribute created successfully")
+      showSuccessToast(t("admin.attributes.created"))
       form.reset()
       setIsOpen(false)
     },
@@ -85,14 +87,14 @@ const AddAttribute = () => {
       <DialogTrigger asChild>
         <Button className="my-4">
           <Plus className="mr-2" />
-          Add Attribute
+          {t("admin.attributes.add")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Attribute</DialogTitle>
+          <DialogTitle>{t("admin.attributes.add")}</DialogTitle>
           <DialogDescription>
-            Create a variant attribute (e.g. Color, Size) with its values.
+            {t("admin.attributes.addDescription")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -104,10 +106,14 @@ const AddAttribute = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Name <span className="text-destructive">*</span>
+                      {t("common.name")}{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Color" {...field} />
+                      <Input
+                        placeholder={t("admin.attributes.namePlaceholder")}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -118,7 +124,7 @@ const AddAttribute = () => {
                 name="values"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Values</FormLabel>
+                    <FormLabel>{t("admin.attributes.values")}</FormLabel>
                     <FormControl>
                       <AttributeValuesEditor
                         values={field.value}
@@ -133,11 +139,11 @@ const AddAttribute = () => {
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline" disabled={mutation.isPending}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </DialogClose>
               <LoadingButton type="submit" loading={mutation.isPending}>
-                Save
+                {t("common.save")}
               </LoadingButton>
             </DialogFooter>
           </form>

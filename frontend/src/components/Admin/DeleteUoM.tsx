@@ -18,6 +18,7 @@ import {
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 interface DeleteUoMProps {
@@ -26,6 +27,7 @@ interface DeleteUoMProps {
 }
 
 const DeleteUoM = ({ uom, onSuccess }: DeleteUoMProps) => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -34,7 +36,7 @@ const DeleteUoM = ({ uom, onSuccess }: DeleteUoMProps) => {
   const mutation = useMutation({
     mutationFn: () => UomsService.deleteUom({ uomId: uom.id }),
     onSuccess: () => {
-      showSuccessToast("Unit of measure deleted successfully")
+      showSuccessToast(t("admin.units.deleted"))
       setIsOpen(false)
       onSuccess()
     },
@@ -54,24 +56,23 @@ const DeleteUoM = ({ uom, onSuccess }: DeleteUoMProps) => {
         onClick={() => setIsOpen(true)}
       >
         <Trash2 />
-        Delete Unit
+        {t("admin.units.delete")}
       </DropdownMenuItem>
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
-            <DialogTitle>Delete Unit of Measure</DialogTitle>
+            <DialogTitle>{t("admin.units.deleteTitle")}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete{" "}
-              <strong>
-                {uom.name} ({uom.abbreviation})
-              </strong>
-              ? This fails if any product uses it.
+              {t("admin.units.deleteConfirm", {
+                name: uom.name,
+                abbr: uom.abbreviation,
+              })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">
             <DialogClose asChild>
               <Button variant="outline" disabled={mutation.isPending}>
-                Cancel
+                {t("common.cancel")}
               </Button>
             </DialogClose>
             <LoadingButton
@@ -79,7 +80,7 @@ const DeleteUoM = ({ uom, onSuccess }: DeleteUoMProps) => {
               type="submit"
               loading={mutation.isPending}
             >
-              Delete
+              {t("common.delete")}
             </LoadingButton>
           </DialogFooter>
         </form>

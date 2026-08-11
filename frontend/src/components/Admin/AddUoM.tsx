@@ -28,14 +28,15 @@ import {
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: "Name is required" }),
+  name: z.string().min(1, { message: "El nombre es obligatorio" }),
   abbreviation: z
     .string()
-    .min(1, { message: "Abbreviation is required" })
-    .max(10, { message: "Max 10 characters" }),
+    .min(1, { message: "La abreviatura es obligatoria" })
+    .max(10, { message: "Máximo 10 caracteres" }),
   decimal_places: z
     .string()
     .optional()
@@ -45,13 +46,14 @@ const formSchema = z.object({
         v === "" ||
         v === undefined ||
         (/^\d+$/.test(v) && Number(v) >= 0 && Number(v) <= 4),
-      { message: "Must be an integer between 0 and 4" },
+      { message: "Debe ser un entero entre 0 y 4" },
     ),
 })
 
 type FormData = z.infer<typeof formSchema>
 
 const AddUoM = () => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -73,7 +75,7 @@ const AddUoM = () => {
       return UomsService.createUom({ requestBody })
     },
     onSuccess: () => {
-      showSuccessToast("Unit of measure created successfully")
+      showSuccessToast(t("admin.units.created"))
       form.reset()
       setIsOpen(false)
     },
@@ -90,14 +92,14 @@ const AddUoM = () => {
       <DialogTrigger asChild>
         <Button className="my-4">
           <Plus className="mr-2" />
-          Add Unit
+          {t("admin.units.add")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Unit of Measure</DialogTitle>
+          <DialogTitle>{t("admin.units.addTitle")}</DialogTitle>
           <DialogDescription>
-            Units of measure define how products are stocked and sold.
+            {t("admin.units.addDescription")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -109,11 +111,12 @@ const AddUoM = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Name <span className="text-destructive">*</span>
+                      {t("common.name")}{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="e.g. Unit, Kilogram, Liter"
+                        placeholder={t("admin.units.namePlaceholder")}
                         {...field}
                       />
                     </FormControl>
@@ -127,10 +130,14 @@ const AddUoM = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Abbreviation <span className="text-destructive">*</span>
+                      {t("admin.units.abbreviation")}{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. u, kg, L" {...field} />
+                      <Input
+                        placeholder={t("admin.units.abbreviationPlaceholder")}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -141,7 +148,7 @@ const AddUoM = () => {
                 name="decimal_places"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Decimal Places</FormLabel>
+                    <FormLabel>{t("admin.units.decimalPlaces")}</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
@@ -159,11 +166,11 @@ const AddUoM = () => {
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline" disabled={mutation.isPending}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </DialogClose>
               <LoadingButton type="submit" loading={mutation.isPending}>
-                Save
+                {t("common.save")}
               </LoadingButton>
             </DialogFooter>
           </form>

@@ -37,14 +37,15 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
-import { TAX_APPLIES_TO, TAX_TYPES } from "./taxOptions"
+import { getTaxAppliesTo, getTaxTypes } from "./taxOptions"
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: "Name is required" }),
-  code: z.string().min(1, { message: "Code is required" }),
+  name: z.string().min(1, { message: "El nombre es obligatorio" }),
+  code: z.string().min(1, { message: "El código es obligatorio" }),
   tipo: z.enum(["IVA", "IIBB", "PercGan", "Interno", "Otro"] as const),
-  rate: z.string().min(1, { message: "Rate is required" }),
+  rate: z.string().min(1, { message: "La tasa es obligatoria" }),
   is_percent: z.boolean(),
   aplica_a: z.enum(["linea", "documento"] as const),
   is_default: z.boolean(),
@@ -54,9 +55,13 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>
 
 const AddTax = () => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
+
+  const taxTypes = getTaxTypes(t)
+  const taxAppliesTo = getTaxAppliesTo(t)
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -89,7 +94,7 @@ const AddTax = () => {
       return TaxesService.createTax({ requestBody })
     },
     onSuccess: () => {
-      showSuccessToast("Tax created successfully")
+      showSuccessToast(t("admin.taxes.created"))
       form.reset()
       setIsOpen(false)
     },
@@ -106,14 +111,14 @@ const AddTax = () => {
       <DialogTrigger asChild>
         <Button className="my-4">
           <Plus className="mr-2" />
-          Add Tax
+          {t("admin.taxes.add")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Tax</DialogTitle>
+          <DialogTitle>{t("admin.taxes.add")}</DialogTitle>
           <DialogDescription>
-            Create a tax (VAT, perception, internal, etc).
+            {t("admin.taxes.addDescription")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -125,10 +130,14 @@ const AddTax = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Name <span className="text-destructive">*</span>
+                      {t("common.name")}{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. IVA 21%" {...field} />
+                      <Input
+                        placeholder={t("admin.taxes.namePlaceholder")}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -140,10 +149,14 @@ const AddTax = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Code <span className="text-destructive">*</span>
+                      {t("admin.taxes.code")}{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. IVA21" {...field} />
+                      <Input
+                        placeholder={t("admin.taxes.codePlaceholder")}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -155,18 +168,21 @@ const AddTax = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Type <span className="text-destructive">*</span>
+                      {t("common.type")}{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
+                          <SelectValue
+                            placeholder={t("admin.taxes.selectType")}
+                          />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {TAX_TYPES.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>
-                            {t.label}
+                        {taxTypes.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -182,7 +198,8 @@ const AddTax = () => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Rate <span className="text-destructive">*</span>
+                        {t("admin.taxes.rate")}{" "}
+                        <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
                         <Input type="number" step="0.01" {...field} />
@@ -196,20 +213,22 @@ const AddTax = () => {
                   name="aplica_a"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Applies to</FormLabel>
+                      <FormLabel>{t("admin.taxes.appliesTo")}</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         value={field.value}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select" />
+                            <SelectValue
+                              placeholder={t("admin.taxes.selectPlaceholder")}
+                            />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {TAX_APPLIES_TO.map((t) => (
-                            <SelectItem key={t.value} value={t.value}>
-                              {t.label}
+                          {taxAppliesTo.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -232,7 +251,7 @@ const AddTax = () => {
                         />
                       </FormControl>
                       <FormLabel className="font-normal">
-                        Is percentage
+                        {t("admin.taxes.isPercentage")}
                       </FormLabel>
                     </FormItem>
                   )}
@@ -248,7 +267,9 @@ const AddTax = () => {
                           onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                      <FormLabel className="font-normal">Is default</FormLabel>
+                      <FormLabel className="font-normal">
+                        {t("admin.taxes.isDefault")}
+                      </FormLabel>
                     </FormItem>
                   )}
                 />
@@ -263,7 +284,9 @@ const AddTax = () => {
                           onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                      <FormLabel className="font-normal">Is active</FormLabel>
+                      <FormLabel className="font-normal">
+                        {t("admin.taxes.isActive")}
+                      </FormLabel>
                     </FormItem>
                   )}
                 />
@@ -272,11 +295,11 @@ const AddTax = () => {
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline" disabled={mutation.isPending}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </DialogClose>
               <LoadingButton type="submit" loading={mutation.isPending}>
-                Save
+                {t("common.save")}
               </LoadingButton>
             </DialogFooter>
           </form>

@@ -1,9 +1,9 @@
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy.orm import selectinload
-from sqlmodel import col, func, select
+from sqlmodel import col, func, or_, select
 
 from app import crud
 from app.api.deps import PaginationDep, SessionDep, require_permissions
@@ -53,6 +53,53 @@ def read_products(session: SessionDep, pagination: PaginationDep) -> Any:
     ).all()
     return Page[ProductPublic](
         data=[ProductPublic.model_validate(p) for p in products], count=count
+    )
+
+
+@router.get(
+    "/search",
+    response_model=Page[ProductPublic],
+    dependencies=[require_permissions("product.read")],
+)
+def search_products(
+    session: SessionDep,
+    q: str = Query(min_length=1, max_length=100),
+    limit: int = Query(default=25, ge=1, le=100),
+) -> Any:
+    """Search active products by name, SKU or barcode (case-insensitive).
+
+    Returns the top matches ordered by name; meant for the point-of-sale
+    lookup where the typing is live and the result set is small.
+    """
+    term = f"%{q.strip()}%"
+    products = session.exec(
+        select(Product)
+        .where(Product.is_active)
+        .where(
+            or_(
+                col(Product.name).ilike(term),
+                col(Product.sku).ilike(term),
+                col(Product.id).in_(
+                    select(col(Barcode.product_id)).where(col(Barcode.code).ilike(term))
+                ),
+            )
+        )
+        .options(
+            selectinload(Product.taxes),  # type: ignore
+            selectinload(Product.barcodes),  # type: ignore
+            selectinload(Product.variants).selectinload(  # type: ignore
+                ProductVariant.barcodes  # type: ignore
+            ),
+            selectinload(Product.variants).selectinload(  # type: ignore
+                ProductVariant.attribute_values  # type: ignore
+            ),
+        )
+        .order_by(Product.name)
+        .limit(limit)
+    ).all()
+    return Page[ProductPublic](
+        data=[ProductPublic.model_validate(p) for p in products],
+        count=len(products),
     )
 
 

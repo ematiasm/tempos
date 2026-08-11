@@ -16,10 +16,15 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutSuppliersRouteImport } from './routes/_layout/suppliers'
+import { Route as LayoutStockRouteImport } from './routes/_layout/stock'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as LayoutSellRouteImport } from './routes/_layout/sell'
+import { Route as LayoutReportsRouteImport } from './routes/_layout/reports'
+import { Route as LayoutPaymentsRouteImport } from './routes/_layout/payments'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
 import { Route as LayoutDocumentsRouteImport } from './routes/_layout/documents'
 import { Route as LayoutCustomersRouteImport } from './routes/_layout/customers'
+import { Route as LayoutBuyRouteImport } from './routes/_layout/buy'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutCatalogProductsRouteImport } from './routes/_layout/catalog/products'
 
@@ -57,9 +62,29 @@ const LayoutSuppliersRoute = LayoutSuppliersRouteImport.update({
   path: '/suppliers',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutStockRoute = LayoutStockRouteImport.update({
+  id: '/stock',
+  path: '/stock',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutSellRoute = LayoutSellRouteImport.update({
+  id: '/sell',
+  path: '/sell',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutReportsRoute = LayoutReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutPaymentsRoute = LayoutPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutItemsRoute = LayoutItemsRouteImport.update({
@@ -75,6 +100,11 @@ const LayoutDocumentsRoute = LayoutDocumentsRouteImport.update({
 const LayoutCustomersRoute = LayoutCustomersRouteImport.update({
   id: '/customers',
   path: '/customers',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutBuyRoute = LayoutBuyRouteImport.update({
+  id: '/buy',
+  path: '/buy',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutAdminRoute = LayoutAdminRouteImport.update({
@@ -95,10 +125,15 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
+  '/buy': typeof LayoutBuyRoute
   '/customers': typeof LayoutCustomersRoute
   '/documents': typeof LayoutDocumentsRoute
   '/items': typeof LayoutItemsRoute
+  '/payments': typeof LayoutPaymentsRoute
+  '/reports': typeof LayoutReportsRoute
+  '/sell': typeof LayoutSellRoute
   '/settings': typeof LayoutSettingsRoute
+  '/stock': typeof LayoutStockRoute
   '/suppliers': typeof LayoutSuppliersRoute
   '/catalog/products': typeof LayoutCatalogProductsRoute
 }
@@ -108,10 +143,15 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
+  '/buy': typeof LayoutBuyRoute
   '/customers': typeof LayoutCustomersRoute
   '/documents': typeof LayoutDocumentsRoute
   '/items': typeof LayoutItemsRoute
+  '/payments': typeof LayoutPaymentsRoute
+  '/reports': typeof LayoutReportsRoute
+  '/sell': typeof LayoutSellRoute
   '/settings': typeof LayoutSettingsRoute
+  '/stock': typeof LayoutStockRoute
   '/suppliers': typeof LayoutSuppliersRoute
   '/': typeof LayoutIndexRoute
   '/catalog/products': typeof LayoutCatalogProductsRoute
@@ -124,10 +164,15 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/_layout/admin': typeof LayoutAdminRoute
+  '/_layout/buy': typeof LayoutBuyRoute
   '/_layout/customers': typeof LayoutCustomersRoute
   '/_layout/documents': typeof LayoutDocumentsRoute
   '/_layout/items': typeof LayoutItemsRoute
+  '/_layout/payments': typeof LayoutPaymentsRoute
+  '/_layout/reports': typeof LayoutReportsRoute
+  '/_layout/sell': typeof LayoutSellRoute
   '/_layout/settings': typeof LayoutSettingsRoute
+  '/_layout/stock': typeof LayoutStockRoute
   '/_layout/suppliers': typeof LayoutSuppliersRoute
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/catalog/products': typeof LayoutCatalogProductsRoute
@@ -141,10 +186,15 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
+    | '/buy'
     | '/customers'
     | '/documents'
     | '/items'
+    | '/payments'
+    | '/reports'
+    | '/sell'
     | '/settings'
+    | '/stock'
     | '/suppliers'
     | '/catalog/products'
   fileRoutesByTo: FileRoutesByTo
@@ -154,10 +204,15 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
+    | '/buy'
     | '/customers'
     | '/documents'
     | '/items'
+    | '/payments'
+    | '/reports'
+    | '/sell'
     | '/settings'
+    | '/stock'
     | '/suppliers'
     | '/'
     | '/catalog/products'
@@ -169,10 +224,15 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/_layout/admin'
+    | '/_layout/buy'
     | '/_layout/customers'
     | '/_layout/documents'
     | '/_layout/items'
+    | '/_layout/payments'
+    | '/_layout/reports'
+    | '/_layout/sell'
     | '/_layout/settings'
+    | '/_layout/stock'
     | '/_layout/suppliers'
     | '/_layout/'
     | '/_layout/catalog/products'
@@ -237,11 +297,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSuppliersRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/stock': {
+      id: '/_layout/stock'
+      path: '/stock'
+      fullPath: '/stock'
+      preLoaderRoute: typeof LayoutStockRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/settings': {
       id: '/_layout/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof LayoutSettingsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/sell': {
+      id: '/_layout/sell'
+      path: '/sell'
+      fullPath: '/sell'
+      preLoaderRoute: typeof LayoutSellRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/reports': {
+      id: '/_layout/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof LayoutReportsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/payments': {
+      id: '/_layout/payments'
+      path: '/payments'
+      fullPath: '/payments'
+      preLoaderRoute: typeof LayoutPaymentsRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/items': {
@@ -265,6 +353,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutCustomersRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/buy': {
+      id: '/_layout/buy'
+      path: '/buy'
+      fullPath: '/buy'
+      preLoaderRoute: typeof LayoutBuyRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/admin': {
       id: '/_layout/admin'
       path: '/admin'
@@ -284,10 +379,15 @@ declare module '@tanstack/react-router' {
 
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
+  LayoutBuyRoute: typeof LayoutBuyRoute
   LayoutCustomersRoute: typeof LayoutCustomersRoute
   LayoutDocumentsRoute: typeof LayoutDocumentsRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
+  LayoutPaymentsRoute: typeof LayoutPaymentsRoute
+  LayoutReportsRoute: typeof LayoutReportsRoute
+  LayoutSellRoute: typeof LayoutSellRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
+  LayoutStockRoute: typeof LayoutStockRoute
   LayoutSuppliersRoute: typeof LayoutSuppliersRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutCatalogProductsRoute: typeof LayoutCatalogProductsRoute
@@ -295,10 +395,15 @@ interface LayoutRouteChildren {
 
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
+  LayoutBuyRoute: LayoutBuyRoute,
   LayoutCustomersRoute: LayoutCustomersRoute,
   LayoutDocumentsRoute: LayoutDocumentsRoute,
   LayoutItemsRoute: LayoutItemsRoute,
+  LayoutPaymentsRoute: LayoutPaymentsRoute,
+  LayoutReportsRoute: LayoutReportsRoute,
+  LayoutSellRoute: LayoutSellRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
+  LayoutStockRoute: LayoutStockRoute,
   LayoutSuppliersRoute: LayoutSuppliersRoute,
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutCatalogProductsRoute: LayoutCatalogProductsRoute,

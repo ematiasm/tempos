@@ -18,6 +18,7 @@ import {
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 interface DeleteSupplierProps {
@@ -26,6 +27,7 @@ interface DeleteSupplierProps {
 }
 
 const DeleteSupplier = ({ supplier, onSuccess }: DeleteSupplierProps) => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -35,7 +37,7 @@ const DeleteSupplier = ({ supplier, onSuccess }: DeleteSupplierProps) => {
     mutationFn: () =>
       SuppliersService.deleteSupplier({ supplierId: supplier.id }),
     onSuccess: () => {
-      showSuccessToast("Supplier deactivated successfully")
+      showSuccessToast(t("suppliers.deactivated"))
       setIsOpen(false)
       onSuccess()
     },
@@ -55,22 +57,22 @@ const DeleteSupplier = ({ supplier, onSuccess }: DeleteSupplierProps) => {
         onClick={() => setIsOpen(true)}
       >
         <Trash2 />
-        Deactivate Supplier
+        {t("suppliers.deactivate")}
       </DropdownMenuItem>
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
-            <DialogTitle>Deactivate Supplier</DialogTitle>
+            <DialogTitle>{t("suppliers.deactivate")}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to deactivate{" "}
-              <strong>{supplier.razon_social}</strong>? The account history is
-              kept and you can reactivate it later.
+              {t("suppliers.deactivateHint", {
+                name: supplier.razon_social,
+              })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">
             <DialogClose asChild>
               <Button variant="outline" disabled={mutation.isPending}>
-                Cancel
+                {t("common.cancel")}
               </Button>
             </DialogClose>
             <LoadingButton
@@ -78,7 +80,7 @@ const DeleteSupplier = ({ supplier, onSuccess }: DeleteSupplierProps) => {
               type="submit"
               loading={mutation.isPending}
             >
-              Deactivate
+              {t("suppliers.deactivateAction")}
             </LoadingButton>
           </DialogFooter>
         </form>

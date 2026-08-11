@@ -25,15 +25,18 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
-  business_name: z.string().min(1, { message: "Business name is required" }),
+  business_name: z
+    .string()
+    .min(1, { message: "La razón social es obligatoria" }),
   address: z.string().optional(),
   phone: z.string().optional(),
   email: z
     .string()
-    .email({ message: "Invalid email address" })
+    .email({ message: "La dirección de correo es inválida" })
     .optional()
     .or(z.literal("")),
   cuit: z.string().optional(),
@@ -45,17 +48,18 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>
 
-const TAX_CONDITIONS: { value: TaxCondition; label: string }[] = [
-  { value: "RI", label: "Responsable Inscripto" },
-  { value: "Monotributo", label: "Monotributo" },
-  { value: "Exento", label: "Exento" },
-  { value: "Consumidor Final", label: "Consumidor Final" },
-]
-
 function GeneralSettings() {
+  const t = useT()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [isEditing, setIsEditing] = useState(false)
+
+  const TAX_CONDITIONS: { value: TaxCondition; label: string }[] = [
+    { value: "RI", label: t("admin.general.taxRi") },
+    { value: "Monotributo", label: t("admin.general.taxMonotributo") },
+    { value: "Exento", label: t("admin.general.taxExento") },
+    { value: "Consumidor Final", label: t("admin.general.taxConsumidorFinal") },
+  ]
 
   const { data: settings } = useQuery({
     queryFn: () => BusinessSettingsService.readBusinessSettings(),
@@ -113,7 +117,7 @@ function GeneralSettings() {
       })
     },
     onSuccess: () => {
-      showSuccessToast("Business settings updated successfully")
+      showSuccessToast(t("admin.general.saved"))
       setIsEditing(false)
     },
     onError: handleError.bind(showErrorToast),
@@ -127,19 +131,21 @@ function GeneralSettings() {
   }
 
   if (!settings) {
-    return <div className="text-muted-foreground">Loading settings...</div>
+    return <div className="text-muted-foreground">{t("common.loading")}</div>
   }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">General Settings</h2>
-          <p className="text-muted-foreground">
-            Configure your business information and operational preferences
-          </p>
+          <h2 className="text-xl font-bold tracking-tight">
+            {t("admin.general.title")}
+          </h2>
+          <p className="text-muted-foreground">{t("admin.general.subtitle")}</p>
         </div>
-        {!isEditing && <Button onClick={() => setIsEditing(true)}>Edit</Button>}
+        {!isEditing && (
+          <Button onClick={() => setIsEditing(true)}>{t("common.edit")}</Button>
+        )}
       </div>
 
       <Form {...form}>
@@ -151,11 +157,12 @@ function GeneralSettings() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    Business Name <span className="text-destructive">*</span>
+                    {t("admin.general.businessName")}{" "}
+                    <span className="text-destructive">*</span>
                   </FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="My Business"
+                      placeholder={t("admin.general.businessNamePlaceholder")}
                       {...field}
                       disabled={!isEditing}
                     />
@@ -171,10 +178,10 @@ function GeneralSettings() {
                 name="cuit"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>CUIT</FormLabel>
+                    <FormLabel>{t("admin.general.cuit")}</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="30-12345678-9"
+                        placeholder={t("admin.general.cuitPlaceholder")}
                         {...field}
                         disabled={!isEditing}
                       />
@@ -189,7 +196,7 @@ function GeneralSettings() {
                 name="condicion_fiscal"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Tax Condition</FormLabel>
+                    <FormLabel>{t("admin.general.taxCondition")}</FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       value={field.value}
@@ -197,7 +204,9 @@ function GeneralSettings() {
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select tax condition" />
+                          <SelectValue
+                            placeholder={t("admin.general.selectTaxCondition")}
+                          />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -220,10 +229,10 @@ function GeneralSettings() {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone</FormLabel>
+                    <FormLabel>{t("admin.general.phone")}</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Phone"
+                        placeholder={t("admin.general.phonePlaceholder")}
                         {...field}
                         disabled={!isEditing}
                       />
@@ -238,10 +247,10 @@ function GeneralSettings() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>{t("auth.email")}</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="email@example.com"
+                        placeholder={t("admin.general.emailPlaceholder")}
                         {...field}
                         disabled={!isEditing}
                       />
@@ -257,10 +266,10 @@ function GeneralSettings() {
               name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address</FormLabel>
+                  <FormLabel>{t("admin.general.address")}</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="Street, City, Province"
+                      placeholder={t("admin.general.addressPlaceholder")}
                       {...field}
                       disabled={!isEditing}
                     />
@@ -275,7 +284,7 @@ function GeneralSettings() {
               name="default_iva"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Default VAT Rate (%)</FormLabel>
+                  <FormLabel>{t("admin.general.defaultIva")}</FormLabel>
                   <FormControl>
                     <Input
                       placeholder="21"
@@ -304,10 +313,10 @@ function GeneralSettings() {
                     </FormControl>
                     <div>
                       <FormLabel className="font-normal">
-                        Allow Negative Stock
+                        {t("admin.general.allowNegativeStock")}
                       </FormLabel>
                       <p className="text-sm text-muted-foreground">
-                        Allow products to go below zero stock
+                        {t("admin.general.allowNegativeStockHint")}
                       </p>
                     </div>
                   </FormItem>
@@ -328,10 +337,10 @@ function GeneralSettings() {
                     </FormControl>
                     <div>
                       <FormLabel className="font-normal">
-                        Enable Product Variants
+                        {t("admin.general.enableVariants")}
                       </FormLabel>
                       <p className="text-sm text-muted-foreground">
-                        Allow products to have variants (e.g. color, size)
+                        {t("admin.general.enableVariantsHint")}
                       </p>
                     </div>
                   </FormItem>
@@ -343,7 +352,7 @@ function GeneralSettings() {
           {isEditing && (
             <div className="flex gap-2 mt-6">
               <LoadingButton type="submit" loading={mutation.isPending}>
-                Save Changes
+                {t("admin.general.saveChanges")}
               </LoadingButton>
               <Button
                 type="button"
@@ -353,7 +362,7 @@ function GeneralSettings() {
                   form.reset()
                 }}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
             </div>
           )}

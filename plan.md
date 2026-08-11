@@ -1,6 +1,6 @@
-# Fastapyme — Master Development Plan
+# Tempos — Master Development Plan
 
-A retail / mixed-business management system built on the Full Stack FastAPI Template.
+A retail / mixed-business management system built on the the upstream template.
 Scope: single store, single currency (ARS), single warehouse.
 
 ---
@@ -9,9 +9,9 @@ Scope: single store, single currency (ARS), single warehouse.
 
 | Topic | Decision |
 |---|---|
-| Project name | **FastEmpre** |
+| Project name | **tempos** |
 | Code / docs / comments language | **English** (conversation: Spanish) |
-| Base stack | Full Stack FastAPI Template (extend, don't modify) |
+| Base stack | the upstream template (extend, don't modify) |
 | RBAC | Dynamic editable roles + `resource.action` permissions; 1 user = 1 role (M:N link table ready for future multi-role) |
 | Scope | Single store, single currency (ARS), **single warehouse** |
 | Documents | Unified `Document` + `DocumentType` model (Odoo-style); types seeded, **individually editable** |
@@ -83,13 +83,13 @@ Scope: single store, single currency (ARS), single warehouse.
 - `StockMovement` (product_id, variant_id, document_id, document_line_id, signo, cantidad signed, motivo, user_id, created_at)
 
 ### Finance (append-only ledger)
-- `FinancialAccount` (name, tipo [efectivo/banco/tarjeta/digital/cuenta_cliente/cuenta_proveedor], saldo signed, currency="ARS")
-- `PaymentMethod` (name, financial_account_id N:1, requiere_conciliacion)
+- `FinancialAccount` (name, saldo signed, currency="ARS") — pure balance container
+- `PaymentMethod` (name, financial_account_id N:1, marks_paid default true, requiere_conciliacion); `marks_paid=false` = current-account/credit method (neither counts as paid nor generates `AccountMovement`)
 - `AccountMovement` (financial_account_id, document_id?, payment_method_id?, transfer_id?, monto signed, tipo, fecha, fecha_acreditacion?, conciliado, user_id, created_at)
 - `Transfer` (from_account_id, to_account_id, monto, fecha, descripcion, user_id)
 
 ### Current-account ledger (append-only)
-- `CustomerAccountMovement` (customer_id, document_id, monto signed, created_at)
+- `CustomerAccountMovement` (customer_id, document_id, monto signed, created_at). Sum = `Customer.saldo`; credit sales (unpaid remainder or `marks_paid=false` payments) increase it
 - `SupplierAccountMovement` (mirror)
 
 ---
@@ -105,18 +105,47 @@ Scope: single store, single currency (ARS), single warehouse.
 | **4a** | Document structure: seeded `DocumentType` (prefixes per section F) + `DocumentSequence` (`SELECT FOR UPDATE`) + `Document` + `DocumentLine` (with `costo_unitario` snapshot) + `DocumentLineTax` + `DocumentTax` + `DocumentPayment`; document creation; numbering `YYYY-PREFIX-NUM`; tax condition → A/B/C; per-line and per-document discounts; taxes auto-applied, removable per line (`aplicado` flag). Explicit hook points for costs (5), stock (6) and finance ledger (7) |
 | **4b** | Voiding: total and partial (NC against original via `parent_document_id`); states `active`/`voided` |
 | **4c** | Quote → Invoice in 1 click, link via `parent_document_id` |
-| **6+7** | Unified ledgers: `StockMovement` (append-only, negative-stock validation, atomic `Product.stock_current` UPDATE) + finance (`AccountMovement`, `Transfer`, card commission + deferred accreditation, `CustomerAccountMovement`/`SupplierAccountMovement` with atomic `saldo` UPDATE, `limite_credito` validation on credit sales). Activates the 4a hooks in the document transaction. (`FinancialAccount`/`PaymentMethod` tables + seeds already landed in 4a for `DocumentPayment`) |
-| **5** | Costs (`SupplierProduct` N:M + history); trigger on purchase: flag if new cost != current + option to update |
-| **8** | Operational UX (Sales, Purchases, Stock, Catalog, Customers, Suppliers) + reports (sales/day, low stock, balances, VAT/perceptions, margin per product, current-account ledger, to-order with supplier/category filter, cash/bank movements) + HTML voucher view with `window.print()` |
-| **9** | i18n/es + Playwright E2E of critical flows + deploy |
+| **6+7** | Unified ledgers: `StockMovement` (append-only, negative-stock validation, atomic `Product.stock_current` UPDATE) + finance (`AccountMovement`, `Transfer`, card commission + deferred accreditation, `CustomerAccountMovement`/`SupplierAccountMovement` with atomic `saldo` UPDATE, `limite_credito` validation on credit sales). Activates the 4a hooks in the document transaction. (`FinancialAccount`/`PaymentMethod` tables + seeds already landed in 4a for `DocumentPayment`). ✅ Done |
+| **5** | Costs (`SupplierProduct` N:M + history). Purchase trigger is suggestion-only: `POST /documents` returns `cost_change_suggestions` only for lines whose price exceeds `Product.costo_actual` (never mutates anything by itself); the user confirms via the buy screen. Confirming a suggestion promotes the pair to `es_referencia`, replacing any previous reference. The reference supplier (`es_referencia`) drives `Product.costo_actual` + `precio_venta` recompute atomically. UI: Costs tab in the product detail sheet. ✅ Done |
+| **8** | Operational UX (Sales, Purchases, Stock) + reports (sales/day, margin per product, VAT/perceptions, low stock, to-order with supplier/category filter, cash/bank movements, current accounts) + HTML voucher view with `window.print()`. ✅ Done |
+| **9** | i18n/es (react-intl, default es + en, locale switch in User Settings) + Playwright E2E of critical flows (73 specs green, template specs migrated to Spanish UI) + deploy (DO VPS + Traefik; `scripts/deploy.sh` + `docs/DEPLOY.md` + `.env.production.example`). ✅ Done. Detail: below |
 
 Each phase: Alembic autogenerate migration + Pytest tests + regenerate OpenAPI client (`bash ./scripts/generate-client.sh` from the repo root).
+
+### Phase 9 — i18n/es + E2E + deploy (locked plan)
+
+#### 9a — i18n with react-intl (es default + en)
+- Add `react-intl`. Messages as typed modules (`src/i18n/messages/en.ts`, `es.ts`; `Messages = typeof en` so missing keys fail at compile time).
+- `IntlProvider` mounted at the app root; locale preference in `localStorage` (`tempos.locale`), **default `es`**; language switch exposed in User Settings.
+- Dates/numbers via `intl.formatDate` / `formatNumber` (ARS currency, es-AR dates).
+- Migration order (largest value first): Sell, Buy, Stock, Reports, Documents (incl. voucher + print), sidebar/nav + page titles, Customers/Suppliers, Products, Admin (users/roles, catalog, finance, settings), auth screens. Voucher text follows the same catalogs.
+- **Backend errors**: keep backend messages in English, but add a stable machine `code` in `detail` (`{"code": "insufficient_stock", "message": "..."}`) on the UX-critical endpoints (stock, credit limit, voiding/NC, document numbers, taxes). Frontend `handleError` maps `code` → `intl.formatMessage`; unknown codes fall back to the raw message.
+- Toasts, empty states and DataTable labels use messages.
+- No new tables; locale is device-level (per-user locale persisted in `User` is a possible later follow-up, not part of this phase).
+
+#### 9b — Playwright E2E of critical flows
+- Migrate the template specs (login, sign-up, items, admin, user-settings, reset-password) to the Spanish UI text (default locale es).
+- New specs, seeding data through the backend API via Playwright `request` where setup is not the flow under test:
+  1. `catalog.spec.ts` — create UoM/Tax/Product in admin; verify computed `precio_venta` and searchability in Sell.
+  2. `sell.spec.ts` — cart → customer (Consumidor Final) → payment → issue; success screen; voucher preview with `window.print` stubbed.
+  3. `buy.spec.ts` — purchase with lines; cost suggestion panel; apply suggestion → product cost updated.
+  4. `stock.spec.ts` — positive/negative adjustments; negative-stock warning.
+  5. `documents.spec.ts` — list, detail, void sale → NC issued, original flips to voided.
+  6. `reports.spec.ts` — tabs render and show seeded data.
+- Runs against the local stack (db + backend + `bun run dev`); `playwright.config.ts` keeps baseURL `http://localhost:5173`.
+
+#### 9c — Deploy (DO VPS + Traefik)
+- `compose.prod.yml`: postgres (persistent volume) + backend (prestart migrations, `ENVIRONMENT=production`) + frontend (nginx serving `dist`) + traefik integration (TLS via Let's Encrypt, `https-redirect` middleware; routers for `DOMAIN` and `traefik.DOMAIN`).
+- `.env.production.example`: `DOMAIN`, `ENVIRONMENT=production`, `SECRET_KEY`, `POSTGRES_PASSWORD`, `FIRST_SUPERUSER_*`, `BACKEND_CORS_ORIGINS=https://DOMAIN`, `VITE_API_URL`.
+- Validate/adapt the existing `deploy-staging.yml` / `deploy-production.yml` workflows and add `scripts/deploy.sh` if missing.
+- `docs/DEPLOY.md`: DO droplet setup (docker install, DNS A record, `.env.production`, `docker compose -f compose.prod.yml up -d`), backups (`pg_dump`) and restore steps, logs/rollback.
+- CI smoke (`smokeshow.yml`) already present; verify it points at the new specs.
 
 ---
 
 ## D. `AGENTS.md` outline (to be created in Phase 0)
 
-1. Project purpose and scope (FastEmpre, retail/mixed-business, single-store ARS)
+1. Project purpose and scope (tempos, retail/mixed-business, single-store ARS)
 2. Stack and conventions (SQLModel + Pydantic v2 + Alembic + ruff + mypy strict; react-hook-form + zod + TanStack Query/Router/Table + shadcn/ui new-york + sonner; **language: English everything**)
 3. Commands (`docker compose watch`, `uv sync`, `alembic revision --autogenerate`, `alembic upgrade head`, `bash scripts/test.sh`, `bash scripts/lint.sh`, `bun install`, `bun run dev`, `bun run generate-client`, `bunx playwright test`, `uv run prek run --all-files`)
 4. Where things live (models in `models.py`, CRUD in `crud.py`, routes in `api/routes/`, seed in `core/db.py`+`initial_data.py`, frontend routes in `src/routes/` file-based, services in `src/client/sdk.gen.ts` autogenerated)

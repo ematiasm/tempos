@@ -84,3 +84,40 @@ def test_administrador_role_cannot_be_deleted(
     )
     assert r.status_code == 400
     assert "cannot be deleted" in r.json()["detail"]
+
+
+def test_create_role_rejects_unknown_permission_ids(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    payload = {
+        "name": random_lower_string()[:12],
+        "description": "Test role",
+        "permission_ids": ["00000000-0000-0000-0000-000000000000"],
+    }
+    r = client.post(
+        f"{settings.API_V1_STR}/roles/", headers=superuser_token_headers, json=payload
+    )
+    assert r.status_code == 400
+    assert "Unknown permission ids" in r.json()["detail"]
+
+
+def test_update_role_rejects_unknown_permission_ids(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    perm_id = _get_permission_id(client, superuser_token_headers, "product.read")
+    payload = {
+        "name": random_lower_string()[:12],
+        "permission_ids": [perm_id],
+    }
+    r = client.post(
+        f"{settings.API_V1_STR}/roles/", headers=superuser_token_headers, json=payload
+    )
+    assert r.status_code == 200, r.text
+    created = r.json()
+    r = client.patch(
+        f"{settings.API_V1_STR}/roles/{created['id']}",
+        headers=superuser_token_headers,
+        json={"permission_ids": ["00000000-0000-0000-0000-000000000000"]},
+    )
+    assert r.status_code == 400
+    assert "Unknown permission ids" in r.json()["detail"]

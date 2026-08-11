@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import { Skeleton } from "@/components/ui/skeleton"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 interface VoidDocumentDialogProps {
@@ -33,6 +34,7 @@ const VoidDocumentDialog = ({
   onOpenChange,
   onVoided,
 }: VoidDocumentDialogProps) => {
+  const t = useT()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [quantities, setQuantities] = useState<Record<string, string>>({})
@@ -68,7 +70,7 @@ const VoidDocumentDialog = ({
         },
       }),
     onSuccess: (nc) => {
-      showSuccessToast(`Credit note ${nc.numero} issued`)
+      showSuccessToast(t("documents.creditNoteIssued", { numero: nc.numero }))
       onOpenChange(false)
       onVoided()
     },
@@ -91,13 +93,9 @@ const VoidDocumentDialog = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Ban className="h-5 w-5 text-destructive" />
-            Void {document.numero}
+            {t("documents.voidTitle", { numero: document.numero })}
           </DialogTitle>
-          <DialogDescription>
-            A credit note will be issued with the quantities below (leave a
-            field at its remaining quantity to revert it completely; set 0 to
-            skip a line). A full void flips the document to voided.
-          </DialogDescription>
+          <DialogDescription>{t("documents.voidHint")}</DialogDescription>
         </DialogHeader>
         {!fresh && (
           <div className="flex flex-col gap-2 py-2">
@@ -119,7 +117,9 @@ const VoidDocumentDialog = ({
                       {Number(line.cantidad)} ×{" "}
                       {Number(line.precio_unit).toFixed(2)}
                     </span>
-                    <span className="ml-2 text-xs">(left: {pending})</span>
+                    <span className="ml-2 text-xs">
+                      {t("documents.left", { pending })}
+                    </span>
                   </div>
                   <Input
                     type="number"
@@ -142,7 +142,7 @@ const VoidDocumentDialog = ({
         )}
         {nothingLeft && (
           <p className="text-sm text-muted-foreground">
-            Nothing left to void on this document.
+            {t("documents.nothingLeft")}
           </p>
         )}
         <DialogFooter>
@@ -157,11 +157,11 @@ const VoidDocumentDialog = ({
               setQuantities(all)
             }}
           >
-            Void all remaining
+            {t("documents.voidAllRemaining")}
           </Button>
           <DialogClose asChild>
             <Button variant="outline" disabled={mutation.isPending}>
-              Cancel
+              {t("common.cancel")}
             </Button>
           </DialogClose>
           <LoadingButton
@@ -171,7 +171,7 @@ const VoidDocumentDialog = ({
             disabled={!fresh || !!nothingLeft}
             onClick={() => mutation.mutate()}
           >
-            Issue credit note
+            {t("documents.issueCreditNote")}
           </LoadingButton>
         </DialogFooter>
       </DialogContent>

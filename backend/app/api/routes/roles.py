@@ -2,7 +2,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from sqlmodel import col, delete, func, select
+from sqlmodel import Session, col, delete, func, select
 
 from app.api.deps import PaginationDep, SessionDep, require_permissions
 from app.models import (
@@ -17,6 +17,28 @@ from app.models import (
 )
 
 router = APIRouter(prefix="/roles", tags=["roles"])
+
+
+def _validate_permission_ids(
+    session: Session, permission_ids: list[uuid.UUID]
+) -> list[Permission]:
+    """Validate that every permission id exists, returning the rows.
+
+    Raises 400 listing the unknown ids instead of silently dropping them.
+    """
+    if not permission_ids:
+        return []
+    found = session.exec(
+        select(Permission).where(col(Permission.id).in_(permission_ids))
+    ).all()
+    found_ids = {perm.id for perm in found}
+    missing = [str(pid) for pid in permission_ids if pid not in found_ids]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown permission ids: {', '.join(missing)}",
+        )
+    return list(found)
 
 
 @router.get(
@@ -48,14 +70,13 @@ def create_role(*, session: SessionDep, role_in: RoleCreate) -> Any:
             status_code=400,
             detail="A role with this name already exists",
         )
+    perms = _validate_permission_ids(session, role_in.permission_ids)
     role = Role(name=role_in.name, description=role_in.description)
     session.add(role)
     session.commit()
     session.refresh(role)
-    for perm_id in role_in.permission_ids:
-        perm = session.get(Permission, perm_id)
-        if perm:
-            session.add(RolePermission(role_id=role.id, permission_id=perm_id))
+    for perm in perms:
+        session.add(RolePermission(role_id=role.id, permission_id=perm.id))
     session.commit()
     session.refresh(role)
     return role
@@ -100,13 +121,12 @@ def update_role(*, session: SessionDep, role_id: uuid.UUID, role_in: RoleUpdate)
     session.commit()
     session.refresh(role)
     if permission_ids is not None:
+        perms = _validate_permission_ids(session, permission_ids)
         session.exec(
             delete(RolePermission).where(col(RolePermission.role_id) == role_id)
         )
-        for perm_id in permission_ids:
-            perm = session.get(Permission, perm_id)
-            if perm:
-                session.add(RolePermission(role_id=role_id, permission_id=perm_id))
+        for perm in perms:
+            session.add(RolePermission(role_id=role_id, permission_id=perm.id))
         session.commit()
         session.refresh(role)
     return role

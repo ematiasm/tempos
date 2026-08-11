@@ -29,14 +29,15 @@ import {
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: "Name is required" }),
+  name: z.string().min(1, { message: "El nombre es obligatorio" }),
   abbreviation: z
     .string()
-    .min(1, { message: "Abbreviation is required" })
-    .max(10, { message: "Max 10 characters" }),
+    .min(1, { message: "La abreviatura es obligatoria" })
+    .max(10, { message: "Máximo 10 caracteres" }),
   decimal_places: z
     .string()
     .optional()
@@ -46,7 +47,7 @@ const formSchema = z.object({
         v === "" ||
         v === undefined ||
         (/^\d+$/.test(v) && Number(v) >= 0 && Number(v) <= 4),
-      { message: "Must be an integer between 0 and 4" },
+      { message: "Debe ser un entero entre 0 y 4" },
     ),
 })
 
@@ -58,6 +59,7 @@ interface EditUoMProps {
 }
 
 const EditUoM = ({ uom, onSuccess }: EditUoMProps) => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -83,7 +85,7 @@ const EditUoM = ({ uom, onSuccess }: EditUoMProps) => {
       return UomsService.updateUom({ uomId: uom.id, requestBody })
     },
     onSuccess: () => {
-      showSuccessToast("Unit of measure updated successfully")
+      showSuccessToast(t("admin.units.updated"))
       setIsOpen(false)
       onSuccess()
     },
@@ -102,14 +104,16 @@ const EditUoM = ({ uom, onSuccess }: EditUoMProps) => {
         onClick={() => setIsOpen(true)}
       >
         <Pencil />
-        Edit Unit
+        {t("admin.units.edit")}
       </DropdownMenuItem>
       <DialogContent className="sm:max-w-md">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
-              <DialogTitle>Edit Unit of Measure</DialogTitle>
-              <DialogDescription>Update the unit details.</DialogDescription>
+              <DialogTitle>{t("admin.units.editTitle")}</DialogTitle>
+              <DialogDescription>
+                {t("admin.units.editDescription")}
+              </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <FormField
@@ -118,7 +122,8 @@ const EditUoM = ({ uom, onSuccess }: EditUoMProps) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Name <span className="text-destructive">*</span>
+                      {t("common.name")}{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input {...field} />
@@ -133,7 +138,8 @@ const EditUoM = ({ uom, onSuccess }: EditUoMProps) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Abbreviation <span className="text-destructive">*</span>
+                      {t("admin.units.abbreviation")}{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input {...field} />
@@ -147,7 +153,7 @@ const EditUoM = ({ uom, onSuccess }: EditUoMProps) => {
                 name="decimal_places"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Decimal Places</FormLabel>
+                    <FormLabel>{t("admin.units.decimalPlaces")}</FormLabel>
                     <FormControl>
                       <Input type="number" min={0} max={4} {...field} />
                     </FormControl>
@@ -159,11 +165,11 @@ const EditUoM = ({ uom, onSuccess }: EditUoMProps) => {
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline" disabled={mutation.isPending}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </DialogClose>
               <LoadingButton type="submit" loading={mutation.isPending}>
-                Save
+                {t("common.save")}
               </LoadingButton>
             </DialogFooter>
           </form>

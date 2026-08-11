@@ -18,6 +18,7 @@ import {
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 interface DeleteAttributeProps {
@@ -26,6 +27,7 @@ interface DeleteAttributeProps {
 }
 
 const DeleteAttribute = ({ attribute, onSuccess }: DeleteAttributeProps) => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -35,7 +37,7 @@ const DeleteAttribute = ({ attribute, onSuccess }: DeleteAttributeProps) => {
     mutationFn: () =>
       AttributesService.deleteAttribute({ attributeId: attribute.id }),
     onSuccess: () => {
-      showSuccessToast("Attribute deleted successfully")
+      showSuccessToast(t("admin.attributes.deleted"))
       setIsOpen(false)
       onSuccess()
     },
@@ -55,22 +57,20 @@ const DeleteAttribute = ({ attribute, onSuccess }: DeleteAttributeProps) => {
         onClick={() => setIsOpen(true)}
       >
         <Trash2 />
-        Delete Attribute
+        {t("admin.attributes.delete")}
       </DropdownMenuItem>
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
-            <DialogTitle>Delete Attribute</DialogTitle>
+            <DialogTitle>{t("admin.attributes.delete")}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete <strong>{attribute.name}</strong>?
-              Its values will be removed as well. Attributes in use by product
-              variants cannot be deleted.
+              {t("admin.attributes.deleteConfirm", { name: attribute.name })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">
             <DialogClose asChild>
               <Button variant="outline" disabled={mutation.isPending}>
-                Cancel
+                {t("common.cancel")}
               </Button>
             </DialogClose>
             <LoadingButton
@@ -78,7 +78,7 @@ const DeleteAttribute = ({ attribute, onSuccess }: DeleteAttributeProps) => {
               type="submit"
               loading={mutation.isPending}
             >
-              Delete
+              {t("common.delete")}
             </LoadingButton>
           </DialogFooter>
         </form>

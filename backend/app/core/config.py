@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = ""
+    # Directory where backup dumps are stored (a volume in Docker deployments).
+    BACKUP_DIR: str = "/backups"
 
     @computed_field  # type: ignore[prop-decorator]
     @property

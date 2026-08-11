@@ -29,11 +29,12 @@ import {
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 import AttributeValuesEditor from "./attributeValuesEditor"
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: "Name is required" }),
+  name: z.string().min(1, { message: "El nombre es obligatorio" }),
   values: z.array(z.string()),
 })
 
@@ -45,6 +46,7 @@ interface EditAttributeProps {
 }
 
 const EditAttribute = ({ attribute, onSuccess }: EditAttributeProps) => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -66,7 +68,7 @@ const EditAttribute = ({ attribute, onSuccess }: EditAttributeProps) => {
         requestBody: { name: data.name, values: data.values },
       }),
     onSuccess: () => {
-      showSuccessToast("Attribute updated successfully")
+      showSuccessToast(t("admin.attributes.updated"))
       setIsOpen(false)
       onSuccess()
     },
@@ -85,16 +87,15 @@ const EditAttribute = ({ attribute, onSuccess }: EditAttributeProps) => {
         onClick={() => setIsOpen(true)}
       >
         <Pencil />
-        Edit Attribute
+        {t("admin.attributes.edit")}
       </DropdownMenuItem>
       <DialogContent className="sm:max-w-md">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
-              <DialogTitle>Edit Attribute</DialogTitle>
+              <DialogTitle>{t("admin.attributes.edit")}</DialogTitle>
               <DialogDescription>
-                Rename the attribute or sync its values. Values used by product
-                variants cannot be removed.
+                {t("admin.attributes.editDescription")}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -104,7 +105,8 @@ const EditAttribute = ({ attribute, onSuccess }: EditAttributeProps) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Name <span className="text-destructive">*</span>
+                      {t("common.name")}{" "}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input {...field} />
@@ -118,7 +120,7 @@ const EditAttribute = ({ attribute, onSuccess }: EditAttributeProps) => {
                 name="values"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Values</FormLabel>
+                    <FormLabel>{t("admin.attributes.values")}</FormLabel>
                     <FormControl>
                       <AttributeValuesEditor
                         values={field.value}
@@ -133,11 +135,11 @@ const EditAttribute = ({ attribute, onSuccess }: EditAttributeProps) => {
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline" disabled={mutation.isPending}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </DialogClose>
               <LoadingButton type="submit" loading={mutation.isPending}>
-                Save
+                {t("common.save")}
               </LoadingButton>
             </DialogFooter>
           </form>

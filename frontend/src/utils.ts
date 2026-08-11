@@ -1,4 +1,5 @@
 import { AxiosError } from "axios"
+import { formatStatic } from "@/i18n"
 import type { ApiError } from "./client"
 
 function extractErrorMessage(err: ApiError): string {
@@ -9,6 +10,18 @@ function extractErrorMessage(err: ApiError): string {
   const errDetail = (err.body as any)?.detail
   if (Array.isArray(errDetail) && errDetail.length > 0) {
     return errDetail[0].msg
+  }
+  if (
+    errDetail &&
+    typeof errDetail === "object" &&
+    typeof errDetail.code === "string"
+  ) {
+    const code = errDetail.code
+    const translated = formatStatic(`errors.${code}` as never)
+    if (translated !== `errors.${code}`) {
+      return translated
+    }
+    return errDetail.message || "Something went wrong."
   }
   return errDetail || "Something went wrong."
 }

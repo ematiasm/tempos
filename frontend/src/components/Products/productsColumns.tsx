@@ -2,6 +2,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 
 import type { ProductPublic } from "@/client"
 import { Badge } from "@/components/ui/badge"
+import type { useT } from "@/i18n"
 import { cn } from "@/lib/utils"
 
 export type ProductRow = ProductPublic & {
@@ -9,11 +10,12 @@ export type ProductRow = ProductPublic & {
 }
 
 export const getProductsColumns = (
+  t: ReturnType<typeof useT>,
   onOpen: (product: ProductPublic) => void,
 ): ColumnDef<ProductRow>[] => [
   {
     accessorKey: "name",
-    header: "Name",
+    header: t("products.name"),
     cell: ({ row }) => (
       <button
         type="button"
@@ -26,16 +28,16 @@ export const getProductsColumns = (
   },
   {
     accessorKey: "sku",
-    header: "SKU",
+    header: t("products.sku"),
     cell: ({ row }) => (
       <span className="text-muted-foreground font-mono text-sm">
-        {row.original.sku || "N/A"}
+        {row.original.sku || t("products.na")}
       </span>
     ),
   },
   {
     id: "category",
-    header: "Category",
+    header: t("products.category"),
     cell: ({ row }) => (
       <span className="text-muted-foreground text-sm">
         {row.original.category_name ?? "—"}
@@ -44,7 +46,7 @@ export const getProductsColumns = (
   },
   {
     accessorKey: "costo_actual",
-    header: "Cost",
+    header: t("products.cost"),
     cell: ({ row }) => (
       <span className="text-muted-foreground">
         $
@@ -56,7 +58,7 @@ export const getProductsColumns = (
   },
   {
     accessorKey: "margen_pct",
-    header: "Margin",
+    header: t("products.margin"),
     cell: ({ row }) => (
       <span className="text-muted-foreground">
         {Number(row.original.margen_pct).toFixed(2)}%
@@ -65,7 +67,7 @@ export const getProductsColumns = (
   },
   {
     accessorKey: "precio_venta",
-    header: "Sale Price",
+    header: t("products.salePrice"),
     cell: ({ row }) => (
       <span className="font-medium">
         $
@@ -77,7 +79,7 @@ export const getProductsColumns = (
   },
   {
     id: "stock",
-    header: "Stock",
+    header: t("products.stock"),
     cell: ({ row }) => {
       const stock = Number(row.original.stock_current)
       const min = row.original.stock_minimo
@@ -87,24 +89,30 @@ export const getProductsColumns = (
       return (
         <span className={cn("font-medium", isLow && "text-red-500")}>
           {stock.toLocaleString("es-AR")}
-          {isLow && <span className="ml-1 text-xs">(low)</span>}
+          {isLow && (
+            <span className="ml-1 text-xs">{t("products.lowStock")}</span>
+          )}
         </span>
       )
     },
   },
   {
     id: "taxes",
-    header: "Taxes",
+    header: t("products.taxes"),
     cell: ({ row }) => {
       const taxes = row.original.taxes ?? []
       if (taxes.length === 0) {
-        return <span className="text-muted-foreground text-sm">None</span>
+        return (
+          <span className="text-muted-foreground text-sm">
+            {t("products.none")}
+          </span>
+        )
       }
       return (
         <div className="flex flex-wrap gap-1">
-          {taxes.map((t) => (
-            <Badge key={t.id} variant="secondary" className="text-xs">
-              {t.code}
+          {taxes.map((tax) => (
+            <Badge key={tax.id} variant="secondary" className="text-xs">
+              {tax.code}
             </Badge>
           ))}
         </div>
@@ -113,7 +121,7 @@ export const getProductsColumns = (
   },
   {
     accessorKey: "is_active",
-    header: "Status",
+    header: t("common.status"),
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <span
@@ -123,7 +131,7 @@ export const getProductsColumns = (
           )}
         />
         <span className={row.original.is_active ? "" : "text-muted-foreground"}>
-          {row.original.is_active ? "Active" : "Inactive"}
+          {row.original.is_active ? t("common.active") : t("common.inactive")}
         </span>
       </div>
     ),

@@ -17,6 +17,7 @@ import AddProduct from "@/components/Products/AddProduct"
 import ProductDetailSheet from "@/components/Products/ProductDetailSheet"
 import { getProductsColumns } from "@/components/Products/productsColumns"
 import { Input } from "@/components/ui/input"
+import { formatStatic, useT } from "@/i18n"
 import { cn } from "@/lib/utils"
 
 function getProductsQueryOptions() {
@@ -36,11 +37,7 @@ function getCategoriesQueryOptions() {
 export const Route = createFileRoute("/_layout/catalog/products")({
   component: Products,
   head: () => ({
-    meta: [
-      {
-        title: "Products - FastEmpre",
-      },
-    ],
+    meta: [{ title: `${formatStatic("products.title")} - tempos` }],
   }),
 })
 
@@ -86,6 +83,7 @@ interface TreeRowProps {
   onSelect: (id: string | null) => void
   countsByCat: Map<string, number>
   allCategories: CategoryPublic[]
+  t: ReturnType<typeof useT>
 }
 
 function TreeRow({
@@ -95,6 +93,7 @@ function TreeRow({
   onSelect,
   countsByCat,
   allCategories,
+  t,
 }: TreeRowProps) {
   const [expanded, setExpanded] = useState(true)
   const hasChildren = node.children.length > 0
@@ -112,7 +111,9 @@ function TreeRow({
             type="button"
             className="rounded p-0.5 hover:bg-muted"
             onClick={() => setExpanded((v) => !v)}
-            aria-label={expanded ? "Collapse" : "Expand"}
+            aria-label={
+              expanded ? t("products.collapse") : t("products.expand")
+            }
           >
             {expanded ? (
               <ChevronDown className="h-3.5 w-3.5" />
@@ -146,6 +147,7 @@ function TreeRow({
             onSelect={onSelect}
             countsByCat={countsByCat}
             allCategories={allCategories}
+            t={t}
           />
         ))}
     </div>
@@ -153,6 +155,7 @@ function TreeRow({
 }
 
 function ProductsContent() {
+  const t = useT()
   const { data: productsData } = useSuspenseQuery(getProductsQueryOptions())
   const { data: categoriesData } = useQuery(getCategoriesQueryOptions())
 
@@ -204,7 +207,9 @@ function ProductsContent() {
     category_name: p.category_id ? categoryMap.get(p.category_id) : undefined,
   }))
 
-  const columns = getProductsColumns((product) => setOpenProductId(product.id))
+  const columns = getProductsColumns(t, (product) =>
+    setOpenProductId(product.id),
+  )
 
   const tree = useMemo(() => buildCategoryTree(categories), [categories])
 
@@ -212,10 +217,10 @@ function ProductsContent() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Products</h1>
-          <p className="text-muted-foreground">
-            Browse, search and manage your catalog
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {t("products.title")}
+          </h1>
+          <p className="text-muted-foreground">{t("products.subtitle")}</p>
         </div>
         <AddProduct />
       </div>
@@ -224,7 +229,9 @@ function ProductsContent() {
         <aside className="md:w-72 shrink-0">
           <div className="border rounded-lg">
             <div className="px-3 py-2 border-b">
-              <span className="text-sm font-medium">Categories</span>
+              <span className="text-sm font-medium">
+                {t("products.categories")}
+              </span>
             </div>
             <div className="py-1">
               <button
@@ -237,7 +244,9 @@ function ProductsContent() {
               >
                 <span className="w-4" />
                 <Package className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="flex-1 text-left">All products</span>
+                <span className="flex-1 text-left">
+                  {t("products.allProducts")}
+                </span>
                 <span className="text-xs text-muted-foreground">
                   {products.length}
                 </span>
@@ -251,11 +260,12 @@ function ProductsContent() {
                   onSelect={setSelectedCategoryId}
                   countsByCat={countsByCat}
                   allCategories={categories}
+                  t={t}
                 />
               ))}
               {categories.length === 0 && (
                 <p className="px-3 py-2 text-xs text-muted-foreground">
-                  No categories yet. Add them in Admin → Categories.
+                  {t("products.noCategories")}
                 </p>
               )}
             </div>
@@ -266,7 +276,7 @@ function ProductsContent() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name, SKU or barcode..."
+              placeholder={t("products.searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -276,11 +286,13 @@ function ProductsContent() {
           {filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center py-12 border rounded-lg">
               <Search className="h-8 w-8 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold">No products found</h3>
+              <h3 className="text-lg font-semibold">
+                {t("products.noResultsFound")}
+              </h3>
               <p className="text-muted-foreground">
                 {products.length === 0
-                  ? "Add a product to get started"
-                  : "Try a different search or category"}
+                  ? t("products.emptyHint")
+                  : t("products.emptyHintAlt")}
               </p>
             </div>
           ) : (

@@ -36,10 +36,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
-  razon_social: z.string().min(1, { message: "Name is required" }),
+  razon_social: z.string().min(1, { message: "El nombre es obligatorio" }),
   documento: z.string().optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
   email: z.string().optional().or(z.literal("")),
@@ -56,6 +57,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>
 
 const AddCustomer = () => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -90,7 +92,7 @@ const AddCustomer = () => {
         },
       }),
     onSuccess: () => {
-      showSuccessToast("Customer created successfully")
+      showSuccessToast(t("customers.created"))
       form.reset()
       setIsOpen(false)
     },
@@ -113,15 +115,13 @@ const AddCustomer = () => {
       <DialogTrigger asChild>
         <Button className="my-4">
           <Plus className="mr-2" />
-          Add Customer
+          {t("customers.add")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Customer</DialogTitle>
-          <DialogDescription>
-            Document is optional and must be a valid CUIT/CUIL when present.
-          </DialogDescription>
+          <DialogTitle>{t("customers.add")}</DialogTitle>
+          <DialogDescription>{t("customers.addHint")}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -132,11 +132,14 @@ const AddCustomer = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Name / Business name{" "}
+                      {t("customers.nameBusiness")}{" "}
                       <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Juan Pérez SRL" {...field} />
+                      <Input
+                        placeholder={t("customers.namePlaceholder")}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -148,7 +151,7 @@ const AddCustomer = () => {
                   name="documento"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Document</FormLabel>
+                      <FormLabel>{t("customers.document")}</FormLabel>
                       <FormControl>
                         <Input placeholder="20-12345678-9" {...field} />
                       </FormControl>
@@ -161,20 +164,23 @@ const AddCustomer = () => {
                   name="condicion_fiscal"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tax Condition</FormLabel>
+                      <FormLabel>{t("customers.taxCondition")}</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         value={field.value}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select" />
+                            <SelectValue placeholder={t("common.select")} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {TAX_CONDITIONS.map((t) => (
-                            <SelectItem key={t.value} value={t.value}>
-                              {t.label}
+                          {TAX_CONDITIONS.map((tOption) => (
+                            <SelectItem
+                              key={tOption.value}
+                              value={tOption.value}
+                            >
+                              {tOption.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -190,9 +196,9 @@ const AddCustomer = () => {
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone</FormLabel>
+                      <FormLabel>{t("customers.phone")}</FormLabel>
                       <FormControl>
-                        <Input placeholder="Optional" {...field} />
+                        <Input placeholder={t("common.optional")} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -203,12 +209,12 @@ const AddCustomer = () => {
                   name="limite_credito"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Credit Limit</FormLabel>
+                      <FormLabel>{t("customers.creditLimit")}</FormLabel>
                       <FormControl>
                         <Input type="number" step="0.01" {...field} />
                       </FormControl>
                       <p className="text-xs text-muted-foreground">
-                        0 = no limit
+                        {t("customers.noLimitHint")}
                       </p>
                       <FormMessage />
                     </FormItem>
@@ -220,9 +226,13 @@ const AddCustomer = () => {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>{t("auth.email")}</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="Optional" {...field} />
+                      <Input
+                        type="email"
+                        placeholder={t("common.optional")}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -233,9 +243,9 @@ const AddCustomer = () => {
                 name="address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Address</FormLabel>
+                    <FormLabel>{t("customers.address")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="Optional" {...field} />
+                      <Input placeholder={t("common.optional")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -245,11 +255,11 @@ const AddCustomer = () => {
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline" disabled={mutation.isPending}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </DialogClose>
               <LoadingButton type="submit" loading={mutation.isPending}>
-                Save
+                {t("common.save")}
               </LoadingButton>
             </DialogFooter>
           </form>

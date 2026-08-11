@@ -19,6 +19,7 @@ dependencies = [
     "sentry-sdk[fastapi]>=2.63.0,<3.0.0",
     "pyjwt<3.0.0,>=2.13.0",
     "pwdlib[argon2,bcrypt]>=0.3.0",
+    "apscheduler>=3.11.0,<4.0.0",
 ]
 
 [dependency-groups]
@@ -43,6 +44,10 @@ exclude = ["venv", ".venv", "alembic"]
 [[tool.mypy.overrides]]
 module = "app.models"
 warn_unused_ignores = false
+
+[[tool.mypy.overrides]]
+module = ["apscheduler.*", "tzlocal.*"]
+ignore_missing_imports = true
 
 [tool.ruff]
 target-version = "py314"

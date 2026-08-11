@@ -4,10 +4,12 @@ import { Check, Copy } from "lucide-react"
 import type { ItemPublic } from "@/client"
 import { Button } from "@/components/ui/button"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
+import { useT } from "@/i18n"
 import { cn } from "@/lib/utils"
 import { ItemActionsMenu } from "./ItemActionsMenu"
 
 function CopyId({ id }: { id: string }) {
+  const t = useT()
   const [copiedText, copy] = useCopyToClipboard()
   const isCopied = copiedText === id
 
@@ -25,49 +27,53 @@ function CopyId({ id }: { id: string }) {
         ) : (
           <Copy className="size-3" />
         )}
-        <span className="sr-only">Copy ID</span>
+        <span className="sr-only">{t("products.copyId")}</span>
       </Button>
     </div>
   )
 }
 
-export const columns: ColumnDef<ItemPublic>[] = [
-  {
-    accessorKey: "id",
-    header: "ID",
-    cell: ({ row }) => <CopyId id={row.original.id} />,
-  },
-  {
-    accessorKey: "title",
-    header: "Title",
-    cell: ({ row }) => (
-      <span className="font-medium">{row.original.title}</span>
-    ),
-  },
-  {
-    accessorKey: "description",
-    header: "Description",
-    cell: ({ row }) => {
-      const description = row.original.description
-      return (
-        <span
-          className={cn(
-            "max-w-xs truncate block text-muted-foreground",
-            !description && "italic",
-          )}
-        >
-          {description || "No description"}
-        </span>
-      )
+export function getColumns(
+  t: ReturnType<typeof useT>,
+): ColumnDef<ItemPublic>[] {
+  return [
+    {
+      accessorKey: "id",
+      header: t("products.idColumn"),
+      cell: ({ row }) => <CopyId id={row.original.id} />,
     },
-  },
-  {
-    id: "actions",
-    header: () => <span className="sr-only">Actions</span>,
-    cell: ({ row }) => (
-      <div className="flex justify-end">
-        <ItemActionsMenu item={row.original} />
-      </div>
-    ),
-  },
-]
+    {
+      accessorKey: "title",
+      header: t("products.itemTitleField"),
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.title}</span>
+      ),
+    },
+    {
+      accessorKey: "description",
+      header: t("products.description"),
+      cell: ({ row }) => {
+        const description = row.original.description
+        return (
+          <span
+            className={cn(
+              "max-w-xs truncate block text-muted-foreground",
+              !description && "italic",
+            )}
+          >
+            {description || t("products.noDescription")}
+          </span>
+        )
+      },
+    },
+    {
+      id: "actions",
+      header: () => <span className="sr-only">{t("common.actions")}</span>,
+      cell: ({ row }) => (
+        <div className="flex justify-end">
+          <ItemActionsMenu item={row.original} />
+        </div>
+      ),
+    },
+  ]
+}

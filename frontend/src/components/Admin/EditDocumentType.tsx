@@ -30,6 +30,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
@@ -49,6 +50,7 @@ const EditDocumentType = ({
   documentType,
   onSuccess,
 }: EditDocumentTypeProps) => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -94,16 +96,15 @@ const EditDocumentType = ({
         onClick={() => setIsOpen(true)}
       >
         <Pencil />
-        Edit Document Type
+        {t("admin.documentTypes.editTitle")}
       </DropdownMenuItem>
       <DialogContent className="sm:max-w-md">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
-              <DialogTitle>Edit Document Type</DialogTitle>
+              <DialogTitle>{t("admin.documentTypes.editTitle")}</DialogTitle>
               <DialogDescription>
-                Only name and prefix are editable; operation and signs are
-                seed-managed. Numbering restarts each year and uses the prefix.
+                {t("admin.documentTypes.editDescription")}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">

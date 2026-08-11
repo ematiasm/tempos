@@ -1,21 +1,29 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
+    account_movements,
     attributes,
+    backups,
     business_settings,
     categories,
     customers,
     document_types,
     documents,
+    financial_accounts,
     items,
     login,
     payment_methods,
+    payments,
     permissions,
     private,
     products,
+    reports,
     roles,
+    stock_movements,
+    supplier_products,
     suppliers,
     taxes,
+    transfers,
     uoms,
     users,
     utils,
@@ -32,12 +40,20 @@ api_router.include_router(taxes.router)
 api_router.include_router(categories.router)
 api_router.include_router(uoms.router)
 api_router.include_router(products.router)
+api_router.include_router(reports.router)
 api_router.include_router(attributes.router)
 api_router.include_router(customers.router)
 api_router.include_router(suppliers.router)
+api_router.include_router(supplier_products.router)
 api_router.include_router(document_types.router)
 api_router.include_router(documents.router)
+api_router.include_router(financial_accounts.router)
 api_router.include_router(payment_methods.router)
+api_router.include_router(payments.router)
+api_router.include_router(transfers.router)
+api_router.include_router(stock_movements.router)
+api_router.include_router(account_movements.router)
+api_router.include_router(backups.router)
 api_router.include_router(utils.router)
 api_router.include_router(items.router)
 

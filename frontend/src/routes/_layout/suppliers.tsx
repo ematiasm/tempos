@@ -4,14 +4,16 @@ import { Search } from "lucide-react"
 import { Suspense, useMemo, useState } from "react"
 
 import { SuppliersService } from "@/client"
+import { CounterpartyDetailSheet } from "@/components/Common/CounterpartyDetailSheet"
 import { DataTable } from "@/components/Common/DataTable"
 import PendingUsers from "@/components/Pending/PendingUsers"
 import AddSupplier from "@/components/Suppliers/AddSupplier"
 import {
+  getColumns,
   type SupplierTableData,
-  columns as supplierColumns,
 } from "@/components/Suppliers/supplierColumns"
 import { Input } from "@/components/ui/input"
+import { formatStatic, useT } from "@/i18n"
 
 function getSuppliersQueryOptions() {
   return {
@@ -23,17 +25,15 @@ function getSuppliersQueryOptions() {
 export const Route = createFileRoute("/_layout/suppliers")({
   component: Suppliers,
   head: () => ({
-    meta: [
-      {
-        title: "Suppliers - FastEmpre",
-      },
-    ],
+    meta: [{ title: `${formatStatic("suppliers.title")} - tempos` }],
   }),
 })
 
 function SuppliersContent() {
+  const t = useT()
   const { data: suppliers } = useSuspenseQuery(getSuppliersQueryOptions())
   const [search, setSearch] = useState("")
+  const [openSupplierId, setOpenSupplierId] = useState<string | null>(null)
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -47,31 +47,46 @@ function SuppliersContent() {
     )
   }, [suppliers.data, search])
 
+  const openSupplier = useMemo(
+    () => suppliers.data.find((s) => s.id === openSupplierId) ?? null,
+    [suppliers.data, openSupplierId],
+  )
+
   return (
     <div className="flex flex-col gap-4">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search by name, document or phone..."
+          placeholder={t("suppliers.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-9"
         />
       </div>
-      <DataTable columns={supplierColumns} data={rows} />
+      <DataTable
+        columns={getColumns(t, (supplier) => setOpenSupplierId(supplier.id))}
+        data={rows}
+      />
+      <CounterpartyDetailSheet
+        counterpart={openSupplier}
+        type="supplier"
+        open={openSupplierId !== null}
+        onOpenChange={(o) => !o && setOpenSupplierId(null)}
+      />
     </div>
   )
 }
 
 function Suppliers() {
+  const t = useT()
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Suppliers</h1>
-          <p className="text-muted-foreground">
-            Suppliers and current account balances
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {t("suppliers.title")}
+          </h1>
+          <p className="text-muted-foreground">{t("suppliers.subtitle")}</p>
         </div>
         <AddSupplier />
       </div>

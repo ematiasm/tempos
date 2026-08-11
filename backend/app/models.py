@@ -1,6 +1,6 @@
 import enum
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Optional
 
@@ -40,6 +40,7 @@ class DocumentOperation(enum.StrEnum):
     COMPRA = "compra"
     COTIZACION = "cotizacion"
     AJUSTE = "ajuste"
+    RECIBO = "recibo"
 
 
 class CounterpartType(enum.StrEnum):
@@ -52,13 +53,35 @@ class DocumentStatus(enum.StrEnum):
     VOIDED = "voided"
 
 
-class FinancialAccountType(enum.StrEnum):
-    EFECTIVO = "efectivo"
-    BANCO = "banco"
-    TARJETA = "tarjeta"
-    DIGITAL = "digital"
-    CUENTA_CLIENTE = "cuenta_cliente"
-    CUENTA_PROVEEDOR = "cuenta_proveedor"
+class AccountMovementType(enum.StrEnum):
+    PAGO = "pago"
+    COBRO = "cobro"
+    COMISION = "comision"
+    TRANSFERENCIA = "transferencia"
+    AJUSTE = "ajuste"
+
+
+class BackupFrequency(enum.StrEnum):
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+
+
+class BackupKind(enum.StrEnum):
+    MANUAL = "manual"
+    SCHEDULED = "scheduled"
+
+
+class BackupStatus(enum.StrEnum):
+    SUCCESS = "success"
+    FAILED = "failed"
+
+
+class RestoreState(enum.StrEnum):
+    IDLE = "idle"
+    RUNNING = "running"
+    SUCCESS = "success"
+    FAILED = "failed"
 
 
 # ---------------------------------------------------------------------------
@@ -366,6 +389,89 @@ class SupplierUpdate(SQLModel):
 
 
 # ---------------------------------------------------------------------------
+# Costs: per-supplier price history per product
+# ---------------------------------------------------------------------------
+class SupplierProduct(SQLModel, table=True):
+    """Cost a supplier charges for a product (the supplier's selling price).
+
+    ``es_referencia`` marks the supplier whose ``costo_actual`` is the source
+    for ``Product.costo_actual``; ``es_default`` marks the preferred supplier
+    (used by reorder suggestions). Composite PK keeps one row per pair.
+    """
+
+    supplier_id: uuid.UUID = Field(
+        foreign_key="supplier.id", primary_key=True, index=True, ondelete="CASCADE"
+    )
+    product_id: uuid.UUID = Field(
+        foreign_key="product.id", primary_key=True, index=True, ondelete="CASCADE"
+    )
+    costo_anterior: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    costo_actual: Decimal = Field(
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    fecha_actualizacion: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    es_referencia: bool = False
+    es_default: bool = False
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class SupplierProductCreate(SQLModel):
+    supplier_id: uuid.UUID
+    product_id: uuid.UUID
+    costo_actual: Decimal = Field(
+        ge=0,
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    es_referencia: bool = False
+    es_default: bool = False
+
+
+class SupplierProductUpdate(SQLModel):
+    costo_actual: Decimal | None = Field(
+        default=None,
+        ge=0,
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    es_referencia: bool | None = None
+    es_default: bool | None = None
+
+
+class SupplierProductPublic(SQLModel):
+    supplier_id: uuid.UUID
+    product_id: uuid.UUID
+    costo_anterior: Decimal
+    costo_actual: Decimal
+    fecha_actualizacion: datetime | None = None
+    es_referencia: bool
+    es_default: bool
+    created_at: datetime | None = None
+    # Resolved names (for list views).
+    supplier_name: str | None = None
+    product_name: str | None = None
+
+
+class CostChangeSuggestion(SQLModel):
+    """Cost update proposal surfaced by a purchase, decided by the user."""
+
+    supplier_id: uuid.UUID
+    product_id: uuid.UUID
+    product_name: str
+    # None when the supplier has no recorded cost for the product yet.
+    previous_cost: Decimal | None = None
+    suggested_cost: Decimal
+    is_reference: bool
+
+
+# ---------------------------------------------------------------------------
 # Document input schemas
 # ---------------------------------------------------------------------------
 class DocumentTypeUpdate(SQLModel):
@@ -379,10 +485,19 @@ class DocumentTypeUpdate(SQLModel):
 class DocumentLineCreate(SQLModel):
     product_id: uuid.UUID
     variant_id: uuid.UUID | None = None
+    # Signed for stock adjustments (AJS); other operations must be positive
+    # (validated in crud once the document type is known).
     cantidad: Decimal = Field(
-        gt=0,
         sa_type=Numeric(12, 3),  # type: ignore
     )
+
+    @field_validator("cantidad")
+    @classmethod
+    def _cantidad_not_zero(cls, value: Decimal) -> Decimal:
+        if value == 0:
+            raise ValueError("Line quantity must not be zero")
+        return value
+
     precio_unit: Decimal | None = Field(
         default=None,
         sa_type=Numeric(12, 2),  # type: ignore
@@ -434,6 +549,15 @@ class DocumentPaymentCreate(SQLModel):
         sa_type=Numeric(5, 2),  # type: ignore
     )
     fecha_acreditacion: datetime | None = None
+
+
+class PaymentReceiptCreate(SQLModel):
+    """Input for a standalone payment against a counterpart's current account."""
+
+    contraparte_type: CounterpartType
+    contraparte_id: uuid.UUID
+    fecha: datetime | None = None
+    payments: list[DocumentPaymentCreate] = Field(min_length=1)
 
 
 class DocumentCreate(SQLModel):
@@ -694,12 +818,46 @@ class Supplier(SupplierBase, table=True):
 
 
 # ---------------------------------------------------------------------------
+# Current-account ledgers (append-only, immutable)
+# ---------------------------------------------------------------------------
+class CustomerAccountMovement(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    customer_id: uuid.UUID = Field(
+        foreign_key="customer.id", nullable=False, index=True
+    )
+    document_id: uuid.UUID | None = Field(default=None, foreign_key="document.id")
+    monto: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class SupplierAccountMovement(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    supplier_id: uuid.UUID = Field(
+        foreign_key="supplier.id", nullable=False, index=True
+    )
+    document_id: uuid.UUID | None = Field(default=None, foreign_key="document.id")
+    monto: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+# ---------------------------------------------------------------------------
 # Finance tables (schema only in phase 4a; ledger lands with phases 6+7)
 # ---------------------------------------------------------------------------
 class FinancialAccount(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str = Field(max_length=100)
-    tipo: FinancialAccountType = Field(max_length=20)
     saldo: Decimal = Field(
         default=Decimal("0"),
         sa_type=Numeric(12, 2),  # type: ignore
@@ -716,9 +874,96 @@ class PaymentMethod(SQLModel, table=True):
     financial_account_id: uuid.UUID = Field(
         foreign_key="financialaccount.id", nullable=False
     )
+    # When False, payments via this method do not mark the document as paid
+    # and generate no AccountMovement: the amount goes to the counterpart's
+    # current-account balance (credit/current-account method).
+    marks_paid: bool = Field(default=True)
     requiere_conciliacion: bool = Field(default=False)
     financial_account: Optional[FinancialAccount] = Relationship(  # noqa: UP045
         back_populates="payment_methods"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Finance ledger (append-only, immutable)
+# ---------------------------------------------------------------------------
+class Transfer(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    from_account_id: uuid.UUID = Field(
+        foreign_key="financialaccount.id", nullable=False
+    )
+    to_account_id: uuid.UUID = Field(foreign_key="financialaccount.id", nullable=False)
+    monto: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    fecha: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    descripcion: str | None = Field(default=None, max_length=255)
+    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class AccountMovement(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    financial_account_id: uuid.UUID = Field(
+        foreign_key="financialaccount.id", nullable=False, index=True
+    )
+    document_id: uuid.UUID | None = Field(default=None, foreign_key="document.id")
+    payment_method_id: uuid.UUID | None = Field(
+        default=None, foreign_key="paymentmethod.id"
+    )
+    transfer_id: uuid.UUID | None = Field(default=None, foreign_key="transfer.id")
+    monto: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    tipo: AccountMovementType = Field(max_length=20)
+    fecha: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    fecha_acreditacion: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    conciliado: bool = Field(default=False)
+    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+# ---------------------------------------------------------------------------
+# Stock ledger (append-only, immutable)
+# ---------------------------------------------------------------------------
+class StockMovement(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    product_id: uuid.UUID = Field(foreign_key="product.id", nullable=False, index=True)
+    variant_id: uuid.UUID | None = Field(default=None, foreign_key="productvariant.id")
+    document_id: uuid.UUID = Field(foreign_key="document.id", nullable=False)
+    document_line_id: uuid.UUID | None = Field(
+        default=None, foreign_key="documentline.id"
+    )
+    # Sign of the stock direction (-1 out, +1 in) and the signed delta
+    # (quantity * device sign) that was applied to the stock cache.
+    signo: int = Field(default=0)
+    cantidad: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 3),  # type: ignore
+    )
+    # Derived from the document type name (e.g. "Factura B", "Nota de Crédito").
+    motivo: str = Field(max_length=100)
+    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
     )
 
 
@@ -775,6 +1020,14 @@ class Document(SQLModel, table=True):
         sa_type=Numeric(12, 2),  # type: ignore
     )
     total: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    # Portion of the total covered by the counterpart's credit in favor
+    # (customer balance < 0). Auto-computed at creation for debt-increasing
+    # customer documents; it reduces the pending but does not move cash or
+    # count toward the balance delta, which nets the favor implicitly.
+    favor_monto: Decimal = Field(
         default=Decimal("0"),
         sa_type=Numeric(12, 2),  # type: ignore
     )
@@ -903,6 +1156,31 @@ class DocumentPayment(SQLModel, table=True):
     document: Optional[Document] = Relationship(back_populates="payments")  # noqa: UP045
 
 
+class DocumentPaymentAllocation(SQLModel, table=True):
+    """Links a receipt document to the documents its payment settled.
+
+    Append-only and immutable: corrections are recorded via new rows.
+    This table carries no payment method or financial account data; it only
+    provides per-document traceability for receipts.
+    """
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    receipt_document_id: uuid.UUID = Field(
+        foreign_key="document.id", nullable=False, index=True
+    )
+    document_id: uuid.UUID = Field(
+        foreign_key="document.id", nullable=False, index=True
+    )
+    monto: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
 # ---------------------------------------------------------------------------
 # Output schemas (no table)
 # ---------------------------------------------------------------------------
@@ -1021,16 +1299,116 @@ class SupplierPublic(SupplierBase):
 class FinancialAccountPublic(SQLModel):
     id: uuid.UUID
     name: str
-    tipo: FinancialAccountType
     saldo: Decimal
     currency: str
+
+
+class FinancialAccountCreate(SQLModel):
+    name: str = Field(min_length=1, max_length=100)
+    currency: str = Field(default="ARS", max_length=10)
+
+
+class FinancialAccountUpdate(SQLModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    currency: str | None = Field(default=None, max_length=10)
 
 
 class PaymentMethodPublic(SQLModel):
     id: uuid.UUID
     name: str
     financial_account_id: uuid.UUID
+    marks_paid: bool
     requiere_conciliacion: bool
+
+
+class PaymentMethodCreate(SQLModel):
+    name: str = Field(min_length=1, max_length=100)
+    financial_account_id: uuid.UUID
+    marks_paid: bool = True
+    requiere_conciliacion: bool = False
+
+
+class PaymentMethodUpdate(SQLModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    financial_account_id: uuid.UUID | None = None
+    marks_paid: bool | None = None
+    requiere_conciliacion: bool | None = None
+
+
+class TransferCreate(SQLModel):
+    from_account_id: uuid.UUID
+    to_account_id: uuid.UUID
+    monto: Decimal = Field(
+        gt=0,
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    fecha: datetime | None = None
+    descripcion: str | None = Field(default=None, max_length=255)
+
+
+class TransferPublic(SQLModel):
+    id: uuid.UUID
+    from_account_id: uuid.UUID
+    to_account_id: uuid.UUID
+    monto: Decimal
+    fecha: datetime
+    descripcion: str | None = None
+    user_id: uuid.UUID
+    created_at: datetime | None = None
+
+
+class StockMovementPublic(SQLModel):
+    id: uuid.UUID
+    product_id: uuid.UUID
+    variant_id: uuid.UUID | None = None
+    document_id: uuid.UUID
+    document_line_id: uuid.UUID | None = None
+    signo: int
+    cantidad: Decimal
+    motivo: str
+    user_id: uuid.UUID
+    created_at: datetime | None = None
+    # Resolved by the route for display purposes.
+    product_name: str | None = None
+    document_numero: str | None = None
+
+
+class AccountMovementPublic(SQLModel):
+    id: uuid.UUID
+    financial_account_id: uuid.UUID
+    document_id: uuid.UUID | None = None
+    payment_method_id: uuid.UUID | None = None
+    transfer_id: uuid.UUID | None = None
+    monto: Decimal
+    tipo: AccountMovementType
+    fecha: datetime
+    fecha_acreditacion: datetime | None = None
+    conciliado: bool
+    user_id: uuid.UUID
+    created_at: datetime | None = None
+    # Resolved by the route for display purposes.
+    account_name: str | None = None
+    document_numero: str | None = None
+
+
+class CustomerAccountMovementPublic(SQLModel):
+    id: uuid.UUID
+    customer_id: uuid.UUID
+    document_id: uuid.UUID | None = None
+    monto: Decimal
+    created_at: datetime | None = None
+    # Resolved by the route for display purposes.
+    document_numero: str | None = None
+
+
+class SupplierAccountMovementPublic(SQLModel):
+    id: uuid.UUID
+    supplier_id: uuid.UUID
+    document_id: uuid.UUID | None = None
+    monto: Decimal
+    created_at: datetime | None = None
+    # Resolved by the route for display purposes.
+    document_numero: str | None = None
 
 
 class DocumentTypePublic(SQLModel):
@@ -1086,6 +1464,39 @@ class DocumentPaymentPublic(SQLModel):
     conciliado: bool
 
 
+class OutstandingDocumentPublic(SQLModel):
+    """A document of a counterpart with a still-unpaid portion."""
+
+    document_id: uuid.UUID
+    numero: str
+    fecha: datetime
+    total: Decimal
+    pendiente: Decimal
+
+
+class ReceiptAllocationPublic(SQLModel):
+    """A document settled by a receipt, resolved for display."""
+
+    document_id: uuid.UUID
+    numero: str
+    fecha: datetime | None = None
+    monto: Decimal
+
+
+class DocumentAllocationPublic(SQLModel):
+    """A receipt imputed to a document, resolved for display."""
+
+    receipt_document_id: uuid.UUID
+    receipt_numero: str
+    fecha: datetime | None = None
+    monto: Decimal
+
+
+class PaymentReceiptPublic(SQLModel):
+    document: DocumentPublic
+    allocations: list[ReceiptAllocationPublic] = []
+
+
 class DocumentPublic(SQLModel):
     id: uuid.UUID
     document_type_id: uuid.UUID
@@ -1099,6 +1510,7 @@ class DocumentPublic(SQLModel):
     subtotal: Decimal
     descuento_total: Decimal
     total: Decimal
+    favor_monto: Decimal = Decimal("0")
     parent_document_id: uuid.UUID | None = None
     created_at: datetime | None = None
     document_type: DocumentTypePublic
@@ -1110,6 +1522,67 @@ class DocumentPublic(SQLModel):
     # Active document derived from this one (for quotes: its invoice).
     child_document_id: uuid.UUID | None = None
     child_document_numero: str | None = None
+    # Cost-update proposals surfaced on purchase creation (decided by the user).
+    cost_change_suggestions: list[CostChangeSuggestion] = []
+
+
+# ---------------------------------------------------------------------------
+# Backups schemas
+# ---------------------------------------------------------------------------
+class BackupPublic(SQLModel):
+    id: uuid.UUID
+    filename: str
+    size_bytes: int
+    kind: BackupKind
+    status: BackupStatus
+    error: str | None = None
+    created_by_id: uuid.UUID | None = None
+    created_at: datetime | None = None
+    # Resolved by the route for display purposes.
+    created_by_name: str | None = None
+
+
+class BackupScheduleUpdate(SQLModel):
+    enabled: bool | None = None
+    frequency: BackupFrequency | None = None
+    run_time: str | None = Field(default=None, max_length=5)
+    day_of_week: int | None = Field(default=None, ge=0, le=6)
+    day_of_month: int | None = Field(default=None, ge=1, le=31)
+    retention: int | None = Field(default=None, ge=1)
+
+    @field_validator("run_time")
+    @classmethod
+    def _validate_run_time(cls, value: str | None) -> str | None:
+        if value is not None:
+            try:
+                datetime.strptime(value, "%H:%M")
+            except ValueError as exc:
+                raise ValueError("run_time must be in HH:MM format") from exc
+        return value
+
+
+class BackupSchedulePublic(SQLModel):
+    enabled: bool
+    frequency: BackupFrequency
+    run_time: str
+    day_of_week: int | None = None
+    day_of_month: int | None = None
+    retention: int
+    next_run_at: datetime | None = None
+    last_run_at: datetime | None = None
+    last_status: BackupStatus | None = None
+    last_error: str | None = None
+
+
+class RestoreStatusPublic(SQLModel):
+    """Restore progress, sourced from the restore state file (not the DB:
+    the DB itself is dropped while a restore runs)."""
+
+    estado: RestoreState
+    source_filename: str | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    error: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -1118,6 +1591,105 @@ class DocumentPublic(SQLModel):
 class Page[T](BaseModel):
     data: list[T]
     count: int
+
+
+# ---------------------------------------------------------------------------
+# Reports
+# ---------------------------------------------------------------------------
+class SalesPerDayRow(BaseModel):
+    fecha: date
+    count: int
+    subtotal: Decimal
+    descuento_total: Decimal
+    total: Decimal
+
+
+class LowStockRow(BaseModel):
+    id: uuid.UUID
+    name: str
+    sku: str | None = None
+    category_name: str | None = None
+    stock_current: Decimal
+    stock_minimo: Decimal | None = None
+    stock_maximo: Decimal | None = None
+
+
+class MarginRow(BaseModel):
+    product_id: uuid.UUID
+    name: str
+    units: Decimal
+    revenue: Decimal
+    cost: Decimal
+    margin: Decimal
+    margin_pct: Decimal | None = None
+
+
+class VatRow(BaseModel):
+    tax_code: str
+    tax_name: str
+    tipo: TaxType
+    rate: Decimal
+    is_percent: bool
+    applies_to: TaxAppliesTo
+    base: Decimal
+    monto: Decimal
+    count: int
+
+
+class ReorderRow(BaseModel):
+    id: uuid.UUID
+    name: str
+    sku: str | None = None
+    category_id: uuid.UUID | None = None
+    category_name: str | None = None
+    stock_current: Decimal
+    stock_minimo: Decimal | None = None
+    stock_maximo: Decimal | None = None
+    missing: Decimal | None = None
+    reference_cost: Decimal | None = None
+    estimated_cost: Decimal | None = None
+
+
+# ---------------------------------------------------------------------------
+# Backups (pg_dump based; files on disk, metadata here)
+# ---------------------------------------------------------------------------
+class Backup(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    filename: str = Field(unique=True, index=True, max_length=255)
+    size_bytes: int = Field(default=0)
+    kind: BackupKind = Field(default=BackupKind.MANUAL, max_length=20)
+    status: BackupStatus = Field(default=BackupStatus.SUCCESS, max_length=20)
+    error: str | None = Field(default=None, max_length=500)
+    # NULL for scheduled backups (no acting user).
+    created_by_id: uuid.UUID | None = Field(default=None, foreign_key="user.id")
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class BackupSchedule(SQLModel, table=True):
+    """Singleton (id=1) row describing the automatic backup schedule."""
+
+    id: int = Field(default=1, primary_key=True)
+    enabled: bool = Field(default=True)
+    frequency: BackupFrequency = Field(default=BackupFrequency.DAILY, max_length=20)
+    run_time: str = Field(default="03:00", max_length=5)
+    # 0=Monday ... 6=Sunday (weekly) and 1-31 clamped to month length (monthly).
+    day_of_week: int | None = Field(default=None)
+    day_of_month: int | None = Field(default=None)
+    # Number of backups to keep; older ones are pruned automatically.
+    retention: int = Field(default=14)
+    next_run_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    last_run_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    last_status: BackupStatus | None = Field(default=None, max_length=20)
+    last_error: str | None = Field(default=None, max_length=500)
 
 
 # ---------------------------------------------------------------------------

@@ -17,6 +17,7 @@ import {
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 interface DeleteRoleProps {
@@ -25,6 +26,7 @@ interface DeleteRoleProps {
 }
 
 const DeleteRole = ({ role, onSuccess }: DeleteRoleProps) => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -33,7 +35,7 @@ const DeleteRole = ({ role, onSuccess }: DeleteRoleProps) => {
   const mutation = useMutation({
     mutationFn: () => RolesService.deleteRole({ roleId: role.id }),
     onSuccess: () => {
-      showSuccessToast("Role deleted successfully")
+      showSuccessToast(t("admin.roles.deleted"))
       setIsOpen(false)
       onSuccess()
     },
@@ -61,23 +63,21 @@ const DeleteRole = ({ role, onSuccess }: DeleteRoleProps) => {
         onClick={() => setIsOpen(true)}
       >
         <Trash2 />
-        Delete Role
+        {t("admin.roles.delete")}
       </DropdownMenuItem>
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
-            <DialogTitle>Delete Role</DialogTitle>
+            <DialogTitle>{t("admin.roles.delete")}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete the role{" "}
-              <strong>{role.name}</strong>? Users assigned to this role will
-              lose their permissions.
+              {t("admin.roles.deleteConfirm", { name: role.name })}
             </DialogDescription>
           </DialogHeader>
 
           <DialogFooter className="mt-4">
             <DialogClose asChild>
               <Button variant="outline" disabled={mutation.isPending}>
-                Cancel
+                {t("common.cancel")}
               </Button>
             </DialogClose>
             <LoadingButton
@@ -85,7 +85,7 @@ const DeleteRole = ({ role, onSuccess }: DeleteRoleProps) => {
               type="submit"
               loading={mutation.isPending}
             >
-              Delete
+              {t("common.delete")}
             </LoadingButton>
           </DialogFooter>
         </form>

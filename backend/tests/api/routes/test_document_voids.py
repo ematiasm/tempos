@@ -3,6 +3,7 @@
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
+from tests.utils.ledger import load_stock
 from tests.utils.utils import random_lower_string
 
 
@@ -98,6 +99,7 @@ def test_full_void_creates_nc_and_marks_original_voided(
     customer = _create_customer(client, superuser_token_headers)
     iva21 = _iva21_id(client, superuser_token_headers)
     product = _create_product(client, superuser_token_headers, [iva21])
+    load_stock(client, superuser_token_headers, product["id"], "2")
     tck = _doc_type_id(client, superuser_token_headers, "TCK")
     doc = _create_doc(
         client,
@@ -140,7 +142,7 @@ def test_full_void_creates_nc_and_marks_original_voided(
         json={"lines": [], "payments": []},
     )
     assert r.status_code == 400
-    assert "already voided" in r.json()["detail"]
+    assert "already voided" in r.json()["detail"]["message"]
 
     # the NC itself is not voidable
     r = client.post(
@@ -149,7 +151,7 @@ def test_full_void_creates_nc_and_marks_original_voided(
         json={"lines": [], "payments": []},
     )
     assert r.status_code == 400
-    assert "not voidable" in r.json()["detail"]
+    assert "not voidable" in r.json()["detail"]["message"]
 
 
 def test_partial_void_accumulates_remaining(
@@ -157,6 +159,7 @@ def test_partial_void_accumulates_remaining(
 ) -> None:
     customer = _create_customer(client, superuser_token_headers)
     product = _create_product(client, superuser_token_headers)
+    load_stock(client, superuser_token_headers, product["id"], "5")
     tck = _doc_type_id(client, superuser_token_headers, "TCK")
     doc = _create_doc(
         client,
@@ -196,7 +199,7 @@ def test_partial_void_accumulates_remaining(
     # over-voiding is rejected against accumulated remaining
     r = _void("4")
     assert r.status_code == 400
-    assert "exceeds" in r.json()["detail"]
+    assert "exceeds" in r.json()["detail"]["message"]
 
     # voiding the rest flips the original to voided
     r = _void("3")
@@ -212,6 +215,7 @@ def test_full_void_reverses_percepciones(
     customer = _create_customer(client, superuser_token_headers)
     iibb = _create_iibb(client, superuser_token_headers)
     product = _create_product(client, superuser_token_headers, [iibb])
+    load_stock(client, superuser_token_headers, product["id"], "2")
     tck = _doc_type_id(client, superuser_token_headers, "TCK")
     doc = _create_doc(
         client,
@@ -241,6 +245,7 @@ def test_void_rejects_foreign_line(
 ) -> None:
     customer = _create_customer(client, superuser_token_headers)
     product = _create_product(client, superuser_token_headers)
+    load_stock(client, superuser_token_headers, product["id"], "2")
     tck = _doc_type_id(client, superuser_token_headers, "TCK")
     payload = {
         "document_type_id": tck,
@@ -264,7 +269,7 @@ def test_void_rejects_foreign_line(
         },
     )
     assert r.status_code == 400
-    assert "does not belong" in r.json()["detail"]
+    assert "does not belong" in r.json()["detail"]["message"]
 
 
 def test_quote_is_not_voidable(
@@ -288,7 +293,7 @@ def test_quote_is_not_voidable(
         json={"lines": [], "payments": []},
     )
     assert r.status_code == 400
-    assert "not voidable" in r.json()["detail"]
+    assert "not voidable" in r.json()["detail"]["message"]
 
 
 def test_purchase_void_uses_nc_compra(
