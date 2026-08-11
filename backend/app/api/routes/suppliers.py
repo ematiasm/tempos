@@ -2,10 +2,13 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, func, select
 
+from app import crud
 from app.api.deps import PaginationDep, SessionDep, require_permissions
 from app.models import (
+    CounterpartType,
     Document,
     Message,
     Page,
@@ -110,14 +113,51 @@ def update_supplier(
     dependencies=[require_permissions("supplier.delete")],
 )
 def delete_supplier(session: SessionDep, supplier_id: uuid.UUID) -> Any:
-    """Deactivate a supplier (soft delete)."""
+    """Hard-delete a supplier, unless referenced by documents.
+
+    Suppliers with documents (or current-account movements) cannot be deleted
+    to preserve traceability; the response carries the offending documents so
+    the UI can show them. Deactivation stays available via ``PATCH``
+    ``is_active``.
+    """
     supplier = session.get(Supplier, supplier_id)
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
-    supplier.is_active = False
-    session.add(supplier)
-    session.commit()
-    return Message(message="Supplier deactivated successfully")
+    rows = crud.documents_for_counterpart(
+        session, CounterpartType.SUPPLIER, supplier.id
+    )
+    if rows:
+        raise _supplier_in_use_error(rows)
+    try:
+        session.delete(supplier)
+        session.commit()
+    except IntegrityError as e:
+        session.rollback()
+        raise _supplier_in_use_error([]) from e
+    return Message(message="Supplier deleted successfully")
+
+
+def _supplier_in_use_error(
+    documents: list[tuple[Document, str]],
+) -> HTTPException:
+    return HTTPException(
+        status_code=409,
+        detail={
+            "code": "supplier_in_use",
+            "message": "Supplier cannot be deleted because it belongs to documents",
+            "documents": [
+                {
+                    "id": str(document.id),
+                    "numero": document.numero,
+                    "fecha": document.fecha.isoformat(),
+                    "total": str(document.total),
+                    "estado": document.estado.value,
+                    "type_name": type_name,
+                }
+                for document, type_name in documents
+            ],
+        },
+    )
 
 
 @router.get(

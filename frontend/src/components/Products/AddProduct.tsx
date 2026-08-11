@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
@@ -57,7 +57,6 @@ const formSchema = z.object({
   costo_actual: z.string().min(1, { message: "El costo es obligatorio" }),
   stock_minimo: z.string().optional().or(z.literal("")),
   stock_maximo: z.string().optional().or(z.literal("")),
-  tax_ids: z.array(z.string()),
 })
 
 type FormData = z.infer<typeof formSchema>
@@ -68,6 +67,8 @@ const AddProduct = () => {
   const [tab, setTab] = useState("details")
   const [newBarcode, setNewBarcode] = useState("")
   const [barcodes, setBarcodes] = useState<string[]>([])
+  const [selectedTaxIds, setSelectedTaxIds] = useState<string[]>([])
+  const taxesTouchedRef = useRef(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
@@ -87,7 +88,17 @@ const AddProduct = () => {
   const uoms = uomsData?.data ?? []
   const categories = categoriesData?.data ?? []
   const taxes = taxesData?.data ?? []
+  const defaultTaxIds = taxes
+    .filter((tax) => tax.is_default)
+    .map((tax) => tax.id)
+  const defaultTaxIdsKey = defaultTaxIds.join(",")
   const categoryRows = buildCategoryRows(categories)
+
+  useEffect(() => {
+    if (isOpen && defaultTaxIdsKey && !taxesTouchedRef.current) {
+      setSelectedTaxIds(defaultTaxIdsKey.split(","))
+    }
+  }, [isOpen, defaultTaxIdsKey])
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -103,7 +114,6 @@ const AddProduct = () => {
       costo_actual: "0",
       stock_minimo: "",
       stock_maximo: "",
-      tax_ids: [],
     },
   })
 
@@ -124,7 +134,7 @@ const AddProduct = () => {
         margen_pct: parseFloat(data.margen_pct) || 0,
         costo_actual: parseFloat(data.costo_actual) || 0,
         is_active: true,
-        tax_ids: data.tax_ids,
+        tax_ids: selectedTaxIds,
       }
       if (data.stock_minimo)
         requestBody.stock_minimo = parseFloat(data.stock_minimo)
@@ -147,6 +157,8 @@ const AddProduct = () => {
       form.reset()
       setBarcodes([])
       setNewBarcode("")
+      setSelectedTaxIds([])
+      taxesTouchedRef.current = false
       setTab("details")
       setIsOpen(false)
     },
@@ -159,15 +171,14 @@ const AddProduct = () => {
   const onSubmit = (data: FormData) => mutation.mutate(data)
 
   const toggleTax = (taxId: string, checked: boolean) => {
-    const current = form.getValues("tax_ids")
-    if (checked) {
-      form.setValue("tax_ids", [...current, taxId])
-    } else {
-      form.setValue(
-        "tax_ids",
-        current.filter((id) => id !== taxId),
-      )
-    }
+    taxesTouchedRef.current = true
+    setSelectedTaxIds((current) =>
+      checked
+        ? current.includes(taxId)
+          ? current
+          : [...current, taxId]
+        : current.filter((id) => id !== taxId),
+    )
   }
 
   const addBarcode = () => {
@@ -190,6 +201,8 @@ const AddProduct = () => {
           form.reset()
           setBarcodes([])
           setNewBarcode("")
+          setSelectedTaxIds([])
+          taxesTouchedRef.current = false
           setTab("details")
         }
       }}
@@ -430,25 +443,27 @@ const AddProduct = () => {
                     </p>
                   )}
                   {taxes.map((tax) => {
-                    const isChecked = form.getValues("tax_ids").includes(tax.id)
+                    const isChecked = selectedTaxIds.includes(tax.id)
                     return (
-                      <button
-                        type="button"
+                      <div
                         key={tax.id}
-                        onClick={() => toggleTax(tax.id, !isChecked)}
-                        className="flex items-center gap-2 cursor-pointer text-sm border rounded px-2 py-1.5 text-left w-full"
+                        className="flex items-center gap-2 text-sm border rounded px-2 py-1.5"
                       >
                         <Checkbox
                           checked={isChecked}
                           onCheckedChange={(c) => toggleTax(tax.id, c === true)}
                         />
-                        <div>
+                        <button
+                          type="button"
+                          onClick={() => toggleTax(tax.id, !isChecked)}
+                          className="flex-1 text-left cursor-pointer"
+                        >
                           {tax.name}
                           <span className="ml-2 text-xs text-muted-foreground">
                             {tax.code}
                           </span>
-                        </div>
-                      </button>
+                        </button>
+                      </div>
                     )
                   })}
                 </div>

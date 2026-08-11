@@ -77,7 +77,7 @@ def test_update_supplier(
     assert r.json()["phone"] == "11-4444-4444"
 
 
-def test_delete_supplier_soft_deactivates(
+def test_delete_supplier_hard_deletes_when_unused(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
     supplier = _create_supplier(client, superuser_token_headers)
@@ -86,8 +86,71 @@ def test_delete_supplier_soft_deactivates(
         headers=superuser_token_headers,
     )
     assert r.status_code == 200
+    assert r.json()["message"] == "Supplier deleted successfully"
     r = client.get(
         f"{settings.API_V1_STR}/suppliers/{supplier['id']}",
         headers=superuser_token_headers,
     )
-    assert r.json()["is_active"] is False
+    assert r.status_code == 404
+
+
+def test_delete_supplier_used_in_document_is_blocked(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    supplier = _create_supplier(client, superuser_token_headers)
+    # Create an OC (purchase order) referencing the supplier.
+    r = client.post(
+        f"{settings.API_V1_STR}/uoms/",
+        headers=superuser_token_headers,
+        json={
+            "name": random_lower_string()[:10],
+            "abbreviation": random_lower_string()[:3].upper(),
+            "decimal_places": 0,
+        },
+    )
+    uom_id = r.json()["id"]
+    r = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json={
+            "name": random_lower_string()[:20],
+            "uom_id": uom_id,
+            "margen_pct": "21.00",
+            "costo_actual": "100.00",
+            "tax_ids": [],
+        },
+    )
+    assert r.status_code == 200, r.text
+    product_id = r.json()["id"]
+    r = client.get(
+        f"{settings.API_V1_STR}/document-types/",
+        headers=superuser_token_headers,
+        params={"limit": 100},
+    )
+    oc = next(row for row in r.json()["data"] if row["prefix"] == "OC")
+    r = client.post(
+        f"{settings.API_V1_STR}/documents/",
+        headers=superuser_token_headers,
+        json={
+            "document_type_id": oc["id"],
+            "contraparte_id": supplier["id"],
+            "lines": [{"product_id": product_id, "cantidad": "1"}],
+            "payments": [],
+        },
+    )
+    assert r.status_code == 200, r.text
+    oc_numero = r.json()["numero"]
+    r = client.delete(
+        f"{settings.API_V1_STR}/suppliers/{supplier['id']}",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 409
+    detail = r.json()["detail"]
+    assert detail["code"] == "supplier_in_use"
+    assert any(d["numero"] == oc_numero for d in detail["documents"])
+    # The supplier is still there.
+    r = client.get(
+        f"{settings.API_V1_STR}/suppliers/{supplier['id']}",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200

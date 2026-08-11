@@ -1,10 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Trash2 } from "lucide-react"
 import { useState } from "react"
-import { useForm } from "react-hook-form"
 
 import type { TaxPublic } from "@/client"
 import { TaxesService } from "@/client"
+import BlockedByDocumentsDialog, {
+  type DocumentRef,
+  extractBlockedDocuments,
+} from "@/components/Common/BlockedByDocumentsDialog"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -29,9 +32,11 @@ interface DeleteTaxProps {
 const DeleteTax = ({ tax, onSuccess }: DeleteTaxProps) => {
   const t = useT()
   const [isOpen, setIsOpen] = useState(false)
+  const [blockedDocuments, setBlockedDocuments] = useState<
+    DocumentRef[] | null
+  >(null)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
-  const { handleSubmit } = useForm()
 
   const mutation = useMutation({
     mutationFn: () => TaxesService.deleteTax({ taxId: tax.id }),
@@ -40,26 +45,34 @@ const DeleteTax = ({ tax, onSuccess }: DeleteTaxProps) => {
       setIsOpen(false)
       onSuccess()
     },
-    onError: handleError.bind(showErrorToast),
+    onError: (err) => {
+      const docs = extractBlockedDocuments(err)
+      if (docs) {
+        setIsOpen(false)
+        setBlockedDocuments(docs)
+        return
+      }
+      handleError.bind(showErrorToast)(err as never)
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["taxes"] })
     },
   })
 
-  const onSubmit = async () => mutation.mutate()
+  const deleteTax = () => mutation.mutate()
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenuItem
-        variant="destructive"
-        onSelect={(e) => e.preventDefault()}
-        onClick={() => setIsOpen(true)}
-      >
-        <Trash2 />
-        {t("admin.taxes.delete")}
-      </DropdownMenuItem>
-      <DialogContent className="sm:max-w-md">
-        <form onSubmit={handleSubmit(onSubmit)}>
+    <>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenuItem
+          variant="destructive"
+          onSelect={(e) => e.preventDefault()}
+          onClick={() => setIsOpen(true)}
+        >
+          <Trash2 />
+          {t("admin.taxes.delete")}
+        </DropdownMenuItem>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{t("admin.taxes.delete")}</DialogTitle>
             <DialogDescription>
@@ -76,16 +89,30 @@ const DeleteTax = ({ tax, onSuccess }: DeleteTaxProps) => {
               </Button>
             </DialogClose>
             <LoadingButton
+              type="button"
               variant="destructive"
-              type="submit"
               loading={mutation.isPending}
+              onClick={deleteTax}
             >
               {t("common.delete")}
             </LoadingButton>
           </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <BlockedByDocumentsDialog
+        open={blockedDocuments !== null}
+        onOpenChange={(open) => {
+          if (!open) setBlockedDocuments(null)
+        }}
+        title={t("admin.taxes.deleteBlockedTitle")}
+        hint={t("admin.taxes.deleteBlockedHint", {
+          name: tax.name,
+          count: blockedDocuments?.length ?? 0,
+        })}
+        documents={blockedDocuments ?? []}
+      />
+    </>
   )
 }
 

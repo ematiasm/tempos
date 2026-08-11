@@ -2,11 +2,14 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, func, select
 
+from app import crud
 from app.api.deps import PaginationDep, SessionDep, require_permissions
 from app.models import (
     CONSUMIDOR_FINAL_NAME,
+    CounterpartType,
     Customer,
     CustomerAccountMovement,
     CustomerAccountMovementPublic,
@@ -119,9 +122,12 @@ def update_customer(
     dependencies=[require_permissions("customer.delete")],
 )
 def delete_customer(session: SessionDep, customer_id: uuid.UUID) -> Any:
-    """Deactivate a customer (soft delete).
+    """Hard-delete a customer, unless referenced by documents.
 
-    The seeded 'Consumidor Final' customer cannot be deleted.
+    Customers with documents (or current-account movements) cannot be deleted
+    to preserve traceability; the response carries the offending documents so
+    the UI can show them. The seeded 'Consumidor Final' customer cannot be
+    deleted either. Deactivation stays available via ``PATCH`` ``is_active``.
     """
     customer = session.get(Customer, customer_id)
     if not customer:
@@ -131,10 +137,46 @@ def delete_customer(session: SessionDep, customer_id: uuid.UUID) -> Any:
             status_code=400,
             detail="The 'Consumidor Final' customer cannot be deleted",
         )
-    customer.is_active = False
-    session.add(customer)
-    session.commit()
-    return Message(message="Customer deactivated successfully")
+    _ensure_customer_deletable(session, customer)
+    try:
+        session.delete(customer)
+        session.commit()
+    except IntegrityError as e:
+        session.rollback()
+        raise _customer_in_use_error([]) from e
+    return Message(message="Customer deleted successfully")
+
+
+def _ensure_customer_deletable(session: SessionDep, customer: Customer) -> None:
+    """Raise 409 with the referencing documents when the customer is in use."""
+    rows = crud.documents_for_counterpart(
+        session, CounterpartType.CUSTOMER, customer.id
+    )
+    if rows:
+        raise _customer_in_use_error(rows)
+
+
+def _customer_in_use_error(
+    documents: list[tuple[Document, str]],
+) -> HTTPException:
+    return HTTPException(
+        status_code=409,
+        detail={
+            "code": "customer_in_use",
+            "message": "Customer cannot be deleted because it belongs to documents",
+            "documents": [
+                {
+                    "id": str(document.id),
+                    "numero": document.numero,
+                    "fecha": document.fecha.isoformat(),
+                    "total": str(document.total),
+                    "estado": document.estado.value,
+                    "type_name": type_name,
+                }
+                for document, type_name in documents
+            ],
+        },
+    )
 
 
 @router.get(

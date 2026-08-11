@@ -1,10 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Trash2 } from "lucide-react"
 import { useState } from "react"
-import { useForm } from "react-hook-form"
 
 import type { CustomerPublic } from "@/client"
 import { CustomersService } from "@/client"
+import BlockedByDocumentsDialog, {
+  type DocumentRef,
+  extractBlockedDocuments,
+} from "@/components/Common/BlockedByDocumentsDialog"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -29,13 +32,19 @@ interface DeleteCustomerProps {
 const DeleteCustomer = ({ customer, onSuccess }: DeleteCustomerProps) => {
   const t = useT()
   const [isOpen, setIsOpen] = useState(false)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [blockedDocuments, setBlockedDocuments] = useState<
+    DocumentRef[] | null
+  >(null)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
-  const { handleSubmit } = useForm()
 
-  const mutation = useMutation({
+  const deactivateMutation = useMutation({
     mutationFn: () =>
-      CustomersService.deleteCustomer({ customerId: customer.id }),
+      CustomersService.updateCustomer({
+        customerId: customer.id,
+        requestBody: { is_active: false },
+      }),
     onSuccess: () => {
       showSuccessToast(t("customers.deactivated"))
       setIsOpen(false)
@@ -47,22 +56,45 @@ const DeleteCustomer = ({ customer, onSuccess }: DeleteCustomerProps) => {
     },
   })
 
-  const onSubmit = async () => mutation.mutate()
+  const deleteMutation = useMutation({
+    mutationFn: () =>
+      CustomersService.deleteCustomer({ customerId: customer.id }),
+    onSuccess: () => {
+      showSuccessToast(t("customers.deleted"))
+      setIsDeleteOpen(false)
+      onSuccess()
+    },
+    onError: (err) => {
+      const docs = extractBlockedDocuments(err)
+      if (docs) {
+        setIsDeleteOpen(false)
+        setBlockedDocuments(docs)
+        return
+      }
+      handleError.bind(showErrorToast)(err as never)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["customers"] })
+    },
+  })
+
+  const deactivate = () => deactivateMutation.mutate()
+  const deleteCustomer = () => deleteMutation.mutate()
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenuItem
-        variant="destructive"
-        onSelect={(e) => e.preventDefault()}
-        onClick={() => setIsOpen(true)}
-      >
-        <Trash2 />
-        {t("customers.deactivate")}
-      </DropdownMenuItem>
-      <DialogContent className="sm:max-w-md">
-        <form onSubmit={handleSubmit(onSubmit)}>
+    <>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenuItem
+          variant="destructive"
+          onSelect={(e) => e.preventDefault()}
+          onClick={() => setIsOpen(true)}
+        >
+          <Trash2 />
+          {t("customers.deactivate")}
+        </DropdownMenuItem>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{t("customers.deactivate")}</DialogTitle>
+            <DialogTitle>{t("customers.deactivateTitle")}</DialogTitle>
             <DialogDescription>
               {t("customers.deactivateHint", {
                 name: customer.razon_social,
@@ -71,21 +103,71 @@ const DeleteCustomer = ({ customer, onSuccess }: DeleteCustomerProps) => {
           </DialogHeader>
           <DialogFooter className="mt-4">
             <DialogClose asChild>
-              <Button variant="outline" disabled={mutation.isPending}>
+              <Button variant="outline" disabled={deactivateMutation.isPending}>
                 {t("common.cancel")}
               </Button>
             </DialogClose>
             <LoadingButton
+              type="button"
               variant="destructive"
-              type="submit"
-              loading={mutation.isPending}
+              loading={deactivateMutation.isPending}
+              onClick={deactivate}
             >
               {t("customers.deactivateAction")}
             </LoadingButton>
           </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DropdownMenuItem
+          variant="destructive"
+          onSelect={(e) => e.preventDefault()}
+          onClick={() => setIsDeleteOpen(true)}
+        >
+          <Trash2 />
+          {t("customers.delete")}
+        </DropdownMenuItem>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("customers.deleteTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("customers.deleteHint", {
+                name: customer.razon_social,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <DialogClose asChild>
+              <Button variant="outline" disabled={deleteMutation.isPending}>
+                {t("common.cancel")}
+              </Button>
+            </DialogClose>
+            <LoadingButton
+              type="button"
+              variant="destructive"
+              loading={deleteMutation.isPending}
+              onClick={deleteCustomer}
+            >
+              {t("customers.deleteConfirm")}
+            </LoadingButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <BlockedByDocumentsDialog
+        open={blockedDocuments !== null}
+        onOpenChange={(open) => {
+          if (!open) setBlockedDocuments(null)
+        }}
+        title={t("customers.deleteBlockedTitle")}
+        hint={t("customers.deleteBlockedHint", {
+          name: customer.razon_social,
+          count: blockedDocuments?.length ?? 0,
+        })}
+        documents={blockedDocuments ?? []}
+      />
+    </>
   )
 }
 

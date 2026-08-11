@@ -1,4 +1,8 @@
-import { useSuspenseQuery } from "@tanstack/react-query"
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { Search } from "lucide-react"
 import { Suspense } from "react"
@@ -15,6 +19,7 @@ import {
   type RolePublic,
   RolesService,
   TaxesService,
+  type TaxPublic,
   UomsService,
   type UserPublic,
   UsersService,
@@ -70,7 +75,9 @@ import { DataTable } from "@/components/Common/DataTable"
 import PendingUsers from "@/components/Pending/PendingUsers"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
+import useCustomToast from "@/hooks/useCustomToast"
 import { formatStatic, useT } from "@/i18n"
+import { handleError } from "@/utils"
 
 function getUsersQueryOptions() {
   return {
@@ -334,7 +341,22 @@ function UoMsTab() {
 
 function TaxesTabContent() {
   const t = useT()
+  const queryClient = useQueryClient()
+  const { showSuccessToast, showErrorToast } = useCustomToast()
   const { data: taxes } = useSuspenseQuery(getTaxesQueryOptions())
+
+  const toggleDefaultMutation = useMutation({
+    mutationFn: (tax: TaxPublic) =>
+      TaxesService.updateTax({
+        taxId: tax.id,
+        requestBody: { is_default: !tax.is_default },
+      }),
+    onSuccess: () => {
+      showSuccessToast(t("admin.taxes.updated"))
+      queryClient.invalidateQueries({ queryKey: ["taxes"] })
+    },
+    onError: handleError.bind(showErrorToast),
+  })
 
   if (taxes.data.length === 0) {
     return (
@@ -349,7 +371,10 @@ function TaxesTabContent() {
   }
 
   return (
-    <DataTable columns={getTaxColumns(t)} data={taxes.data as TaxTableData[]} />
+    <DataTable
+      columns={getTaxColumns(t, (tax) => toggleDefaultMutation.mutate(tax))}
+      data={taxes.data as TaxTableData[]}
+    />
   )
 }
 
@@ -363,6 +388,9 @@ function TaxesTab() {
             {t("admin.taxes.title")}
           </h2>
           <p className="text-muted-foreground">{t("admin.taxes.subtitle")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t("admin.taxes.defaultHint")}
+          </p>
         </div>
         <AddTax />
       </div>

@@ -551,12 +551,10 @@ const ProductDetailSheet = ({
               {taxes.map((tax: TaxPublic) => {
                 const isChecked = pendingTaxIds.has(tax.id)
                 return (
-                  <button
-                    type="button"
+                  <div
                     key={tax.id}
-                    onClick={() => toggleTax(tax.id, !isChecked)}
                     className={cn(
-                      "flex items-center gap-3 cursor-pointer rounded border px-3 py-2 text-left w-full",
+                      "flex items-center gap-3 rounded border px-3 py-2",
                       isChecked ? "bg-muted" : "",
                     )}
                   >
@@ -564,7 +562,11 @@ const ProductDetailSheet = ({
                       checked={isChecked}
                       onCheckedChange={(c) => toggleTax(tax.id, c === true)}
                     />
-                    <div className="flex-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleTax(tax.id, !isChecked)}
+                      className="flex-1 text-left cursor-pointer"
+                    >
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium">{tax.name}</span>
                         <Badge variant="outline" className="text-xs">
@@ -577,8 +579,8 @@ const ProductDetailSheet = ({
                           ? `${Number(tax.rate).toFixed(2)}%`
                           : `$${Number(tax.rate).toFixed(2)}`}
                       </span>
-                    </div>
-                  </button>
+                    </button>
+                  </div>
                 )
               })}
               <SheetFooter>
