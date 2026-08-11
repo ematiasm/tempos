@@ -268,6 +268,29 @@ def create_document(
     return document, cost_suggestions
 
 
+def documents_for_counterpart(
+    session: Session, contraparte_type: CounterpartType, contraparte_id: uuid.UUID
+) -> list[tuple[Document, str]]:
+    """Distinct documents of a counterpart (with the document type name).
+
+    Used by the hard-delete guard for customers and suppliers: a counterpart
+    referenced by any document (the ``contraparte_*`` columns are polymorphic
+    and have no DB FK) cannot be deleted.
+    """
+    return list(
+        session.exec(
+            select(Document, DocumentType.name)
+            .join(DocumentType, col(Document.document_type_id) == col(DocumentType.id))
+            .where(
+                col(Document.contraparte_type) == contraparte_type,
+                col(Document.contraparte_id) == contraparte_id,
+            )
+            .distinct()
+            .order_by(col(Document.fecha))
+        ).all()
+    )
+
+
 def _receipt_leftovers(
     session: Session, contraparte_type: CounterpartType, contraparte_id: uuid.UUID
 ) -> list[tuple[Document, Decimal]]:

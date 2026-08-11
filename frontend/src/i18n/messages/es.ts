@@ -358,6 +358,7 @@ export const es = {
   "customers.edit": "Editar cliente",
   "customers.editHint":
     "Actualizá los datos del cliente. El documento debe ser un CUIT/CUIL válido si está presente.",
+  "customers.deactivateTitle": "Desactivar cliente",
   "customers.deactivate": "Desactivar cliente",
   "customers.deactivateAction": "Desactivar",
   "customers.deactivateHint":
@@ -365,6 +366,15 @@ export const es = {
   "customers.created": "Cliente creado correctamente",
   "customers.updated": "Cliente actualizado correctamente",
   "customers.deactivated": "Cliente desactivado correctamente",
+  "customers.delete": "Eliminar definitivamente",
+  "customers.deleteTitle": "Eliminar cliente",
+  "customers.deleteHint":
+    "Esta acción es irreversible: se eliminará {name} y su historial. Solo se puede eliminar un cliente que no tenga documentos asociados.",
+  "customers.deleteConfirm": "Eliminar definitivamente",
+  "customers.deleted": "Cliente eliminado correctamente",
+  "customers.deleteBlockedTitle": "No se puede eliminar el cliente",
+  "customers.deleteBlockedHint":
+    "{name} tiene {count, plural, one {# documento} other {# documentos}} asociados y no puede eliminarse para preservar la trazabilidad.",
   "customers.document": "Documento",
   "customers.taxCondition": "Condición fiscal",
   "customers.phone": "Teléfono",
@@ -389,12 +399,22 @@ export const es = {
   "suppliers.editHint":
     "Actualizá los datos del proveedor. El documento debe ser un CUIT/CUIL válido si está presente.",
   "suppliers.deactivate": "Desactivar proveedor",
+  "suppliers.deactivateTitle": "Desactivar proveedor",
   "suppliers.deactivateAction": "Desactivar",
   "suppliers.deactivateHint":
     "¿Seguro que querés desactivar a {name}? El historial de cuenta se conserva y podés reactivarlo más adelante.",
   "suppliers.created": "Proveedor creado correctamente",
   "suppliers.updated": "Proveedor actualizado correctamente",
   "suppliers.deactivated": "Proveedor desactivado correctamente",
+  "suppliers.delete": "Eliminar definitivamente",
+  "suppliers.deleteTitle": "Eliminar proveedor",
+  "suppliers.deleteHint":
+    "Esta acción es irreversible: se eliminará {name} y su historial. Solo se puede eliminar un proveedor que no tenga documentos asociados.",
+  "suppliers.deleteConfirm": "Eliminar definitivamente",
+  "suppliers.deleted": "Proveedor eliminado correctamente",
+  "suppliers.deleteBlockedTitle": "No se puede eliminar el proveedor",
+  "suppliers.deleteBlockedHint":
+    "{name} tiene {count, plural, one {# documento} other {# documentos}} asociados y no puede eliminarse para preservar la trazabilidad.",
   "suppliers.document": "Documento",
   "suppliers.taxCondition": "Condición fiscal",
   "suppliers.phone": "Teléfono",
@@ -480,6 +500,21 @@ export const es = {
   "products.deactivateHint":
     "¿Seguro que querés desactivar {name}? Dejará de aparecer en ventas y compras, pero su historial se conserva. Podés reactivarlo más adelante.",
   "products.deactivated": "Producto desactivado correctamente",
+  "products.delete": "Eliminar definitivamente",
+  "products.deleteTitle": "Eliminar producto",
+  "products.deleteHint":
+    "Esta acción es irreversible: se eliminarán {name} y todos sus datos (códigos de barras, variantes, costos de proveedores). Solo se puede eliminar un producto que no pertenezca a ningún documento.",
+  "products.deleteConfirm": "Eliminar definitivamente",
+  "products.deleted": "Producto eliminado correctamente",
+  "products.deleteBlockedTitle": "No se puede eliminar el producto",
+  "products.deleteBlockedHint":
+    "{name} pertenece a {count, plural, one {# documento} other {# documentos}} y no puede eliminarse para preservar la trazabilidad.",
+  "products.deleteBlockedDocuments": "Documentos",
+  "common.documentNumber": "Número",
+  "common.documentDate": "Fecha",
+  "common.documentType": "Tipo",
+  "common.documentTotal": "Total",
+  "common.documentStatus": "Estado",
   "products.costsHint":
     "Registrá cuánto cobra cada proveedor por {name}. El costo del proveedor de referencia determina el costo del producto y su precio de venta; cuando cambia (acá o tras una compra), el producto se actualiza automáticamente.",
   "products.noSupplierCosts":
@@ -771,6 +806,8 @@ export const es = {
   "admin.units.deleted": "Unidad de medida eliminada correctamente",
   "admin.taxes.title": "Impuestos",
   "admin.taxes.subtitle": "IVA, percepciones y otros impuestos",
+  "admin.taxes.defaultHint":
+    "Marcá qué impuestos se preseleccionan al crear productos. Puede haber varios por defecto; los impuestos ya usados en documentos solo permiten editar nombre, código y estado.",
   "admin.taxes.emptyTitle": "Todavía no hay impuestos",
   "admin.taxes.emptyHint":
     "Agregá impuestos (IVA, percepciones) para aplicarlos a los productos",
@@ -802,6 +839,12 @@ export const es = {
   "admin.taxes.delete": "Eliminar impuesto",
   "admin.taxes.deleteConfirm": "¿Seguro que querés eliminar {name} ({code})?",
   "admin.taxes.deleted": "Impuesto eliminado correctamente",
+  "admin.taxes.deleteBlockedTitle": "No se puede eliminar el impuesto",
+  "admin.taxes.deleteBlockedHint":
+    "{name} pertenece a {count, plural, one {# documento} other {# documentos}} y no puede eliminarse para preservar la trazabilidad.",
+  "admin.taxes.editBlockedTitle": "No se puede editar el impuesto",
+  "admin.taxes.editBlockedHint":
+    "{name} pertenece a {count, plural, one {# documento} other {# documentos}}. Los campos que alteran importes o desgloses fiscales (tipo, tasa, porcentaje, aplicación) están bloqueados para no modificar el histórico.",
   "admin.attributes.title": "Atributos",
   "admin.attributes.subtitle":
     "Atributos y valores usados para construir las variantes de productos",

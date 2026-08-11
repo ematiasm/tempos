@@ -171,7 +171,7 @@ def test_update_customer_duplicate_documento_rejected(
     assert "already exists" in r.json()["detail"]
 
 
-def test_delete_customer_soft_deactivates(
+def test_delete_customer_hard_deletes_when_unused(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
     customer = _create_customer(client, superuser_token_headers)
@@ -180,8 +180,77 @@ def test_delete_customer_soft_deactivates(
         headers=superuser_token_headers,
     )
     assert r.status_code == 200
+    assert r.json()["message"] == "Customer deleted successfully"
     r = client.get(
         f"{settings.API_V1_STR}/customers/{customer['id']}",
         headers=superuser_token_headers,
     )
-    assert r.json()["is_active"] is False
+    assert r.status_code == 404
+
+
+def _create_quote_for_customer(
+    client: TestClient, headers: dict[str, str], customer_id: str
+) -> str:
+    """Create a Cotizacion for the customer; returns the quote numero."""
+    r = client.post(
+        f"{settings.API_V1_STR}/uoms/",
+        headers=headers,
+        json={
+            "name": random_lower_string()[:10],
+            "abbreviation": random_lower_string()[:3].upper(),
+            "decimal_places": 0,
+        },
+    )
+    uom_id = r.json()["id"]
+    r = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=headers,
+        json={
+            "name": random_lower_string()[:20],
+            "uom_id": uom_id,
+            "margen_pct": "21.00",
+            "costo_actual": "100.00",
+            "tax_ids": [],
+        },
+    )
+    assert r.status_code == 200, r.text
+    product_id = r.json()["id"]
+    r = client.get(
+        f"{settings.API_V1_STR}/document-types/", headers=headers, params={"limit": 100}
+    )
+    cot = next(row for row in r.json()["data"] if row["prefix"] == "COT")
+    r = client.post(
+        f"{settings.API_V1_STR}/documents/",
+        headers=headers,
+        json={
+            "document_type_id": cot["id"],
+            "contraparte_id": customer_id,
+            "lines": [{"product_id": product_id, "cantidad": "1"}],
+            "payments": [],
+        },
+    )
+    assert r.status_code == 200, r.text
+    return r.json()["numero"]
+
+
+def test_delete_customer_used_in_document_is_blocked(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    customer = _create_customer(client, superuser_token_headers)
+    quote_numero = _create_quote_for_customer(
+        client, superuser_token_headers, customer["id"]
+    )
+    r = client.delete(
+        f"{settings.API_V1_STR}/customers/{customer['id']}",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 409
+    detail = r.json()["detail"]
+    assert detail["code"] == "customer_in_use"
+    assert any(d["numero"] == quote_numero for d in detail["documents"])
+    # The customer is still there.
+    r = client.get(
+        f"{settings.API_V1_STR}/customers/{customer['id']}",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200

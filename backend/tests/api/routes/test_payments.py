@@ -836,9 +836,11 @@ def test_receipt_requires_active_counterpart(
     product = _create_product(client, superuser_token_headers)
     customer = _create_customer(client, superuser_token_headers)
     _create_sale(client, superuser_token_headers, product["id"], customer["id"])
-    r = client.delete(
+    # Deactivate (hard delete is blocked for customers with documents).
+    r = client.patch(
         f"{settings.API_V1_STR}/customers/{customer['id']}",
         headers=superuser_token_headers,
+        json={"is_active": False},
     )
     assert r.status_code == 200, r.text
 

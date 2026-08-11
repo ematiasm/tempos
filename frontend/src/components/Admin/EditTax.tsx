@@ -7,6 +7,10 @@ import { z } from "zod"
 
 import type { TaxAppliesTo, TaxPublic, TaxType } from "@/client"
 import { TaxesService } from "@/client"
+import BlockedByDocumentsDialog, {
+  type DocumentRef,
+  extractBlockedDocuments,
+} from "@/components/Common/BlockedByDocumentsDialog"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -62,6 +66,9 @@ interface EditTaxProps {
 const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
   const t = useT()
   const [isOpen, setIsOpen] = useState(false)
+  const [blockedDocuments, setBlockedDocuments] = useState<
+    DocumentRef[] | null
+  >(null)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
@@ -103,7 +110,15 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
       setIsOpen(false)
       onSuccess()
     },
-    onError: handleError.bind(showErrorToast),
+    onError: (err) => {
+      const docs = extractBlockedDocuments(err)
+      if (docs) {
+        setIsOpen(false)
+        setBlockedDocuments(docs)
+        return
+      }
+      handleError.bind(showErrorToast)(err as never)
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["taxes"] })
     },
@@ -112,95 +127,36 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
   const onSubmit = (data: FormData) => mutation.mutate(data)
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenuItem
-        onSelect={(e) => e.preventDefault()}
-        onClick={() => setIsOpen(true)}
-      >
-        <Pencil />
-        {t("admin.taxes.edit")}
-      </DropdownMenuItem>
-      <DialogContent className="sm:max-w-md">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <DialogHeader>
-              <DialogTitle>{t("admin.taxes.edit")}</DialogTitle>
-              <DialogDescription>
-                {t("admin.taxes.editDescription")}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {t("common.name")}{" "}
-                      <span className="text-destructive">*</span>
-                    </FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="code"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {t("admin.taxes.code")}{" "}
-                      <span className="text-destructive">*</span>
-                    </FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="tipo"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {t("common.type")}{" "}
-                      <span className="text-destructive">*</span>
-                    </FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {taxTypes.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-2 gap-4">
+    <>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenuItem
+          onSelect={(e) => e.preventDefault()}
+          onClick={() => setIsOpen(true)}
+        >
+          <Pencil />
+          {t("admin.taxes.edit")}
+        </DropdownMenuItem>
+        <DialogContent className="sm:max-w-md">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
+              <DialogHeader>
+                <DialogTitle>{t("admin.taxes.edit")}</DialogTitle>
+                <DialogDescription>
+                  {t("admin.taxes.editDescription")}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
                 <FormField
                   control={form.control}
-                  name="rate"
+                  name="name"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        {t("admin.taxes.rate")}{" "}
+                        {t("common.name")}{" "}
                         <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" {...field} />
+                        <Input {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -208,10 +164,29 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
                 />
                 <FormField
                   control={form.control}
-                  name="aplica_a"
+                  name="code"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("admin.taxes.appliesTo")}</FormLabel>
+                      <FormLabel>
+                        {t("admin.taxes.code")}{" "}
+                        <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="tipo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t("common.type")}{" "}
+                        <span className="text-destructive">*</span>
+                      </FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         value={field.value}
@@ -222,7 +197,7 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {taxAppliesTo.map((opt) => (
+                          {taxTypes.map((opt) => (
                             <SelectItem key={opt.value} value={opt.value}>
                               {opt.label}
                             </SelectItem>
@@ -233,75 +208,133 @@ const EditTax = ({ tax, onSuccess }: EditTaxProps) => {
                     </FormItem>
                   )}
                 />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="rate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          {t("admin.taxes.rate")}{" "}
+                          <span className="text-destructive">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="aplica_a"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("admin.taxes.appliesTo")}</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {taxAppliesTo.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="is_percent"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center gap-3 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          {t("admin.taxes.isPercentage")}
+                        </FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="is_default"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center gap-3 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          {t("admin.taxes.isDefault")}
+                        </FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="is_active"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center gap-3 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          {t("admin.taxes.isActive")}
+                        </FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="is_percent"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-3 space-y-0">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <FormLabel className="font-normal">
-                        {t("admin.taxes.isPercentage")}
-                      </FormLabel>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="is_default"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-3 space-y-0">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <FormLabel className="font-normal">
-                        {t("admin.taxes.isDefault")}
-                      </FormLabel>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="is_active"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-3 space-y-0">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <FormLabel className="font-normal">
-                        {t("admin.taxes.isActive")}
-                      </FormLabel>
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="outline" disabled={mutation.isPending}>
-                  {t("common.cancel")}
-                </Button>
-              </DialogClose>
-              <LoadingButton type="submit" loading={mutation.isPending}>
-                {t("common.save")}
-              </LoadingButton>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline" disabled={mutation.isPending}>
+                    {t("common.cancel")}
+                  </Button>
+                </DialogClose>
+                <LoadingButton type="submit" loading={mutation.isPending}>
+                  {t("common.save")}
+                </LoadingButton>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <BlockedByDocumentsDialog
+        open={blockedDocuments !== null}
+        onOpenChange={(open) => {
+          if (!open) setBlockedDocuments(null)
+        }}
+        title={t("admin.taxes.editBlockedTitle")}
+        hint={t("admin.taxes.editBlockedHint", {
+          name: tax.name,
+          count: blockedDocuments?.length ?? 0,
+        })}
+        documents={blockedDocuments ?? []}
+      />
+    </>
   )
 }
 

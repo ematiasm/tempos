@@ -358,12 +358,22 @@ export const en: Messages = {
   "customers.editHint":
     "Update the customer details. Document must be a valid CUIT/CUIL when present.",
   "customers.deactivate": "Deactivate Customer",
+  "customers.deactivateTitle": "Deactivate Customer",
   "customers.deactivateAction": "Deactivate",
   "customers.deactivateHint":
     "Are you sure you want to deactivate {name}? The account history is kept and you can reactivate it later.",
   "customers.created": "Customer created successfully",
   "customers.updated": "Customer updated successfully",
   "customers.deactivated": "Customer deactivated successfully",
+  "customers.delete": "Delete permanently",
+  "customers.deleteTitle": "Delete customer",
+  "customers.deleteHint":
+    "This action is irreversible: {name} and its history will be deleted. A customer can only be deleted when it has no associated documents.",
+  "customers.deleteConfirm": "Delete permanently",
+  "customers.deleted": "Customer deleted successfully",
+  "customers.deleteBlockedTitle": "Customer cannot be deleted",
+  "customers.deleteBlockedHint":
+    "{name} has {count, plural, one {# document} other {# documents}} and cannot be deleted to preserve traceability.",
   "customers.document": "Document",
   "customers.taxCondition": "Tax Condition",
   "customers.phone": "Phone",
@@ -387,12 +397,22 @@ export const en: Messages = {
   "suppliers.editHint":
     "Update the supplier details. Document must be a valid CUIT/CUIL when present.",
   "suppliers.deactivate": "Deactivate Supplier",
+  "suppliers.deactivateTitle": "Deactivate Supplier",
   "suppliers.deactivateAction": "Deactivate",
   "suppliers.deactivateHint":
     "Are you sure you want to deactivate {name}? The account history is kept and you can reactivate it later.",
   "suppliers.created": "Supplier created successfully",
   "suppliers.updated": "Supplier updated successfully",
   "suppliers.deactivated": "Supplier deactivated successfully",
+  "suppliers.delete": "Delete permanently",
+  "suppliers.deleteTitle": "Delete supplier",
+  "suppliers.deleteHint":
+    "This action is irreversible: {name} and its history will be deleted. A supplier can only be deleted when it has no associated documents.",
+  "suppliers.deleteConfirm": "Delete permanently",
+  "suppliers.deleted": "Supplier deleted successfully",
+  "suppliers.deleteBlockedTitle": "Supplier cannot be deleted",
+  "suppliers.deleteBlockedHint":
+    "{name} has {count, plural, one {# document} other {# documents}} and cannot be deleted to preserve traceability.",
   "suppliers.document": "Document",
   "suppliers.taxCondition": "Tax Condition",
   "suppliers.phone": "Phone",
@@ -471,6 +491,21 @@ export const en: Messages = {
   "products.deactivateHint":
     "Are you sure you want to deactivate {name}? It will stop showing up in sales and purchases but its history is kept. You can reactivate it later.",
   "products.deactivated": "Product deactivated successfully",
+  "products.delete": "Delete permanently",
+  "products.deleteTitle": "Delete product",
+  "products.deleteHint":
+    "This action is irreversible: {name} and all of its data (barcodes, variants, supplier costs) will be deleted. A product can only be deleted when it does not belong to any document.",
+  "products.deleteConfirm": "Delete permanently",
+  "products.deleted": "Product deleted successfully",
+  "products.deleteBlockedTitle": "Product cannot be deleted",
+  "products.deleteBlockedHint":
+    "{name} belongs to {count, plural, one {# document} other {# documents}} and cannot be deleted to preserve traceability.",
+  "products.deleteBlockedDocuments": "Documents",
+  "common.documentNumber": "Number",
+  "common.documentDate": "Date",
+  "common.documentType": "Type",
+  "common.documentTotal": "Total",
+  "common.documentStatus": "Status",
   "products.costsHint":
     "Track what each supplier charges for {name}. The reference supplier's cost drives the product cost and sale price; when it changes (here or after a purchase), the product is updated automatically.",
   "products.noSupplierCosts": "No supplier costs registered yet.",
@@ -748,6 +783,8 @@ export const en: Messages = {
   "admin.units.deleted": "Unit of measure deleted successfully",
   "admin.taxes.title": "Taxes",
   "admin.taxes.subtitle": "VAT, perceptions and other taxes",
+  "admin.taxes.defaultHint":
+    "Choose which taxes are preselected when creating products. Multiple defaults are allowed; taxes already used in documents only allow editing name, code and status.",
   "admin.taxes.emptyTitle": "No taxes yet",
   "admin.taxes.emptyHint":
     "Add taxes (VAT, perceptions) to apply them to products",
@@ -780,6 +817,12 @@ export const en: Messages = {
   "admin.taxes.deleteConfirm":
     "Are you sure you want to delete {name} ({code})?",
   "admin.taxes.deleted": "Tax deleted successfully",
+  "admin.taxes.deleteBlockedTitle": "Tax cannot be deleted",
+  "admin.taxes.deleteBlockedHint":
+    "{name} belongs to {count, plural, one {# document} other {# documents}} and cannot be deleted to preserve traceability.",
+  "admin.taxes.editBlockedTitle": "Tax cannot be edited",
+  "admin.taxes.editBlockedHint":
+    "{name} belongs to {count, plural, one {# document} other {# documents}}. Fields that alter amounts or fiscal breakdowns (type, rate, percentage, application) are frozen so historical data cannot change.",
   "admin.attributes.title": "Attributes",
   "admin.attributes.subtitle":
     "Attributes and values used to build product variants",

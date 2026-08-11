@@ -2,6 +2,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 
 import type { TaxPublic } from "@/client"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import type { useT } from "@/i18n"
 import { cn } from "@/lib/utils"
 import { TaxActionsMenu } from "./TaxActionsMenu"
@@ -10,6 +11,7 @@ export type TaxTableData = TaxPublic
 
 export function getColumns(
   t: ReturnType<typeof useT>,
+  onToggleDefault?: (tax: TaxPublic) => void,
 ): ColumnDef<TaxTableData>[] {
   return [
     {
@@ -60,14 +62,12 @@ export function getColumns(
     {
       accessorKey: "is_default",
       header: t("admin.taxes.default"),
-      cell: ({ row }) =>
-        row.original.is_default ? (
-          <Badge variant="outline" className="text-xs">
-            {t("admin.taxes.default")}
-          </Badge>
-        ) : (
-          <span className="text-muted-foreground text-sm">—</span>
-        ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.original.is_default ?? false}
+          onCheckedChange={() => onToggleDefault?.(row.original)}
+        />
+      ),
     },
     {
       accessorKey: "is_active",

@@ -3,8 +3,11 @@
 import uuid
 
 from fastapi.testclient import TestClient
+from sqlmodel import Session, select
 
 from app.core.config import settings
+from app.models import DocumentType
+from tests.utils.ledger import load_stock
 from tests.utils.utils import random_lower_string
 
 
@@ -112,7 +115,7 @@ def test_update_product_recomputes_precio_venta(
     assert r.json()["precio_venta"] == "300.00"
 
 
-def test_delete_product_soft_deactivates(
+def test_delete_product_hard_deletes_when_unused(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
     uom = _create_uom(client, superuser_token_headers)
@@ -127,12 +130,63 @@ def test_delete_product_soft_deactivates(
         f"{settings.API_V1_STR}/products/{pid}", headers=superuser_token_headers
     )
     assert r.status_code == 200
-    assert r.json()["message"] == "Product deactivated successfully"
-    # Verify is_active now False
+    assert r.json()["message"] == "Product deleted successfully"
+    # Verify it is gone (hard delete)
     r = client.get(
         f"{settings.API_V1_STR}/products/{pid}", headers=superuser_token_headers
     )
-    assert r.json()["is_active"] is False
+    assert r.status_code == 404
+
+
+def test_delete_product_used_in_document_is_blocked(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,
+) -> None:
+    uom = _create_uom(client, superuser_token_headers)
+    payload = _build_product_payload(uom["id"])
+    r = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json=payload,
+    )
+    assert r.status_code == 200
+    pid = r.json()["id"]
+    # Load stock so the sale can be issued without negative stock.
+    load_stock(client, superuser_token_headers, pid, "3")
+    # Create a customer and a sale referencing the product.
+    r = client.post(
+        f"{settings.API_V1_STR}/customers/",
+        headers=superuser_token_headers,
+        json={"razon_social": random_lower_string()[:20], "condicion_fiscal": "RI"},
+    )
+    assert r.status_code == 200, r.text
+    customer_id = r.json()["id"]
+    tck = db.exec(select(DocumentType).where(DocumentType.prefix == "TCK")).one()
+    r = client.post(
+        f"{settings.API_V1_STR}/documents/",
+        headers=superuser_token_headers,
+        json={
+            "document_type_id": str(tck.id),
+            "contraparte_id": customer_id,
+            "lines": [{"product_id": pid, "cantidad": "1"}],
+            "payments": [],
+        },
+    )
+    assert r.status_code == 200, r.text
+    doc_numero = r.json()["numero"]
+    r = client.delete(
+        f"{settings.API_V1_STR}/products/{pid}", headers=superuser_token_headers
+    )
+    assert r.status_code == 409
+    detail = r.json()["detail"]
+    assert detail["code"] == "product_in_use"
+    assert any(d["numero"] == doc_numero for d in detail["documents"])
+    # The product is still there (deactivation path unaffected)
+    r = client.get(
+        f"{settings.API_V1_STR}/products/{pid}", headers=superuser_token_headers
+    )
+    assert r.status_code == 200
 
 
 def test_create_product_with_taxes(

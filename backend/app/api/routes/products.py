@@ -2,6 +2,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, func, or_, select
 
@@ -12,6 +13,9 @@ from app.models import (
     Barcode,
     BarcodeCreate,
     Category,
+    Document,
+    DocumentLine,
+    DocumentType,
     Message,
     Page,
     Product,
@@ -191,14 +195,74 @@ def update_product(
     dependencies=[require_permissions("product.delete")],
 )
 def delete_product(session: SessionDep, product_id: uuid.UUID) -> Any:
-    """Deactivate a product (soft delete)."""
+    """Hard-delete a product, unless it is referenced by any document.
+
+    Products referenced by documents (sales, purchases, quotes, etc.) cannot
+    be deleted to preserve traceability; the response carries the offending
+    documents so the UI can show them. The database FKs on ``documentline``
+    and ``stockmovement`` act as a final safety net.
+    """
     product = session.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    product.is_active = False
-    session.add(product)
-    session.commit()
-    return Message(message="Product deactivated successfully")
+    _ensure_product_deletable(session, product)
+    try:
+        session.delete(product)
+        session.commit()
+    except IntegrityError as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "product_in_use",
+                "message": (
+                    "Product cannot be deleted because it is referenced by "
+                    "documents or stock movements"
+                ),
+                "documents": [],
+            },
+        ) from e
+    return Message(message="Product deleted successfully")
+
+
+def _ensure_product_deletable(session: SessionDep, product: Product) -> None:
+    """Raise 409 with the referencing documents when the product is in use."""
+    variant_ids = session.exec(
+        select(ProductVariant.id).where(col(ProductVariant.product_id) == product.id)
+    ).all()
+    rows = session.exec(
+        select(Document, DocumentType.name)
+        .join(DocumentType, col(DocumentType.id) == Document.document_type_id)
+        .join(DocumentLine, col(DocumentLine.document_id) == Document.id)
+        .where(
+            or_(
+                col(DocumentLine.product_id) == product.id,
+                col(DocumentLine.variant_id).in_(variant_ids),
+            )
+        )
+        .distinct()
+        .order_by(col(Document.fecha))
+    ).all()
+    if not rows:
+        return
+    raise HTTPException(
+        status_code=409,
+        detail={
+            "code": "product_in_use",
+            "message": "Product cannot be deleted because it belongs to documents",
+            "documents": [
+                {
+                    "id": str(document.id),
+                    "numero": document.numero,
+                    "fecha": document.fecha.isoformat(),
+                    "total": str(document.total),
+                    "estado": document.estado.value,
+                    "type_name": type_name,
+                }
+                for document, type_name in rows
+            ],
+        },
+    )
 
 
 # ----- Barcodes -----

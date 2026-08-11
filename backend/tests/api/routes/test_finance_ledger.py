@@ -424,9 +424,7 @@ def test_current_account_payment_combined_with_cash(
     )
 
 
-def _outstanding(
-    client: TestClient, headers: dict[str, str], customer_id: str
-) -> list:
+def _outstanding(client: TestClient, headers: dict[str, str], customer_id: str) -> list:
     r = client.get(
         f"{settings.API_V1_STR}/payments/outstanding",
         headers=headers,
