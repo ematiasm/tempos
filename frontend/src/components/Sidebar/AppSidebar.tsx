@@ -10,6 +10,7 @@ import {
   Truck,
   UserRound,
   Users,
+  Wallet,
 } from "lucide-react"
 
 import { SidebarAppearance } from "@/components/Common/Appearance"
@@ -34,6 +35,7 @@ const baseItems: Item[] = [
   { icon: Truck, titleKey: "nav.suppliers", path: "/suppliers" },
   { icon: FileText, titleKey: "nav.documents", path: "/documents" },
   { icon: HandCoins, titleKey: "nav.payments", path: "/payments" },
+  { icon: Wallet, titleKey: "nav.finance", path: "/finance" },
   { icon: BarChart3, titleKey: "nav.reports", path: "/reports" },
 ]
 

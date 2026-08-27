@@ -48,6 +48,18 @@ export const AccountMovementPublicSchema = {
             ],
             title: 'Transfer Id'
         },
+        cash_session_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Cash Session Id'
+        },
         monto: {
             type: 'string',
             pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
@@ -311,6 +323,59 @@ export const BackupPublicSchema = {
     type: 'object',
     required: ['id', 'filename', 'size_bytes', 'kind', 'status'],
     title: 'BackupPublic'
+} as const;
+
+export const BackupRunStateSchema = {
+    type: 'string',
+    enum: ['idle', 'running', 'success', 'failed'],
+    title: 'BackupRunState'
+} as const;
+
+export const BackupRunStatusPublicSchema = {
+    properties: {
+        estado: {
+            '$ref': '#/components/schemas/BackupRunState'
+        },
+        started_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Started At'
+        },
+        finished_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Finished At'
+        },
+        error: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Error'
+        }
+    },
+    type: 'object',
+    required: ['estado'],
+    title: 'BackupRunStatusPublic',
+    description: 'Manual (run-now) backup progress, sourced from the backup state file.'
 } as const;
 
 export const BackupSchedulePublicSchema = {
@@ -618,6 +683,19 @@ export const Body_backups_restore_backupSchema = {
     title: 'Body_backups-restore_backup'
 } as const;
 
+export const Body_business_settings_upload_logoSchema = {
+    properties: {
+        file: {
+            type: 'string',
+            contentMediaType: 'application/octet-stream',
+            title: 'File'
+        }
+    },
+    type: 'object',
+    required: ['file'],
+    title: 'Body_business-settings-upload_logo'
+} as const;
+
 export const Body_login_login_access_tokenSchema = {
     properties: {
         grant_type: {
@@ -751,10 +829,46 @@ export const BusinessSettingsPublicSchema = {
                 }
             ],
             title: 'Default Iva'
+        },
+        timezone: {
+            type: 'string',
+            title: 'Timezone'
+        },
+        payment_method_default_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Payment Method Default Id'
+        },
+        number_format: {
+            '$ref': '#/components/schemas/NumberFormat'
+        },
+        logo_path: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Logo Path'
+        },
+        stock_policy: {
+            '$ref': '#/components/schemas/StockPolicy'
+        },
+        default_locale: {
+            '$ref': '#/components/schemas/LocalePreference'
         }
     },
     type: 'object',
-    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants'],
+    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants', 'timezone', 'number_format', 'stock_policy', 'default_locale'],
     title: 'BusinessSettingsPublic'
 } as const;
 
@@ -866,10 +980,513 @@ export const BusinessSettingsUpdateSchema = {
                 }
             ],
             title: 'Default Iva'
+        },
+        timezone: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 100
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Timezone'
+        },
+        payment_method_default_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Payment Method Default Id'
+        },
+        number_format: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/NumberFormat'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        stock_policy: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/StockPolicy'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        default_locale: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/LocalePreference'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     type: 'object',
     title: 'BusinessSettingsUpdate'
+} as const;
+
+export const CashSessionCloseCreateSchema = {
+    properties: {
+        counted_amount: {
+            anyOf: [
+                {
+                    type: 'number',
+                    minimum: 0
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                }
+            ],
+            title: 'Counted Amount'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 500
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        }
+    },
+    type: 'object',
+    required: ['counted_amount'],
+    title: 'CashSessionCloseCreate',
+    description: 'Close a daily cash session with the physical drawer count.'
+} as const;
+
+export const CashSessionMethodTotalsSchema = {
+    properties: {
+        payment_method_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Payment Method Id'
+        },
+        payment_method_name: {
+            type: 'string',
+            title: 'Payment Method Name'
+        },
+        financial_account_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Financial Account Id'
+        },
+        financial_account_name: {
+            type: 'string',
+            title: 'Financial Account Name'
+        },
+        ingresos: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Ingresos'
+        },
+        egresos: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Egresos'
+        },
+        net: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Net'
+        }
+    },
+    type: 'object',
+    required: ['payment_method_id', 'payment_method_name', 'financial_account_id', 'financial_account_name', 'ingresos', 'egresos', 'net'],
+    title: 'CashSessionMethodTotals',
+    description: 'Payment totals per method, with the financial account they book to.'
+} as const;
+
+export const CashSessionMovementSchema = {
+    properties: {
+        fecha: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Fecha'
+        },
+        tipo: {
+            '$ref': '#/components/schemas/AccountMovementType'
+        },
+        concept: {
+            type: 'string',
+            title: 'Concept'
+        },
+        monto: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Monto'
+        },
+        financial_account_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Financial Account Name'
+        }
+    },
+    type: 'object',
+    required: ['fecha', 'tipo', 'concept', 'monto'],
+    title: 'CashSessionMovement',
+    description: 'A money movement belonging to the session (funding, transfers).'
+} as const;
+
+export const CashSessionOpenCreateSchema = {
+    properties: {
+        opening_amount: {
+            anyOf: [
+                {
+                    type: 'number',
+                    minimum: 0
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                }
+            ],
+            title: 'Opening Amount'
+        },
+        opening_source_account_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Opening Source Account Id'
+        }
+    },
+    type: 'object',
+    required: ['opening_amount'],
+    title: 'CashSessionOpenCreate',
+    description: `Open a daily cash session.
+
+\`\`opening_amount\`\` is the physical float placed in the drawer;
+\`\`opening_source_account_id\`\` is the financial account that float comes
+from (defaults to the drawer account, i.e. no movement is generated).`
+} as const;
+
+export const CashSessionPerUserSchema = {
+    properties: {
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        user_name: {
+            type: 'string',
+            title: 'User Name'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        },
+        total: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Total'
+        }
+    },
+    type: 'object',
+    required: ['user_id', 'user_name', 'count', 'total'],
+    title: 'CashSessionPerUser',
+    description: 'Document totals grouped by the user who registered them.'
+} as const;
+
+export const CashSessionPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        opened_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Opened At'
+        },
+        closed_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Closed At'
+        },
+        opened_by_user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Opened By User Id'
+        },
+        closed_by_user_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Closed By User Id'
+        },
+        cash_account_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Cash Account Id'
+        },
+        opening_amount: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Opening Amount'
+        },
+        opening_source_account_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Opening Source Account Id'
+        },
+        counted_amount: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Counted Amount'
+        },
+        expected_amount: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Expected Amount'
+        },
+        difference: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Difference'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
+        status: {
+            '$ref': '#/components/schemas/CashSessionStatus'
+        },
+        created_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Created At'
+        },
+        opened_by_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Opened By Name'
+        },
+        closed_by_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Closed By Name'
+        },
+        cash_account_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Cash Account Name'
+        },
+        opening_source_account_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Opening Source Account Name'
+        }
+    },
+    type: 'object',
+    required: ['id', 'opened_at', 'opened_by_user_id', 'cash_account_id', 'opening_amount', 'opening_source_account_id', 'status'],
+    title: 'CashSessionPublic'
+} as const;
+
+export const CashSessionReportSchema = {
+    properties: {
+        session: {
+            '$ref': '#/components/schemas/CashSessionPublic'
+        },
+        sales: {
+            items: {
+                '$ref': '#/components/schemas/CashSessionPerUser'
+            },
+            type: 'array',
+            title: 'Sales',
+            default: []
+        },
+        returns: {
+            items: {
+                '$ref': '#/components/schemas/CashSessionPerUser'
+            },
+            type: 'array',
+            title: 'Returns',
+            default: []
+        },
+        purchases: {
+            items: {
+                '$ref': '#/components/schemas/CashSessionPerUser'
+            },
+            type: 'array',
+            title: 'Purchases',
+            default: []
+        },
+        receipts_collected: {
+            items: {
+                '$ref': '#/components/schemas/CashSessionPerUser'
+            },
+            type: 'array',
+            title: 'Receipts Collected',
+            default: []
+        },
+        receipts_paid: {
+            items: {
+                '$ref': '#/components/schemas/CashSessionPerUser'
+            },
+            type: 'array',
+            title: 'Receipts Paid',
+            default: []
+        },
+        methods: {
+            items: {
+                '$ref': '#/components/schemas/CashSessionMethodTotals'
+            },
+            type: 'array',
+            title: 'Methods',
+            default: []
+        },
+        movements: {
+            items: {
+                '$ref': '#/components/schemas/CashSessionMovement'
+            },
+            type: 'array',
+            title: 'Movements',
+            default: []
+        },
+        expected_amount: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Expected Amount'
+        },
+        counted_amount: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Counted Amount'
+        },
+        difference: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Difference'
+        }
+    },
+    type: 'object',
+    required: ['session', 'expected_amount'],
+    title: 'CashSessionReport',
+    description: 'Full closing report for a daily cash session (computed live).'
+} as const;
+
+export const CashSessionStatusSchema = {
+    type: 'string',
+    enum: ['open', 'closed'],
+    title: 'CashSessionStatus'
 } as const;
 
 export const CategoryCreateSchema = {
@@ -1646,6 +2263,17 @@ export const DocumentLinePublicSchema = {
                 }
             ],
             title: 'Cantidad Pendiente'
+        },
+        product_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Product Name'
         }
     },
     type: 'object',
@@ -1883,6 +2511,18 @@ export const DocumentPublicSchema = {
             ],
             title: 'Parent Document Id'
         },
+        cash_session_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Cash Session Id'
+        },
         created_at: {
             anyOf: [
                 {
@@ -1962,6 +2602,14 @@ export const DocumentPublicSchema = {
             },
             type: 'array',
             title: 'Cost Change Suggestions',
+            default: []
+        },
+        stock_warnings: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Stock Warnings',
             default: []
         }
     },
@@ -2357,6 +3005,12 @@ export const ItemUpdateSchema = {
     title: 'ItemUpdate'
 } as const;
 
+export const LocalePreferenceSchema = {
+    type: 'string',
+    enum: ['es', 'en'],
+    title: 'LocalePreference'
+} as const;
+
 export const LowStockRowSchema = {
     properties: {
         id: {
@@ -2504,6 +3158,12 @@ export const NewPasswordSchema = {
     title: 'NewPassword'
 } as const;
 
+export const NumberFormatSchema = {
+    type: 'string',
+    enum: ['es', 'en'],
+    title: 'NumberFormat'
+} as const;
+
 export const OutstandingDocumentPublicSchema = {
     properties: {
         document_id: {
@@ -2592,6 +3252,25 @@ export const Page_BackupPublic_Schema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'Page[BackupPublic]'
+} as const;
+
+export const Page_CashSessionPublic_Schema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/CashSessionPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'Page[CashSessionPublic]'
 } as const;
 
 export const Page_CategoryPublic_Schema = {
@@ -2782,6 +3461,25 @@ export const Page_PermissionPublic_Schema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'Page[PermissionPublic]'
+} as const;
+
+export const Page_ProductListItemPublic_Schema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/ProductListItemPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'Page[ProductListItemPublic]'
 } as const;
 
 export const Page_ProductPublic_Schema = {
@@ -2996,6 +3694,11 @@ export const PaymentMethodCreateSchema = {
             type: 'boolean',
             title: 'Requiere Conciliacion',
             default: false
+        },
+        is_cash_drawer: {
+            type: 'boolean',
+            title: 'Is Cash Drawer',
+            default: false
         }
     },
     type: 'object',
@@ -3026,10 +3729,14 @@ export const PaymentMethodPublicSchema = {
         requiere_conciliacion: {
             type: 'boolean',
             title: 'Requiere Conciliacion'
+        },
+        is_cash_drawer: {
+            type: 'boolean',
+            title: 'Is Cash Drawer'
         }
     },
     type: 'object',
-    required: ['id', 'name', 'financial_account_id', 'marks_paid', 'requiere_conciliacion'],
+    required: ['id', 'name', 'financial_account_id', 'marks_paid', 'requiere_conciliacion', 'is_cash_drawer'],
     title: 'PaymentMethodPublic'
 } as const;
 
@@ -3081,6 +3788,17 @@ export const PaymentMethodUpdateSchema = {
                 }
             ],
             title: 'Requiere Conciliacion'
+        },
+        is_cash_drawer: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Is Cash Drawer'
         }
     },
     type: 'object',
@@ -3116,12 +3834,29 @@ export const PaymentReceiptCreateSchema = {
             type: 'array',
             minItems: 1,
             title: 'Payments'
+        },
+        cash_session_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Cash Session Id'
         }
     },
     type: 'object',
     required: ['contraparte_type', 'contraparte_id', 'payments'],
     title: 'PaymentReceiptCreate',
-    description: "Input for a standalone payment against a counterpart's current account."
+    description: `Input for a standalone payment against a counterpart's current account.
+
+\`\`cash_session_id\`\` is optional: when provided (an open session), the
+receipt is linked to that session and counts toward its drawer arqueo;
+when NULL, the money books only to the financial account and stays out of
+the daily cash-session report.`
 } as const;
 
 export const PaymentReceiptPublicSchema = {
@@ -3194,6 +3929,51 @@ export const PrivateUserCreateSchema = {
     type: 'object',
     required: ['email', 'password', 'full_name'],
     title: 'PrivateUserCreate'
+} as const;
+
+export const ProductCategoryCountPublicSchema = {
+    properties: {
+        category_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Category Id'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['category_id', 'count'],
+    title: 'ProductCategoryCountPublic',
+    description: 'Product count per category (None category = uncategorized).'
+} as const;
+
+export const ProductCategoryCountsPublicSchema = {
+    properties: {
+        total: {
+            type: 'integer',
+            title: 'Total'
+        },
+        by_category: {
+            items: {
+                '$ref': '#/components/schemas/ProductCategoryCountPublic'
+            },
+            type: 'array',
+            title: 'By Category'
+        }
+    },
+    type: 'object',
+    required: ['total', 'by_category'],
+    title: 'ProductCategoryCountsPublic',
+    description: 'Aggregate product counts for the catalog sidebar.'
 } as const;
 
 export const ProductCreateSchema = {
@@ -3318,6 +4098,100 @@ export const ProductCreateSchema = {
     type: 'object',
     required: ['name', 'uom_id'],
     title: 'ProductCreate'
+} as const;
+
+export const ProductListItemPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        sku: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sku'
+        },
+        category_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Category Id'
+        },
+        uom_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Uom Id'
+        },
+        is_active: {
+            type: 'boolean',
+            title: 'Is Active'
+        },
+        margen_pct: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Margen Pct'
+        },
+        costo_actual: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Costo Actual'
+        },
+        precio_venta: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Precio Venta'
+        },
+        stock_current: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Stock Current'
+        },
+        stock_minimo: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Stock Minimo'
+        },
+        taxes: {
+            items: {
+                '$ref': '#/components/schemas/TaxPublic'
+            },
+            type: 'array',
+            title: 'Taxes',
+            default: []
+        }
+    },
+    type: 'object',
+    required: ['id', 'name', 'uom_id', 'is_active', 'margen_pct', 'costo_actual', 'precio_venta', 'stock_current'],
+    title: 'ProductListItemPublic',
+    description: `Lightweight product row for list views (server-side pagination).
+
+Keeps the fields the table columns render (including taxes for the tax
+badges); nested barcodes/variants are loaded on demand via the detail
+endpoint so the payload stays flat regardless of catalog size.`
 } as const;
 
 export const ProductPublicSchema = {
@@ -3724,6 +4598,18 @@ export const ReceiptAllocationPublicSchema = {
             type: 'string',
             pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
             title: 'Monto'
+        },
+        saldo_inicial: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Saldo Inicial'
         }
     },
     type: 'object',
@@ -4159,6 +5045,12 @@ export const StockMovementPublicSchema = {
     type: 'object',
     required: ['id', 'product_id', 'document_id', 'signo', 'cantidad', 'motivo', 'user_id'],
     title: 'StockMovementPublic'
+} as const;
+
+export const StockPolicySchema = {
+    type: 'string',
+    enum: ['block', 'warn'],
+    title: 'StockPolicy'
 } as const;
 
 export const SupplierAccountMovementPublicSchema = {
@@ -4975,6 +5867,18 @@ export const TransferPublicSchema = {
             type: 'string',
             format: 'uuid',
             title: 'User Id'
+        },
+        cash_session_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Cash Session Id'
         },
         created_at: {
             anyOf: [

@@ -62,6 +62,7 @@ const SupplierCostsTab = ({
       queryKey: ["supplier-products", productId],
     })
     queryClient.invalidateQueries({ queryKey: ["products"] })
+    queryClient.invalidateQueries({ queryKey: ["product", productId] })
   }
 
   const createMutation = useMutation({

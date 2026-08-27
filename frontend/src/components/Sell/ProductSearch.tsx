@@ -7,7 +7,8 @@ import { ProductsService } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useT } from "@/i18n"
+import { useLocale, useT } from "@/i18n"
+import { formatMoney } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export interface CartLine {
@@ -24,6 +25,7 @@ interface ProductSearchProps {
 
 const ProductSearch = ({ onAdd }: ProductSearchProps) => {
   const t = useT()
+  const { numberFormat } = useLocale()
   const [query, setQuery] = useState("")
   const [expanded, setExpanded] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -133,7 +135,7 @@ const ProductSearch = ({ onAdd }: ProductSearchProps) => {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold">
-                      ${Number(product.precio_venta).toFixed(2)}
+                      ${formatMoney(Number(product.precio_venta), numberFormat)}
                     </span>
                     <span className="inline-flex h-8 items-center gap-1 rounded-md bg-secondary px-3 text-sm font-medium text-secondary-foreground">
                       <ShoppingCart className="h-3 w-3" />

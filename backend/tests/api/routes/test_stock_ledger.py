@@ -2,11 +2,27 @@
 
 from decimal import Decimal
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from tests.utils.ledger import load_stock, unload_stock
 from tests.utils.utils import random_lower_string
+
+
+@pytest.fixture
+def _block_stock(client: TestClient, superuser_token_headers: dict[str, str]):
+    """Force the stock policy to BLOCK and restore it afterwards."""
+    url = f"{settings.API_V1_STR}/business-settings/"
+    r = client.patch(
+        url, headers=superuser_token_headers, json={"stock_policy": "block"}
+    )
+    assert r.status_code == 200, r.text
+    yield
+    r = client.patch(
+        url, headers=superuser_token_headers, json={"stock_policy": "warn"}
+    )
+    assert r.status_code == 200, r.text
 
 
 def _create_uom(client: TestClient, headers: dict[str, str]) -> dict:
@@ -197,7 +213,7 @@ def test_quote_does_not_touch_stock(
 
 
 def test_negative_stock_blocked_by_default(
-    client: TestClient, superuser_token_headers: dict[str, str]
+    client: TestClient, superuser_token_headers: dict[str, str], _block_stock
 ) -> None:
     product = _create_product(client, superuser_token_headers)
     customer = _create_customer(client, superuser_token_headers)
@@ -224,7 +240,7 @@ def test_negative_stock_blocked_by_default(
 
 
 def test_partial_stock_shortage_rejected(
-    client: TestClient, superuser_token_headers: dict[str, str]
+    client: TestClient, superuser_token_headers: dict[str, str], _block_stock
 ) -> None:
     product = _create_product(client, superuser_token_headers)
     load_stock(client, superuser_token_headers, product["id"], "3")
@@ -273,6 +289,42 @@ def test_negative_stock_allowed_when_enabled(
             settings_url,
             headers=superuser_token_headers,
             json={"allow_negative_stock": False},
+        )
+        assert r.status_code == 200
+
+
+def test_negative_stock_warns_when_policy_is_warn(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """With the WARN policy, a sale below zero succeeds and reports a warning."""
+    settings_url = f"{settings.API_V1_STR}/business-settings/"
+    r = client.patch(
+        settings_url,
+        headers=superuser_token_headers,
+        json={"stock_policy": "warn", "allow_negative_stock": False},
+    )
+    assert r.status_code == 200, r.text
+    try:
+        product = _create_product(client, superuser_token_headers)
+        customer = _create_customer(client, superuser_token_headers)
+        tck = _doc_type_id(client, superuser_token_headers, "TCK")
+        r = client.post(
+            f"{settings.API_V1_STR}/documents/",
+            headers=superuser_token_headers,
+            json={
+                "document_type_id": tck,
+                "contraparte_id": customer["id"],
+                "lines": [{"product_id": product["id"], "cantidad": "1"}],
+            },
+        )
+        assert r.status_code == 200, r.text
+        assert _stock(client, superuser_token_headers, product["id"]) == Decimal("-1")
+        assert any("Insufficient stock" in w for w in r.json()["stock_warnings"])
+    finally:
+        r = client.patch(
+            settings_url,
+            headers=superuser_token_headers,
+            json={"stock_policy": "warn"},
         )
         assert r.status_code == 200
 

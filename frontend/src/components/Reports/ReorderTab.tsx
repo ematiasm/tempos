@@ -15,10 +15,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useT } from "@/i18n"
+import { useLocale, useT } from "@/i18n"
 
 export function ReorderTab() {
   const t = useT()
+  const { numberFormat } = useLocale()
   const [supplierId, setSupplierId] = useState<string | undefined>()
   const [categoryId, setCategoryId] = useState<string | undefined>()
 
@@ -75,14 +76,14 @@ export function ReorderTab() {
     {
       accessorKey: "reference_cost",
       header: t("reports.refCost"),
-      cell: ({ row }) => money(row.original.reference_cost),
+      cell: ({ row }) => money(row.original.reference_cost, numberFormat),
     },
     {
       accessorKey: "estimated_cost",
       header: t("reports.estTotal"),
       cell: ({ row }) => (
         <span className="font-medium">
-          {money(row.original.estimated_cost)}
+          {money(row.original.estimated_cost, numberFormat)}
         </span>
       ),
     },
@@ -148,7 +149,7 @@ export function ReorderTab() {
           <span className="text-sm text-muted-foreground pb-1">
             {t("reports.itemsEst", {
               count: rows.length,
-              total: money(estimatedTotal),
+              total: money(estimatedTotal, numberFormat),
             })}
           </span>
         )}

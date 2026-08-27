@@ -165,6 +165,7 @@ const AddProduct = () => {
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: ["product-counts"] })
     },
   })
 

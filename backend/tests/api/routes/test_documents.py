@@ -409,11 +409,13 @@ def test_read_document_detail(
     assert body["numero"] == doc["numero"]
     assert body["document_type"]["name"] == "Ticket"
     assert body["lines"][0]["product_id"] == product["id"]
+    assert body["lines"][0]["product_name"] == product["name"]
 
     # list also includes it
     r = client.get(f"{settings.API_V1_STR}/documents/", headers=superuser_token_headers)
     assert r.status_code == 200
-    assert any(d["id"] == doc["id"] for d in r.json()["data"])
+    listed = next(d for d in r.json()["data"] if d["id"] == doc["id"])
+    assert listed["lines"][0]["product_name"] == product["name"]
 
 
 def test_read_documents_filters_by_type_and_date_range(

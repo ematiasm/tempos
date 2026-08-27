@@ -452,3 +452,209 @@ def test_search_products_by_name_sku_and_barcode(
         params={"q": ""},
     )
     assert r.status_code == 422
+
+
+# ----- Server-side list (q / category filters, ordering, counts) -----
+
+
+def test_list_products_filters_by_q_and_is_ordered(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    uom = _create_uom(client, superuser_token_headers)
+    names = ["Zulu Alpha Product", "Alpha Bravo Product", "Middle Gamma Product"]
+    skus = ["SKU-ZZZ-1", "SKU-AAA-1", "SKU-MMM-1"]
+    ids = []
+    for name, sku in zip(names, skus, strict=True):
+        r = client.post(
+            f"{settings.API_V1_STR}/products/",
+            headers=superuser_token_headers,
+            json={
+                "name": name,
+                "sku": sku,
+                "uom_id": uom["id"],
+                "margen_pct": "21.00",
+                "costo_actual": "100.00",
+                "is_active": True,
+                "tax_ids": [],
+            },
+        )
+        assert r.status_code == 200, r.text
+        ids.append(r.json()["id"])
+
+    # by name fragment (case-insensitive)
+    r = client.get(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        params={"q": "bravo", "limit": 100},
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()["data"]
+    assert r.json()["count"] == 1
+    assert data[0]["id"] == ids[1]
+
+    # by sku fragment
+    r = client.get(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        params={"q": "skU-zzz", "limit": 100},
+    )
+    assert r.json()["count"] == 1
+    assert r.json()["data"][0]["id"] == ids[0]
+
+    # by barcode fragment
+    code = "7791234567890"
+    r = client.post(
+        f"{settings.API_V1_STR}/products/{ids[2]}/barcodes",
+        headers=superuser_token_headers,
+        json={"code": code, "product_id": ids[2]},
+    )
+    assert r.status_code == 200, r.text
+    r = client.get(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        params={"q": code[:-2], "limit": 100},
+    )
+    assert r.json()["count"] == 1
+    assert r.json()["data"][0]["id"] == ids[2]
+
+    # deterministic ordering by name
+    r = client.get(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        params={"q": "product", "limit": 100},
+    )
+    names = [p["name"].lower() for p in r.json()["data"]]
+    assert names == sorted(names)
+
+
+def test_list_products_filters_by_category(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    cat_r = client.post(
+        f"{settings.API_V1_STR}/categories/",
+        headers=superuser_token_headers,
+        json={"name": random_lower_string()[:20]},
+    )
+    assert cat_r.status_code == 200, cat_r.text
+    category_id = cat_r.json()["id"]
+
+    uom = _create_uom(client, superuser_token_headers)
+    in_cat_id = None
+    out_cat_id = None
+    for name, use_category in [
+        ("Product In Category", True),
+        ("Product Outside Category", False),
+    ]:
+        payload = _build_product_payload(uom["id"])
+        payload["name"] = name
+        payload["category_id"] = category_id if use_category else None
+        r = client.post(
+            f"{settings.API_V1_STR}/products/",
+            headers=superuser_token_headers,
+            json=payload,
+        )
+        assert r.status_code == 200, r.text
+        if use_category:
+            in_cat_id = r.json()["id"]
+        else:
+            out_cat_id = r.json()["id"]
+
+    r = client.get(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        params={"category_id": category_id, "limit": 100},
+    )
+    assert r.status_code == 200
+    ids = {p["id"] for p in r.json()["data"]}
+    assert in_cat_id in ids
+    assert out_cat_id not in ids
+
+
+def test_list_products_items_are_lightweight(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    product = _create_product(client, superuser_token_headers)
+    r = client.post(
+        f"{settings.API_V1_STR}/products/{product['id']}/variants",
+        headers=superuser_token_headers,
+        json={"product_id": product["id"], "sku_suffix": "RED"},
+    )
+    assert r.status_code == 200, r.text
+    r = client.get(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        params={"q": product["name"], "limit": 100},
+    )
+    assert r.status_code == 200
+    item = r.json()["data"][0]
+    # list rows keep taxes (rendered as badges) but not nested barcodes/variants
+    assert "taxes" in item
+    assert "barcodes" not in item
+    assert "variants" not in item
+    # the detail endpoint still returns the full payload
+    r = client.get(
+        f"{settings.API_V1_STR}/products/{product['id']}",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+    assert len(r.json()["variants"]) == 1
+
+
+def test_product_category_counts(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    cat_r = client.post(
+        f"{settings.API_V1_STR}/categories/",
+        headers=superuser_token_headers,
+        json={"name": random_lower_string()[:20]},
+    )
+    assert cat_r.status_code == 200, cat_r.text
+    category_id = cat_r.json()["id"]
+
+    uom = _create_uom(client, superuser_token_headers)
+    payload = _build_product_payload(uom["id"])
+    payload["category_id"] = category_id
+    r = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json=payload,
+    )
+    assert r.status_code == 200, r.text
+
+    r = client.get(
+        f"{settings.API_V1_STR}/products/counts-by-category",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["total"] >= 1
+    entry = next(
+        (e for e in body["by_category"] if e["category_id"] == category_id), None
+    )
+    assert entry is not None
+    assert entry["count"] >= 1
+    # uncategorized products are reported under a null category_id
+    r = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json=_build_product_payload(uom["id"]),
+    )
+    assert r.status_code == 200, r.text
+    uncategorized_id = r.json()["id"]
+    r = client.get(
+        f"{settings.API_V1_STR}/products/counts-by-category",
+        headers=superuser_token_headers,
+    )
+    body = r.json()
+    assert body["total"] >= 2
+    none_entry = next(
+        (e for e in body["by_category"] if e["category_id"] is None), None
+    )
+    assert none_entry is not None
+    assert none_entry["count"] >= 1
+    # the product is still findable in the list
+    r = client.get(
+        f"{settings.API_V1_STR}/products/{uncategorized_id}",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200

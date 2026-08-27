@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { BarChart3 } from "lucide-react"
-
+import { CashSessionsTab } from "@/components/Reports/CashSessionsTab"
 import { CurrentAccountsTab } from "@/components/Reports/CurrentAccountsTab"
 import { LowStockTab } from "@/components/Reports/LowStockTab"
 import { MarginTab } from "@/components/Reports/MarginTab"
@@ -47,6 +47,7 @@ function Reports() {
                 ["reorder", t("reports.tabReorder")],
                 ["movements", t("reports.tabMovements")],
                 ["balances", t("reports.tabBalances")],
+                ["cash", t("reports.tabCash")],
               ].map(([value, label]) => (
                 <TabsTrigger
                   key={value}
@@ -78,6 +79,9 @@ function Reports() {
               </TabsContent>
               <TabsContent value="balances">
                 <CurrentAccountsTab />
+              </TabsContent>
+              <TabsContent value="cash">
+                <CashSessionsTab />
               </TabsContent>
             </div>
           </Tabs>

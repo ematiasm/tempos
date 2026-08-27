@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import type { ColumnDef } from "@tanstack/react-table"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { AccountMovementPublic } from "@/client"
 import { AccountMovementsService, FinancialAccountsService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
@@ -17,13 +17,26 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useT } from "@/i18n"
+import { useLocale, useT } from "@/i18n"
 import { cn } from "@/lib/utils"
 
-export function MovementsTab() {
+interface MovementsTabProps {
+  initialAccountId?: string
+}
+
+export function MovementsTab({ initialAccountId }: MovementsTabProps) {
   const t = useT()
+  const { numberFormat } = useLocale()
   const [range, setRange] = useState<DateRangeValue>({})
-  const [accountId, setAccountId] = useState<string | undefined>()
+  const [accountId, setAccountId] = useState<string | undefined>(
+    initialAccountId,
+  )
+
+  useEffect(() => {
+    if (initialAccountId !== undefined) {
+      setAccountId(initialAccountId)
+    }
+  }, [initialAccountId])
 
   const { data: accounts } = useQuery({
     queryFn: () =>
@@ -77,7 +90,7 @@ export function MovementsTab() {
               : "text-red-600",
           )}
         >
-          {money(row.original.monto)}
+          {money(row.original.monto, numberFormat)}
         </span>
       ),
     },
@@ -123,7 +136,7 @@ export function MovementsTab() {
               <SelectItem value="all">{t("reports.allAccounts")}</SelectItem>
               {(accounts?.data ?? []).map((a) => (
                 <SelectItem key={a.id} value={a.id}>
-                  {a.name} ({money(a.saldo)})
+                  {a.name} ({money(a.saldo, numberFormat)})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -132,13 +145,13 @@ export function MovementsTab() {
         {!isLoading && rows.length > 0 && (
           <div className="flex flex-col gap-0.5 pb-1 text-xs text-muted-foreground">
             <span className="text-emerald-600">
-              {t("reports.in", { amount: money(inflows) })}
+              {t("reports.in", { amount: money(inflows, numberFormat) })}
             </span>
             <span className="text-red-600">
-              {t("reports.out", { amount: money(outflows) })}
+              {t("reports.out", { amount: money(outflows, numberFormat) })}
             </span>
             <span className="font-semibold text-foreground">
-              {t("reports.net", { amount: money(total) })}{" "}
+              {t("reports.net", { amount: money(total, numberFormat) })}{" "}
               {accountName ? `· ${accountName}` : ""}
             </span>
           </div>

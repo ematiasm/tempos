@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import type { CounterpartType } from "@/client"
 import {
+  CashSessionsService,
   CustomersService,
   PaymentMethodsService,
   PaymentsService,
@@ -67,6 +68,14 @@ export function ReceiptDialog({
   const [methodId, setMethodId] = useState<string | null>(null)
   const [amount, setAmount] = useState("")
   const [autoAmount, setAutoAmount] = useState(true)
+  const [includeInSession, setIncludeInSession] = useState(true)
+
+  const { data: currentSession } = useQuery({
+    queryFn: () => CashSessionsService.readCurrentCashSession(),
+    queryKey: ["cash-sessions-current"],
+  })
+  const hasOpenSession =
+    currentSession != null && currentSession.status === "open"
 
   const { data: customersData } = useQuery({
     queryFn: () => CustomersService.readCustomers({ skip: 0, limit: 1000 }),
@@ -138,6 +147,8 @@ export function ReceiptDialog({
           contraparte_id: partyId!,
           fecha: new Date(`${date}T12:00:00`).toISOString(),
           payments: [{ payment_method_id: methodId!, monto: amountNum }],
+          cash_session_id:
+            hasOpenSession && includeInSession ? currentSession.id : null,
         },
       }),
     onSuccess: (receipt) => {
@@ -320,6 +331,19 @@ export function ReceiptDialog({
               }}
             />
           </div>
+
+          {hasOpenSession && (
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                data-testid="receipt-include-session"
+                checked={includeInSession}
+                onChange={(e) => setIncludeInSession(e.target.checked)}
+                className="h-4 w-4"
+              />
+              {t("cash.receiptIncludeSession")}
+            </label>
+          )}
         </div>
 
         <DialogFooter>

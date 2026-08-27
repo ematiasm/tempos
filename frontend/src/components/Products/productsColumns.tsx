@@ -1,17 +1,20 @@
 import type { ColumnDef } from "@tanstack/react-table"
 
-import type { ProductPublic } from "@/client"
+import type { ProductListItemPublic } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import type { useT } from "@/i18n"
+import type { NumberFormat } from "@/lib/format"
+import { formatMoney, formatNumber } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
-export type ProductRow = ProductPublic & {
+export type ProductRow = ProductListItemPublic & {
   category_name?: string
 }
 
 export const getProductsColumns = (
   t: ReturnType<typeof useT>,
-  onOpen: (product: ProductPublic) => void,
+  onOpen: (product: ProductListItemPublic) => void,
+  numberFormat: NumberFormat,
 ): ColumnDef<ProductRow>[] => [
   {
     accessorKey: "name",
@@ -49,10 +52,7 @@ export const getProductsColumns = (
     header: t("products.cost"),
     cell: ({ row }) => (
       <span className="text-muted-foreground">
-        $
-        {Number(row.original.costo_actual).toLocaleString("es-AR", {
-          minimumFractionDigits: 2,
-        })}
+        ${formatMoney(Number(row.original.costo_actual), numberFormat)}
       </span>
     ),
   },
@@ -61,7 +61,7 @@ export const getProductsColumns = (
     header: t("products.margin"),
     cell: ({ row }) => (
       <span className="text-muted-foreground">
-        {Number(row.original.margen_pct).toFixed(2)}%
+        {formatNumber(Number(row.original.margen_pct), numberFormat)}%
       </span>
     ),
   },
@@ -70,10 +70,7 @@ export const getProductsColumns = (
     header: t("products.salePrice"),
     cell: ({ row }) => (
       <span className="font-medium">
-        $
-        {Number(row.original.precio_venta).toLocaleString("es-AR", {
-          minimumFractionDigits: 2,
-        })}
+        ${formatMoney(Number(row.original.precio_venta), numberFormat)}
       </span>
     ),
   },
@@ -88,7 +85,7 @@ export const getProductsColumns = (
       const isLow = min !== null && stock <= min
       return (
         <span className={cn("font-medium", isLow && "text-red-500")}>
-          {stock.toLocaleString("es-AR")}
+          {formatNumber(stock, numberFormat, 0)}
           {isLow && (
             <span className="ml-1 text-xs">{t("products.lowStock")}</span>
           )}

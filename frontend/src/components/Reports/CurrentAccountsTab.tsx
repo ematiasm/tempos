@@ -7,7 +7,7 @@ import { money } from "@/components/Reports/reportFormat"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useT } from "@/i18n"
+import { useLocale, useT } from "@/i18n"
 import { cn } from "@/lib/utils"
 
 interface AccountRow {
@@ -21,6 +21,7 @@ interface AccountRow {
 
 export function CurrentAccountsTab() {
   const t = useT()
+  const { numberFormat } = useLocale()
   const { data: customers, isLoading: loadingCustomers } = useQuery({
     queryFn: () => CustomersService.readCustomers({ skip: 0, limit: 500 }),
     queryKey: ["customers"],
@@ -72,7 +73,7 @@ export function CurrentAccountsTab() {
                     : "",
               )}
             >
-              {money(row.original.saldo)}
+              {money(row.original.saldo, numberFormat)}
             </span>
             {row.original.type === "customer" ? (
               value > 0 ? (
@@ -94,7 +95,7 @@ export function CurrentAccountsTab() {
       header: t("reports.allowance"),
       cell: ({ row }) =>
         row.original.type === "customer"
-          ? money(row.original.limite_credito)
+          ? money(row.original.limite_credito, numberFormat)
           : "—",
     },
     {

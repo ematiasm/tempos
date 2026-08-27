@@ -6,6 +6,7 @@ export type AccountMovementPublic = {
     document_id?: (string | null);
     payment_method_id?: (string | null);
     transfer_id?: (string | null);
+    cash_session_id?: (string | null);
     monto: string;
     tipo: AccountMovementType;
     fecha: string;
@@ -57,6 +58,18 @@ export type BackupPublic = {
     created_by_name?: (string | null);
 };
 
+export type BackupRunState = 'idle' | 'running' | 'success' | 'failed';
+
+/**
+ * Manual (run-now) backup progress, sourced from the backup state file.
+ */
+export type BackupRunStatusPublic = {
+    estado: BackupRunState;
+    started_at?: (string | null);
+    finished_at?: (string | null);
+    error?: (string | null);
+};
+
 export type BackupSchedulePublic = {
     enabled: boolean;
     frequency: BackupFrequency;
@@ -106,6 +119,10 @@ export type Body_backups_restore_backup = {
     backup_id?: (string | null);
 };
 
+export type Body_business_settings_upload_logo = {
+    file: string;
+};
+
 export type Body_login_login_access_token = {
     grant_type?: (string | null);
     username: string;
@@ -126,6 +143,12 @@ export type BusinessSettingsPublic = {
     allow_negative_stock: boolean;
     enable_variants: boolean;
     default_iva?: (string | null);
+    timezone: string;
+    payment_method_default_id?: (string | null);
+    number_format: NumberFormat;
+    logo_path?: (string | null);
+    stock_policy: StockPolicy;
+    default_locale: LocalePreference;
 };
 
 export type BusinessSettingsUpdate = {
@@ -138,7 +161,106 @@ export type BusinessSettingsUpdate = {
     allow_negative_stock?: (boolean | null);
     enable_variants?: (boolean | null);
     default_iva?: (number | string | null);
+    timezone?: (string | null);
+    payment_method_default_id?: (string | null);
+    number_format?: (NumberFormat | null);
+    stock_policy?: (StockPolicy | null);
+    default_locale?: (LocalePreference | null);
 };
+
+/**
+ * Close a daily cash session with the physical drawer count.
+ */
+export type CashSessionCloseCreate = {
+    counted_amount: (number | string);
+    notes?: (string | null);
+};
+
+/**
+ * Payment totals per method, with the financial account they book to.
+ */
+export type CashSessionMethodTotals = {
+    payment_method_id: string;
+    payment_method_name: string;
+    financial_account_id: string;
+    financial_account_name: string;
+    ingresos: string;
+    egresos: string;
+    net: string;
+};
+
+/**
+ * A money movement belonging to the session (funding, transfers).
+ */
+export type CashSessionMovement = {
+    fecha: string;
+    tipo: AccountMovementType;
+    concept: string;
+    monto: string;
+    financial_account_name?: (string | null);
+};
+
+/**
+ * Open a daily cash session.
+ *
+ * ``opening_amount`` is the physical float placed in the drawer;
+ * ``opening_source_account_id`` is the financial account that float comes
+ * from (defaults to the drawer account, i.e. no movement is generated).
+ */
+export type CashSessionOpenCreate = {
+    opening_amount: (number | string);
+    opening_source_account_id?: (string | null);
+};
+
+/**
+ * Document totals grouped by the user who registered them.
+ */
+export type CashSessionPerUser = {
+    user_id: string;
+    user_name: string;
+    count: number;
+    total: string;
+};
+
+export type CashSessionPublic = {
+    id: string;
+    opened_at: string;
+    closed_at?: (string | null);
+    opened_by_user_id: string;
+    closed_by_user_id?: (string | null);
+    cash_account_id: string;
+    opening_amount: string;
+    opening_source_account_id: string;
+    counted_amount?: (string | null);
+    expected_amount?: (string | null);
+    difference?: (string | null);
+    notes?: (string | null);
+    status: CashSessionStatus;
+    created_at?: (string | null);
+    opened_by_name?: (string | null);
+    closed_by_name?: (string | null);
+    cash_account_name?: (string | null);
+    opening_source_account_name?: (string | null);
+};
+
+/**
+ * Full closing report for a daily cash session (computed live).
+ */
+export type CashSessionReport = {
+    session: CashSessionPublic;
+    sales?: Array<CashSessionPerUser>;
+    returns?: Array<CashSessionPerUser>;
+    purchases?: Array<CashSessionPerUser>;
+    receipts_collected?: Array<CashSessionPerUser>;
+    receipts_paid?: Array<CashSessionPerUser>;
+    methods?: Array<CashSessionMethodTotals>;
+    movements?: Array<CashSessionMovement>;
+    expected_amount: string;
+    counted_amount?: (string | null);
+    difference?: (string | null);
+};
+
+export type CashSessionStatus = 'open' | 'closed';
 
 export type CategoryCreate = {
     name: string;
@@ -258,6 +380,7 @@ export type DocumentLinePublic = {
     subtotal_line: string;
     taxes?: Array<DocumentLineTaxPublic>;
     cantidad_pendiente?: (string | null);
+    product_name?: (string | null);
 };
 
 export type DocumentLineTaxPublic = {
@@ -301,6 +424,7 @@ export type DocumentPublic = {
     total: string;
     favor_monto?: string;
     parent_document_id?: (string | null);
+    cash_session_id?: (string | null);
     created_at?: (string | null);
     document_type: DocumentTypePublic;
     lines?: Array<DocumentLinePublic>;
@@ -310,6 +434,7 @@ export type DocumentPublic = {
     child_document_id?: (string | null);
     child_document_numero?: (string | null);
     cost_change_suggestions?: Array<CostChangeSuggestion>;
+    stock_warnings?: Array<(string)>;
 };
 
 export type DocumentStatus = 'active' | 'voided';
@@ -395,6 +520,8 @@ export type ItemUpdate = {
     description?: (string | null);
 };
 
+export type LocalePreference = 'es' | 'en';
+
 export type LowStockRow = {
     id: string;
     name: string;
@@ -424,6 +551,8 @@ export type NewPassword = {
     new_password: string;
 };
 
+export type NumberFormat = 'es' | 'en';
+
 /**
  * A document of a counterpart with a still-unpaid portion.
  */
@@ -447,6 +576,11 @@ export type Page_AttributePublic_ = {
 
 export type Page_BackupPublic_ = {
     data: Array<BackupPublic>;
+    count: number;
+};
+
+export type Page_CashSessionPublic_ = {
+    data: Array<CashSessionPublic>;
     count: number;
 };
 
@@ -497,6 +631,11 @@ export type Page_PaymentMethodPublic_ = {
 
 export type Page_PermissionPublic_ = {
     data: Array<PermissionPublic>;
+    count: number;
+};
+
+export type Page_ProductListItemPublic_ = {
+    data: Array<ProductListItemPublic>;
     count: number;
 };
 
@@ -555,6 +694,7 @@ export type PaymentMethodCreate = {
     financial_account_id: string;
     marks_paid?: boolean;
     requiere_conciliacion?: boolean;
+    is_cash_drawer?: boolean;
 };
 
 export type PaymentMethodPublic = {
@@ -563,6 +703,7 @@ export type PaymentMethodPublic = {
     financial_account_id: string;
     marks_paid: boolean;
     requiere_conciliacion: boolean;
+    is_cash_drawer: boolean;
 };
 
 export type PaymentMethodUpdate = {
@@ -570,16 +711,23 @@ export type PaymentMethodUpdate = {
     financial_account_id?: (string | null);
     marks_paid?: (boolean | null);
     requiere_conciliacion?: (boolean | null);
+    is_cash_drawer?: (boolean | null);
 };
 
 /**
  * Input for a standalone payment against a counterpart's current account.
+ *
+ * ``cash_session_id`` is optional: when provided (an open session), the
+ * receipt is linked to that session and counts toward its drawer arqueo;
+ * when NULL, the money books only to the financial account and stays out of
+ * the daily cash-session report.
  */
 export type PaymentReceiptCreate = {
     contraparte_type: CounterpartType;
     contraparte_id: string;
     fecha?: (string | null);
     payments: Array<DocumentPaymentCreate>;
+    cash_session_id?: (string | null);
 };
 
 export type PaymentReceiptPublic = {
@@ -600,6 +748,22 @@ export type PrivateUserCreate = {
     is_verified?: boolean;
 };
 
+/**
+ * Product count per category (None category = uncategorized).
+ */
+export type ProductCategoryCountPublic = {
+    category_id: (string | null);
+    count: number;
+};
+
+/**
+ * Aggregate product counts for the catalog sidebar.
+ */
+export type ProductCategoryCountsPublic = {
+    total: number;
+    by_category: Array<ProductCategoryCountPublic>;
+};
+
 export type ProductCreate = {
     name: string;
     sku?: (string | null);
@@ -612,6 +776,28 @@ export type ProductCreate = {
     stock_minimo?: (number | string | null);
     stock_maximo?: (number | string | null);
     tax_ids?: Array<(string)>;
+};
+
+/**
+ * Lightweight product row for list views (server-side pagination).
+ *
+ * Keeps the fields the table columns render (including taxes for the tax
+ * badges); nested barcodes/variants are loaded on demand via the detail
+ * endpoint so the payload stays flat regardless of catalog size.
+ */
+export type ProductListItemPublic = {
+    id: string;
+    name: string;
+    sku?: (string | null);
+    category_id?: (string | null);
+    uom_id: string;
+    is_active: boolean;
+    margen_pct: string;
+    costo_actual: string;
+    precio_venta: string;
+    stock_current: string;
+    stock_minimo?: (string | null);
+    taxes?: Array<TaxPublic>;
 };
 
 export type ProductPublic = {
@@ -671,6 +857,7 @@ export type ReceiptAllocationPublic = {
     numero: string;
     fecha?: (string | null);
     monto: string;
+    saldo_inicial?: (string | null);
 };
 
 export type ReorderRow = {
@@ -742,6 +929,8 @@ export type StockMovementPublic = {
     product_name?: (string | null);
     document_numero?: (string | null);
 };
+
+export type StockPolicy = 'block' | 'warn';
 
 export type SupplierAccountMovementPublic = {
     id: string;
@@ -873,6 +1062,7 @@ export type TransferPublic = {
     fecha: string;
     descripcion?: (string | null);
     user_id: string;
+    cash_session_id?: (string | null);
     created_at?: (string | null);
 };
 
@@ -1029,7 +1219,9 @@ export type BackupsReadBackupsData = {
 
 export type BackupsReadBackupsResponse = (Page_BackupPublic_);
 
-export type BackupsCreateBackupNowResponse = (BackupPublic);
+export type BackupsCreateBackupNowResponse = (BackupRunStatusPublic);
+
+export type BackupsReadBackupRunStatusResponse = (BackupRunStatusPublic);
 
 export type BackupsDownloadBackupData = {
     backupId: string;
@@ -1066,6 +1258,49 @@ export type BusinessSettingsUpdateBusinessSettingsData = {
 };
 
 export type BusinessSettingsUpdateBusinessSettingsResponse = (BusinessSettingsPublic);
+
+export type BusinessSettingsUploadLogoData = {
+    formData: Body_business_settings_upload_logo;
+};
+
+export type BusinessSettingsUploadLogoResponse = (BusinessSettingsPublic);
+
+export type BusinessSettingsDeleteLogoResponse = (void);
+
+export type CashSessionsReadCurrentCashSessionResponse = ((CashSessionPublic | null));
+
+export type CashSessionsOpenCashSessionData = {
+    requestBody: CashSessionOpenCreate;
+};
+
+export type CashSessionsOpenCashSessionResponse = (CashSessionPublic);
+
+export type CashSessionsCloseCashSessionData = {
+    cashSessionId: string;
+    requestBody: CashSessionCloseCreate;
+};
+
+export type CashSessionsCloseCashSessionResponse = (CashSessionPublic);
+
+export type CashSessionsReadCashSessionsData = {
+    /**
+     * Items per page
+     */
+    limit?: number;
+    /**
+     * Items to skip
+     */
+    skip?: number;
+    status?: (CashSessionStatus | null);
+};
+
+export type CashSessionsReadCashSessionsResponse = (Page_CashSessionPublic_);
+
+export type CashSessionsReadCashSessionReportData = {
+    cashSessionId: string;
+};
+
+export type CashSessionsReadCashSessionReportResponse = (CashSessionReport);
 
 export type CategoriesReadCategoriesData = {
     /**
@@ -1412,23 +1647,27 @@ export type PrivateCreateUserData = {
 export type PrivateCreateUserResponse = (UserPublic);
 
 export type ProductsReadProductsData = {
+    categoryId?: (string | null);
     /**
      * Items per page
      */
     limit?: number;
+    q?: (string | null);
     /**
      * Items to skip
      */
     skip?: number;
 };
 
-export type ProductsReadProductsResponse = (Page_ProductPublic_);
+export type ProductsReadProductsResponse = (Page_ProductListItemPublic_);
 
 export type ProductsCreateProductData = {
     requestBody: ProductCreate;
 };
 
 export type ProductsCreateProductResponse = (ProductPublic);
+
+export type ProductsReadProductCategoryCountsResponse = (ProductCategoryCountsPublic);
 
 export type ProductsSearchProductsData = {
     limit?: number;

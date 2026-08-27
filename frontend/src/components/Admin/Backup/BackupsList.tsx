@@ -1,8 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { DatabaseBackup, Download, RefreshCw, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
-import { type ApiError, type BackupPublic, BackupsService } from "@/client"
+import {
+  type ApiError,
+  type BackupPublic,
+  type BackupRunState,
+  BackupsService,
+} from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -112,22 +117,37 @@ function BackupsList({ isRestoring, onRestore }: BackupsListProps) {
     queryKey: ["backups"],
   })
 
+  const { data: runStatus } = useQuery({
+    queryKey: ["backup-run-status"],
+    queryFn: () => BackupsService.readBackupRunStatus(),
+    refetchInterval: (query) =>
+      query.state.data?.estado === "running" ? 2000 : false,
+  })
+
+  const prevRunState = useRef<BackupRunState | null>(null)
+  useEffect(() => {
+    const current = runStatus?.estado
+    if (prevRunState.current === "running" && current === "success") {
+      showSuccessToast(t("admin.backups.created"))
+      queryClient.invalidateQueries({ queryKey: ["backups"] })
+    } else if (prevRunState.current === "running" && current === "failed") {
+      showErrorToast(
+        t("admin.backups.createFailed", { error: runStatus?.error ?? "" }),
+      )
+      queryClient.invalidateQueries({ queryKey: ["backups"] })
+    }
+    prevRunState.current = current ?? null
+  }, [runStatus, showSuccessToast, showErrorToast, queryClient, t])
+
   const createMutation = useMutation({
     mutationFn: () => BackupsService.createBackupNow(),
-    onSuccess: (backup) => {
-      if (backup.status === "failed") {
-        showErrorToast(
-          t("admin.backups.createFailed", { error: backup.error ?? "" }),
-        )
-      } else {
-        showSuccessToast(t("admin.backups.created"))
-      }
-    },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["backups"] })
+      queryClient.invalidateQueries({ queryKey: ["backup-run-status"] })
     },
   })
+
+  const isBackupRunning = runStatus?.estado === "running"
 
   const handleDownload = async (backup: BackupPublic) => {
     setDownloading(backup.id)
@@ -157,11 +177,11 @@ function BackupsList({ isRestoring, onRestore }: BackupsListProps) {
         </div>
         <LoadingButton
           onClick={() => createMutation.mutate()}
-          loading={createMutation.isPending}
-          disabled={isRestoring}
+          loading={isBackupRunning}
+          disabled={isRestoring || isBackupRunning}
         >
           <RefreshCw className="h-4 w-4" />
-          {createMutation.isPending
+          {isBackupRunning
             ? t("admin.backups.creating")
             : t("admin.backups.createNow")}
         </LoadingButton>

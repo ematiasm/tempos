@@ -5,6 +5,7 @@ from app.api.routes import (
     attributes,
     backups,
     business_settings,
+    cash_sessions,
     categories,
     customers,
     document_types,
@@ -53,6 +54,7 @@ api_router.include_router(payments.router)
 api_router.include_router(transfers.router)
 api_router.include_router(stock_movements.router)
 api_router.include_router(account_movements.router)
+api_router.include_router(cash_sessions.router)
 api_router.include_router(backups.router)
 api_router.include_router(utils.router)
 api_router.include_router(items.router)

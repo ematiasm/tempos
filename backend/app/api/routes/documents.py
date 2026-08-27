@@ -22,6 +22,7 @@ from app.models import (
     DocumentTypePublic,
     DocumentVoidCreate,
     Page,
+    Product,
     Supplier,
     User,
     UserPublic,
@@ -95,7 +96,25 @@ def _attach_counterpart_names(
         if child:
             public.child_document_id, public.child_document_numero = child
         publics.append(public)
+    _attach_line_product_names(session, publics)
     return publics
+
+
+def _attach_line_product_names(
+    session: SessionDep, publics: list[DocumentPublic]
+) -> None:
+    """Resolve line product names with a single bulk query (in place)."""
+    product_ids = {line.product_id for public in publics for line in public.lines}
+    if not product_ids:
+        return
+    names = dict(
+        session.exec(
+            select(Product.id, Product.name).where(col(Product.id).in_(product_ids))
+        ).all()
+    )
+    for public in publics:
+        for line in public.lines:
+            line.product_name = names.get(line.product_id)
 
 
 @router.get(
@@ -186,6 +205,7 @@ def read_document(session: SessionDep, document_id: uuid.UUID) -> Any:
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
     public = _attach_counterpart_names(session, [document])[0]
+    _attach_line_product_names(session, [public])
     voided = crud.get_line_voided_quantities(session=session, document=document)
     for line in public.lines:
         original_qty = next(x.cantidad for x in document.lines if x.id == line.id)
@@ -236,7 +256,7 @@ def create_document(
 ) -> Any:
     """Create a document with its lines, taxes and payments."""
     try:
-        document, cost_suggestions = crud.create_document(
+        document, cost_suggestions, stock_warnings = crud.create_document(
             session=session, document_in=document_in, user_id=current_user.id
         )
     except crud.BusinessError as e:
@@ -248,7 +268,9 @@ def create_document(
         session.rollback()
         raise HTTPException(status_code=400, detail=str(e)) from e
     public = _attach_counterpart_names(session, [document])[0]
+    _attach_line_product_names(session, [public])
     public.cost_change_suggestions = cost_suggestions
+    public.stock_warnings = stock_warnings
     return public
 
 
@@ -280,7 +302,9 @@ def void_document(
     except ValueError as e:
         session.rollback()
         raise HTTPException(status_code=400, detail=str(e)) from e
-    return _attach_counterpart_names(session, [nc])[0]
+    public = _attach_counterpart_names(session, [nc])[0]
+    _attach_line_product_names(session, [public])
+    return public
 
 
 @router.post(
@@ -304,4 +328,6 @@ def convert_to_invoice(
     except ValueError as e:
         session.rollback()
         raise HTTPException(status_code=400, detail=str(e)) from e
-    return _attach_counterpart_names(session, [invoice])[0]
+    public = _attach_counterpart_names(session, [invoice])[0]
+    _attach_line_product_names(session, [public])
+    return public

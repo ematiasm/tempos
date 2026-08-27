@@ -13,7 +13,7 @@ import {
   type SupplierTableData,
 } from "@/components/Suppliers/supplierColumns"
 import { Input } from "@/components/ui/input"
-import { formatStatic, useT } from "@/i18n"
+import { formatStatic, useLocale, useT } from "@/i18n"
 
 function getSuppliersQueryOptions() {
   return {
@@ -31,6 +31,7 @@ export const Route = createFileRoute("/_layout/suppliers")({
 
 function SuppliersContent() {
   const t = useT()
+  const { numberFormat } = useLocale()
   const { data: suppliers } = useSuspenseQuery(getSuppliersQueryOptions())
   const [search, setSearch] = useState("")
   const [openSupplierId, setOpenSupplierId] = useState<string | null>(null)
@@ -64,7 +65,9 @@ function SuppliersContent() {
         />
       </div>
       <DataTable
-        columns={getColumns(t, (supplier) => setOpenSupplierId(supplier.id))}
+        columns={getColumns(t, numberFormat, (supplier) =>
+          setOpenSupplierId(supplier.id),
+        )}
         data={rows}
       />
       <CounterpartyDetailSheet

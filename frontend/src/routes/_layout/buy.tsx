@@ -28,7 +28,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
-import { formatStatic, useT } from "@/i18n"
+import { formatStatic, useLocale, useT } from "@/i18n"
+import type { NumberFormat } from "@/lib/format"
+import { formatMoney } from "@/lib/format"
 import { handleError } from "@/utils"
 
 export const Route = createFileRoute("/_layout/buy")({
@@ -39,12 +41,13 @@ export const Route = createFileRoute("/_layout/buy")({
 })
 
 const round2 = (n: number) => Math.round(n * 100) / 100
-const money = (n: number) => `$${n.toFixed(2)}`
+const money = (n: number, format: NumberFormat) => `$${formatMoney(n, format)}`
 
 function Buy() {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const t = useT()
+  const { numberFormat } = useLocale()
 
   const { data: suppliersData } = useQuery({
     queryFn: () => SuppliersService.readSuppliers({ skip: 0, limit: 1000 }),
@@ -240,7 +243,7 @@ function Buy() {
             <h2 className="text-xl font-semibold">{created.numero}</h2>
             <p className="text-muted-foreground">
               {t("buy.totaling", {
-                total: money(Number(created.total)),
+                total: money(Number(created.total), numberFormat),
                 supplier: created.contraparte_name ?? "",
               })}
             </p>
@@ -269,7 +272,7 @@ function Buy() {
                       <span className="ml-2 text-muted-foreground">
                         {s.previous_cost == null
                           ? t("buy.noPreviousCost")
-                          : `${money(Number(s.previous_cost))} → ${money(Number(s.suggested_cost))}`}
+                          : `${money(Number(s.previous_cost), numberFormat)} → ${money(Number(s.suggested_cost), numberFormat)}`}
                       </span>
                       {s.is_reference && (
                         <span className="ml-2 text-xs text-muted-foreground">
@@ -291,7 +294,7 @@ function Buy() {
                       {already
                         ? t("buy.applied")
                         : t("buy.apply", {
-                            cost: money(Number(s.suggested_cost)),
+                            cost: money(Number(s.suggested_cost), numberFormat),
                           })}
                     </LoadingButton>
                   </li>
@@ -425,7 +428,7 @@ function Buy() {
                           />
                         </td>
                         <td className="px-3 py-2 text-right font-medium">
-                          {money(lineTotal)}
+                          {money(lineTotal, numberFormat)}
                         </td>
                         <td className="px-2 py-2">
                           <Button
@@ -500,19 +503,19 @@ function Buy() {
           <div className="flex flex-col gap-1 rounded-md bg-muted/40 p-3 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t("buy.subtotal")}</span>
-              <span>{money(subtotal)}</span>
+              <span>{money(subtotal, numberFormat)}</span>
             </div>
             {discountTotal > 0 && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
                   {t("buy.discount")}
                 </span>
-                <span>-{money(discountTotal)}</span>
+                <span>-{money(discountTotal, numberFormat)}</span>
               </div>
             )}
             <div className="flex justify-between border-t font-semibold">
               <span>{t("buy.total")}</span>
-              <span>{money(total)}</span>
+              <span>{money(total, numberFormat)}</span>
             </div>
           </div>
 
@@ -558,7 +561,9 @@ function Buy() {
                   {t("buy.amountPaid")}
                 </span>
                 <p className="text-xs text-muted-foreground">
-                  {t("buy.onCreditHint", { amount: money(total) })}
+                  {t("buy.onCreditHint", {
+                    amount: money(total, numberFormat),
+                  })}
                 </p>
               </div>
             ) : (
@@ -575,7 +580,7 @@ function Buy() {
                 {amount > 0 && amount < total && (
                   <p className="mt-1 text-xs text-muted-foreground">
                     {t("buy.onSupplierBalance", {
-                      amount: money(round2(total - amount)),
+                      amount: money(round2(total - amount), numberFormat),
                     })}
                   </p>
                 )}
@@ -590,7 +595,7 @@ function Buy() {
             disabled={issueDisabled}
             onClick={() => createMutation.mutate()}
           >
-            {t("buy.createPurchase", { total: money(total) })}
+            {t("buy.createPurchase", { total: money(total, numberFormat) })}
           </LoadingButton>
         </div>
       </div>

@@ -1,10 +1,16 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useState } from "react"
+import { ImageUp, Trash2 } from "lucide-react"
+import { useRef, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import { BusinessSettingsService, type TaxCondition } from "@/client"
+import {
+  BusinessSettingsService,
+  OpenAPI,
+  PaymentMethodsService,
+  type TaxCondition,
+} from "@/client"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -44,9 +50,33 @@ const formSchema = z.object({
   allow_negative_stock: z.boolean(),
   enable_variants: z.boolean(),
   default_iva: z.string().optional().or(z.literal("")),
+  timezone: z.string().min(1, { message: "Timezone is required" }),
+  payment_method_default_id: z.string().optional(),
+  number_format: z.enum(["es", "en"]),
+  stock_policy: z.enum(["block", "warn"]),
+  default_locale: z.enum(["es", "en"]),
 })
 
 type FormData = z.infer<typeof formSchema>
+
+const TIMEZONES: { value: string; label: string }[] = [
+  {
+    value: "America/Argentina/Buenos_Aires",
+    label: "Argentina (Buenos Aires)",
+  },
+  { value: "America/Argentina/Cordoba", label: "Argentina (Córdoba)" },
+  { value: "America/Argentina/Mendoza", label: "Argentina (Mendoza)" },
+  { value: "America/Argentina/Salta", label: "Argentina (Salta)" },
+  { value: "America/Argentina/Ushuaia", label: "Argentina (Ushuaia)" },
+  { value: "America/Montevideo", label: "Uruguay (Montevideo)" },
+  { value: "America/Santiago", label: "Chile (Santiago)" },
+  { value: "America/Asuncion", label: "Paraguay (Asunción)" },
+  { value: "America/Sao_Paulo", label: "Brasil (São Paulo)" },
+  { value: "America/Bogota", label: "Colombia (Bogotá)" },
+  { value: "America/Lima", label: "Perú (Lima)" },
+  { value: "America/Mexico_City", label: "México (Ciudad de México)" },
+  { value: "UTC", label: "UTC" },
+]
 
 function GeneralSettings() {
   const t = useT()
@@ -67,6 +97,11 @@ function GeneralSettings() {
     enabled: true,
   })
 
+  const { data: paymentMethods } = useQuery({
+    queryFn: () => PaymentMethodsService.readPaymentMethods(),
+    queryKey: ["payment-methods"],
+  })
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     mode: "onBlur",
@@ -81,6 +116,11 @@ function GeneralSettings() {
       allow_negative_stock: settings?.allow_negative_stock ?? false,
       enable_variants: settings?.enable_variants ?? false,
       default_iva: settings?.default_iva?.toString() ?? "",
+      timezone: settings?.timezone ?? "America/Argentina/Buenos_Aires",
+      payment_method_default_id: settings?.payment_method_default_id ?? "",
+      number_format: settings?.number_format ?? "en",
+      stock_policy: settings?.stock_policy ?? "warn",
+      default_locale: settings?.default_locale ?? "en",
     },
     values: settings
       ? {
@@ -93,6 +133,11 @@ function GeneralSettings() {
           allow_negative_stock: settings.allow_negative_stock,
           enable_variants: settings.enable_variants,
           default_iva: settings.default_iva?.toString() ?? "",
+          timezone: settings.timezone,
+          payment_method_default_id: settings.payment_method_default_id ?? "",
+          number_format: settings.number_format,
+          stock_policy: settings.stock_policy,
+          default_locale: settings.default_locale,
         }
       : undefined,
   })
@@ -108,6 +153,11 @@ function GeneralSettings() {
         condicion_fiscal: data.condicion_fiscal,
         allow_negative_stock: data.allow_negative_stock,
         enable_variants: data.enable_variants,
+        timezone: data.timezone,
+        payment_method_default_id: data.payment_method_default_id || null,
+        number_format: data.number_format,
+        stock_policy: data.stock_policy,
+        default_locale: data.default_locale,
       }
       if (data.default_iva) {
         requestBody.default_iva = parseFloat(data.default_iva)
@@ -128,6 +178,39 @@ function GeneralSettings() {
 
   const onSubmit = (data: FormData) => {
     mutation.mutate(data)
+  }
+
+  const logoInputRef = useRef<HTMLInputElement>(null)
+
+  const logoUploadMutation = useMutation({
+    mutationFn: (file: File) =>
+      BusinessSettingsService.uploadLogo({
+        formData: { file: file as unknown as string },
+      }),
+    onSuccess: () => {
+      showSuccessToast(t("admin.general.logoUploaded"))
+    },
+    onError: handleError.bind(showErrorToast),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["business-settings"] })
+    },
+  })
+
+  const logoRemoveMutation = useMutation({
+    mutationFn: () => BusinessSettingsService.deleteLogo(),
+    onSuccess: () => {
+      showSuccessToast(t("admin.general.logoRemoved"))
+    },
+    onError: handleError.bind(showErrorToast),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["business-settings"] })
+    },
+  })
+
+  const handleLogoUpload = (file: File | undefined) => {
+    if (file) {
+      logoUploadMutation.mutate(file)
+    }
   }
 
   if (!settings) {
@@ -297,6 +380,213 @@ function GeneralSettings() {
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="timezone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("admin.general.timezone")}</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={!isEditing}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={t("admin.general.selectTimezone")}
+                        />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {TIMEZONES.map((tz) => (
+                        <SelectItem key={tz.value} value={tz.value}>
+                          {tz.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground">
+                    {t("admin.general.timezoneHint")}
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="number_format"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("admin.general.numberFormat")}</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={!isEditing}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="es">1.234,56</SelectItem>
+                        <SelectItem value="en">1,234.56</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="stock_policy"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("admin.general.stockPolicy")}</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={!isEditing}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="block">
+                          {t("admin.general.stockPolicyBlock")}
+                        </SelectItem>
+                        <SelectItem value="warn">
+                          {t("admin.general.stockPolicyWarn")}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="default_locale"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("admin.general.defaultLocale")}</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={!isEditing}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="es">
+                          {t("admin.general.localeEs")}
+                        </SelectItem>
+                        <SelectItem value="en">
+                          {t("admin.general.localeEn")}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="payment_method_default_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {t("admin.general.paymentMethodDefault")}
+                    </FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(value || "")}
+                      value={field.value}
+                      disabled={!isEditing}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={t("admin.general.noDefault")}
+                          />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {paymentMethods?.data.map((pm) => (
+                          <SelectItem key={pm.id} value={pm.id}>
+                            {pm.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="flex items-center gap-4 rounded-md border p-4">
+              {settings?.logo_path ? (
+                <img
+                  src={`${OpenAPI.BASE}${settings.logo_path}`}
+                  alt={t("admin.general.logo")}
+                  className="h-12 w-12 rounded object-contain"
+                />
+              ) : (
+                <div className="flex h-12 w-12 items-center justify-center rounded bg-muted text-muted-foreground">
+                  <ImageUp className="h-5 w-5" />
+                </div>
+              )}
+              <div className="flex flex-1 flex-col gap-1">
+                <span className="text-sm font-medium">
+                  {t("admin.general.logo")}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {t("admin.general.logoHint")}
+                </span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => logoInputRef.current?.click()}
+                disabled={logoUploadMutation.isPending}
+              >
+                <ImageUp className="h-4 w-4" />
+                {t("admin.general.logoUpload")}
+              </Button>
+              {settings?.logo_path && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  title={t("admin.general.logoRemove")}
+                  onClick={() => logoRemoveMutation.mutate()}
+                  disabled={logoRemoveMutation.isPending}
+                >
+                  <Trash2 className="h-4 w-4 text-red-500" />
+                </Button>
+              )}
+              <input
+                ref={logoInputRef}
+                type="file"
+                className="hidden"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                onChange={(e) => handleLogoUpload(e.target.files?.[0])}
+              />
+            </div>
 
             <div className="flex flex-col gap-4 pt-2">
               <FormField

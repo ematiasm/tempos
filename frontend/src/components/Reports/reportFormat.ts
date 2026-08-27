@@ -1,5 +1,10 @@
-export const money = (value: string | number | null | undefined): string =>
-  value == null || value === "" ? "—" : `$${Number(value).toFixed(2)}`
+import { formatMoney, type NumberFormat } from "@/lib/format"
+
+export const money = (
+  value: string | number | null | undefined,
+  format: NumberFormat = "en",
+): string =>
+  value == null || value === "" ? "—" : `$${formatMoney(Number(value), format)}`
 
 export const qty = (value: string | number | null | undefined): string =>
   value == null || value === "" ? "—" : String(Number(value))

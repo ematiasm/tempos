@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query"
 import { IntlMessageFormat } from "intl-messageformat"
 import {
   createContext,
@@ -9,6 +10,8 @@ import {
 } from "react"
 import { IntlProvider, useIntl } from "react-intl"
 
+import { BusinessSettingsService } from "@/client"
+import type { NumberFormat } from "@/lib/format"
 import { en } from "./messages/en"
 import { es, type Messages } from "./messages/es"
 
@@ -25,6 +28,14 @@ export function getLocale(): Locale {
     return localStorage.getItem(LOCALE_KEY) === "en" ? "en" : "es"
   } catch {
     return "es"
+  }
+}
+
+export function hasStoredLocale(): boolean {
+  try {
+    return localStorage.getItem(LOCALE_KEY) !== null
+  } catch {
+    return false
   }
 }
 
@@ -56,22 +67,43 @@ export function formatStatic(
 interface LocaleContextValue {
   locale: Locale
   setLocale: (locale: Locale) => void
+  numberFormat: NumberFormat
 }
 
 const LocaleContext = createContext<LocaleContextValue>({
   locale: "es",
   setLocale: () => {},
+  numberFormat: "en",
 })
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
+  const { data: settings } = useQuery({
+    queryKey: ["business-settings"],
+    queryFn: () => BusinessSettingsService.readBusinessSettings(),
+    staleTime: 60_000,
+  })
   const [locale, setLocaleState] = useState<Locale>(getLocale)
+
+  useEffect(() => {
+    // Apply the business default locale only when the user has not chosen one.
+    if (!hasStoredLocale() && settings?.default_locale) {
+      setLocaleState(settings.default_locale === "en" ? "en" : "es")
+    }
+  }, [settings])
 
   useEffect(() => {
     localStorage.setItem(LOCALE_KEY, locale)
     document.documentElement.lang = locale
   }, [locale])
 
-  const value = useMemo(() => ({ locale, setLocale: setLocaleState }), [locale])
+  const value = useMemo(
+    () => ({
+      locale,
+      setLocale: setLocaleState,
+      numberFormat: settings?.number_format ?? "en",
+    }),
+    [locale, settings],
+  )
 
   return (
     <LocaleContext.Provider value={value}>

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import type { ProductPublic, TaxPublic } from "@/client"
+import type { TaxPublic } from "@/client"
 import {
   AttributesService,
   BusinessSettingsService,
@@ -67,13 +67,13 @@ const detailsSchema = z.object({
 type DetailsFormData = z.infer<typeof detailsSchema>
 
 interface ProductDetailSheetProps {
-  product: ProductPublic | null
+  productId: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
 const ProductDetailSheet = ({
-  product,
+  productId,
   open,
   onOpenChange,
 }: ProductDetailSheetProps) => {
@@ -84,6 +84,12 @@ const ProductDetailSheet = ({
   const [pendingTaxIds, setPendingTaxIds] = useState<Set<string>>(new Set())
   const [newVariantSuffix, setNewVariantSuffix] = useState("")
   const [newVariantValueIds, setNewVariantValueIds] = useState<string[]>([])
+
+  const { data: product } = useQuery({
+    queryFn: () => ProductsService.readProduct({ productId: productId! }),
+    queryKey: ["product", productId],
+    enabled: open && !!productId,
+  })
 
   const { data: categoriesData } = useQuery({
     queryFn: () => CategoriesService.readCategories({ skip: 0, limit: 100 }),
@@ -177,6 +183,7 @@ const ProductDetailSheet = ({
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: ["product", product?.id] })
     },
   })
 
@@ -194,6 +201,7 @@ const ProductDetailSheet = ({
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: ["product", product?.id] })
     },
   })
 
@@ -212,6 +220,7 @@ const ProductDetailSheet = ({
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: ["product", product?.id] })
     },
   })
 
@@ -224,6 +233,7 @@ const ProductDetailSheet = ({
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: ["product", product?.id] })
     },
   })
 
@@ -247,6 +257,7 @@ const ProductDetailSheet = ({
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: ["product", product?.id] })
     },
   })
 
@@ -259,10 +270,21 @@ const ProductDetailSheet = ({
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: ["product", product?.id] })
     },
   })
 
-  if (!product) return null
+  if (!product) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="sm:max-w-xl overflow-y-auto">
+          <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+            Loading…
+          </div>
+        </SheetContent>
+      </Sheet>
+    )
+  }
 
   const toggleTax = (taxId: string, checked: boolean) => {
     setPendingTaxIds((prev) => {

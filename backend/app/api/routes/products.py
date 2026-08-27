@@ -19,7 +19,10 @@ from app.models import (
     Message,
     Page,
     Product,
+    ProductCategoryCountPublic,
+    ProductCategoryCountsPublic,
     ProductCreate,
+    ProductListItemPublic,
     ProductPublic,
     ProductUpdate,
     ProductVariant,
@@ -34,29 +37,72 @@ router = APIRouter(prefix="/products", tags=["products"])
 
 @router.get(
     "/",
-    response_model=Page[ProductPublic],
+    response_model=Page[ProductListItemPublic],
     dependencies=[require_permissions("product.read")],
 )
-def read_products(session: SessionDep, pagination: PaginationDep) -> Any:
-    """Retrieve products."""
-    count = session.exec(select(func.count()).select_from(Product)).one()
+def read_products(
+    session: SessionDep,
+    pagination: PaginationDep,
+    q: str | None = Query(default=None, max_length=100),
+    category_id: uuid.UUID | None = Query(default=None),
+) -> Any:
+    """Retrieve products (light rows, server-side pagination).
+
+    ``q`` matches name, SKU or barcode (case-insensitive) and includes
+    inactive products; ``category_id`` filters by exact category. Results are
+    ordered by name so pagination windows are deterministic regardless of the
+    catalog size.
+    """
+    filters: list[Any] = []
+    if q:
+        term = f"%{q.strip()}%"
+        filters.append(
+            or_(
+                col(Product.name).ilike(term),
+                col(Product.sku).ilike(term),
+                col(Product.id).in_(
+                    select(col(Barcode.product_id)).where(col(Barcode.code).ilike(term))
+                ),
+            )
+        )
+    if category_id is not None:
+        filters.append(col(Product.category_id) == category_id)
+    count = session.exec(
+        select(func.count()).select_from(Product).where(*filters)
+    ).one()
     products = session.exec(
         select(Product)
-        .options(
-            selectinload(Product.taxes),  # type: ignore
-            selectinload(Product.barcodes),  # type: ignore
-            selectinload(Product.variants).selectinload(  # type: ignore
-                ProductVariant.barcodes  # type: ignore
-            ),
-            selectinload(Product.variants).selectinload(  # type: ignore
-                ProductVariant.attribute_values  # type: ignore
-            ),
-        )
+        .where(*filters)
+        .options(selectinload(Product.taxes))  # type: ignore
+        .order_by(col(Product.name))
         .offset(pagination.skip)
         .limit(pagination.limit)
     ).all()
-    return Page[ProductPublic](
-        data=[ProductPublic.model_validate(p) for p in products], count=count
+    return Page[ProductListItemPublic](
+        data=[ProductListItemPublic.model_validate(p) for p in products],
+        count=count,
+    )
+
+
+@router.get(
+    "/counts-by-category",
+    response_model=ProductCategoryCountsPublic,
+    dependencies=[require_permissions("product.read")],
+)
+def read_product_category_counts(session: SessionDep) -> Any:
+    """Aggregate product counts per category (None = uncategorized)."""
+    total = session.exec(select(func.count()).select_from(Product)).one()
+    rows = session.exec(
+        select(Product.category_id, func.count())
+        .group_by(col(Product.category_id))
+        .order_by(col(Product.category_id))
+    ).all()
+    return ProductCategoryCountsPublic(
+        total=total,
+        by_category=[
+            ProductCategoryCountPublic(category_id=category_id, count=count)
+            for category_id, count in rows
+        ],
     )
 
 

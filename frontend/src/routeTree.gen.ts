@@ -22,6 +22,7 @@ import { Route as LayoutSellRouteImport } from './routes/_layout/sell'
 import { Route as LayoutReportsRouteImport } from './routes/_layout/reports'
 import { Route as LayoutPaymentsRouteImport } from './routes/_layout/payments'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
+import { Route as LayoutFinanceRouteImport } from './routes/_layout/finance'
 import { Route as LayoutDocumentsRouteImport } from './routes/_layout/documents'
 import { Route as LayoutCustomersRouteImport } from './routes/_layout/customers'
 import { Route as LayoutBuyRouteImport } from './routes/_layout/buy'
@@ -92,6 +93,11 @@ const LayoutItemsRoute = LayoutItemsRouteImport.update({
   path: '/items',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutFinanceRoute = LayoutFinanceRouteImport.update({
+  id: '/finance',
+  path: '/finance',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutDocumentsRoute = LayoutDocumentsRouteImport.update({
   id: '/documents',
   path: '/documents',
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/buy': typeof LayoutBuyRoute
   '/customers': typeof LayoutCustomersRoute
   '/documents': typeof LayoutDocumentsRoute
+  '/finance': typeof LayoutFinanceRoute
   '/items': typeof LayoutItemsRoute
   '/payments': typeof LayoutPaymentsRoute
   '/reports': typeof LayoutReportsRoute
@@ -146,6 +153,7 @@ export interface FileRoutesByTo {
   '/buy': typeof LayoutBuyRoute
   '/customers': typeof LayoutCustomersRoute
   '/documents': typeof LayoutDocumentsRoute
+  '/finance': typeof LayoutFinanceRoute
   '/items': typeof LayoutItemsRoute
   '/payments': typeof LayoutPaymentsRoute
   '/reports': typeof LayoutReportsRoute
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/_layout/buy': typeof LayoutBuyRoute
   '/_layout/customers': typeof LayoutCustomersRoute
   '/_layout/documents': typeof LayoutDocumentsRoute
+  '/_layout/finance': typeof LayoutFinanceRoute
   '/_layout/items': typeof LayoutItemsRoute
   '/_layout/payments': typeof LayoutPaymentsRoute
   '/_layout/reports': typeof LayoutReportsRoute
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
     | '/buy'
     | '/customers'
     | '/documents'
+    | '/finance'
     | '/items'
     | '/payments'
     | '/reports'
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | '/buy'
     | '/customers'
     | '/documents'
+    | '/finance'
     | '/items'
     | '/payments'
     | '/reports'
@@ -227,6 +238,7 @@ export interface FileRouteTypes {
     | '/_layout/buy'
     | '/_layout/customers'
     | '/_layout/documents'
+    | '/_layout/finance'
     | '/_layout/items'
     | '/_layout/payments'
     | '/_layout/reports'
@@ -339,6 +351,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutItemsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/finance': {
+      id: '/_layout/finance'
+      path: '/finance'
+      fullPath: '/finance'
+      preLoaderRoute: typeof LayoutFinanceRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/documents': {
       id: '/_layout/documents'
       path: '/documents'
@@ -382,6 +401,7 @@ interface LayoutRouteChildren {
   LayoutBuyRoute: typeof LayoutBuyRoute
   LayoutCustomersRoute: typeof LayoutCustomersRoute
   LayoutDocumentsRoute: typeof LayoutDocumentsRoute
+  LayoutFinanceRoute: typeof LayoutFinanceRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutPaymentsRoute: typeof LayoutPaymentsRoute
   LayoutReportsRoute: typeof LayoutReportsRoute
@@ -398,6 +418,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutBuyRoute: LayoutBuyRoute,
   LayoutCustomersRoute: LayoutCustomersRoute,
   LayoutDocumentsRoute: LayoutDocumentsRoute,
+  LayoutFinanceRoute: LayoutFinanceRoute,
   LayoutItemsRoute: LayoutItemsRoute,
   LayoutPaymentsRoute: LayoutPaymentsRoute,
   LayoutReportsRoute: LayoutReportsRoute,

@@ -8,3 +8,7 @@ node_modules/
 .env
 AGENTS.md
 plan.md
+
+# Local agent tooling caches (not project code)
+.atl/
+.pi/

@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AccountMovementsReadAccountMovementsData, AccountMovementsReadAccountMovementsResponse, AccountMovementsConciliateMovementData, AccountMovementsConciliateMovementResponse, AttributesReadAttributesData, AttributesReadAttributesResponse, AttributesCreateAttributeData, AttributesCreateAttributeResponse, AttributesUpdateAttributeData, AttributesUpdateAttributeResponse, AttributesDeleteAttributeData, AttributesDeleteAttributeResponse, BackupsReadBackupsData, BackupsReadBackupsResponse, BackupsCreateBackupNowResponse, BackupsDownloadBackupData, BackupsDownloadBackupResponse, BackupsDeleteBackupData, BackupsDeleteBackupResponse, BackupsReadBackupScheduleResponse, BackupsUpdateBackupScheduleData, BackupsUpdateBackupScheduleResponse, BackupsReadRestoreStatusResponse, BackupsRestoreBackupData, BackupsRestoreBackupResponse, BusinessSettingsReadBusinessSettingsResponse, BusinessSettingsUpdateBusinessSettingsData, BusinessSettingsUpdateBusinessSettingsResponse, CategoriesReadCategoriesData, CategoriesReadCategoriesResponse, CategoriesCreateCategoryData, CategoriesCreateCategoryResponse, CategoriesReadCategoryData, CategoriesReadCategoryResponse, CategoriesUpdateCategoryData, CategoriesUpdateCategoryResponse, CategoriesDeleteCategoryData, CategoriesDeleteCategoryResponse, CustomersReadCustomersData, CustomersReadCustomersResponse, CustomersCreateCustomerData, CustomersCreateCustomerResponse, CustomersReadCustomerData, CustomersReadCustomerResponse, CustomersUpdateCustomerData, CustomersUpdateCustomerResponse, CustomersDeleteCustomerData, CustomersDeleteCustomerResponse, CustomersReadCustomerAccountMovementsData, CustomersReadCustomerAccountMovementsResponse, DocumentsSuggestFiscalSaleTypeData, DocumentsSuggestFiscalSaleTypeResponse, DocumentsReadDocumentCreatorsResponse, DocumentsReadDocumentsData, DocumentsReadDocumentsResponse, DocumentsCreateDocumentData, DocumentsCreateDocumentResponse, DocumentsReadDocumentData, DocumentsReadDocumentResponse, DocumentsReadDocumentAllocationsData, DocumentsReadDocumentAllocationsResponse, DocumentsVoidDocumentData, DocumentsVoidDocumentResponse, DocumentsConvertToInvoiceData, DocumentsConvertToInvoiceResponse, DocumentTypesReadDocumentTypesData, DocumentTypesReadDocumentTypesResponse, DocumentTypesUpdateDocumentTypeData, DocumentTypesUpdateDocumentTypeResponse, FinancialAccountsReadFinancialAccountsData, FinancialAccountsReadFinancialAccountsResponse, FinancialAccountsCreateFinancialAccountData, FinancialAccountsCreateFinancialAccountResponse, FinancialAccountsReadFinancialAccountData, FinancialAccountsReadFinancialAccountResponse, FinancialAccountsUpdateFinancialAccountData, FinancialAccountsUpdateFinancialAccountResponse, FinancialAccountsDeleteFinancialAccountData, FinancialAccountsDeleteFinancialAccountResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PaymentMethodsReadPaymentMethodsData, PaymentMethodsReadPaymentMethodsResponse, PaymentMethodsCreatePaymentMethodData, PaymentMethodsCreatePaymentMethodResponse, PaymentMethodsReadPaymentMethodData, PaymentMethodsReadPaymentMethodResponse, PaymentMethodsUpdatePaymentMethodData, PaymentMethodsUpdatePaymentMethodResponse, PaymentMethodsDeletePaymentMethodData, PaymentMethodsDeletePaymentMethodResponse, PaymentsReadOutstandingData, PaymentsReadOutstandingResponse, PaymentsCreatePaymentReceiptData, PaymentsCreatePaymentReceiptResponse, PaymentsReadReceiptAllocationsData, PaymentsReadReceiptAllocationsResponse, PermissionsReadPermissionsData, PermissionsReadPermissionsResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProductsReadProductsData, ProductsReadProductsResponse, ProductsCreateProductData, ProductsCreateProductResponse, ProductsSearchProductsData, ProductsSearchProductsResponse, ProductsReadProductData, ProductsReadProductResponse, ProductsUpdateProductData, ProductsUpdateProductResponse, ProductsDeleteProductData, ProductsDeleteProductResponse, ProductsAddBarcodeData, ProductsAddBarcodeResponse, ProductsDeleteBarcodeData, ProductsDeleteBarcodeResponse, ProductsCreateVariantData, ProductsCreateVariantResponse, ProductsDeleteVariantData, ProductsDeleteVariantResponse, ReportsSalesPerDayData, ReportsSalesPerDayResponse, ReportsLowStockResponse, ReportsMarginReportData, ReportsMarginReportResponse, ReportsVatReportData, ReportsVatReportResponse, ReportsReorderReportData, ReportsReorderReportResponse, RolesReadRolesData, RolesReadRolesResponse, RolesCreateRoleData, RolesCreateRoleResponse, RolesReadRoleData, RolesReadRoleResponse, RolesUpdateRoleData, RolesUpdateRoleResponse, RolesDeleteRoleData, RolesDeleteRoleResponse, StockMovementsReadStockMovementsData, StockMovementsReadStockMovementsResponse, SupplierProductsReadSupplierProductsData, SupplierProductsReadSupplierProductsResponse, SupplierProductsCreateSupplierProductData, SupplierProductsCreateSupplierProductResponse, SupplierProductsUpdateSupplierProductData, SupplierProductsUpdateSupplierProductResponse, SupplierProductsDeleteSupplierProductData, SupplierProductsDeleteSupplierProductResponse, SuppliersReadSuppliersData, SuppliersReadSuppliersResponse, SuppliersCreateSupplierData, SuppliersCreateSupplierResponse, SuppliersReadSupplierData, SuppliersReadSupplierResponse, SuppliersUpdateSupplierData, SuppliersUpdateSupplierResponse, SuppliersDeleteSupplierData, SuppliersDeleteSupplierResponse, SuppliersReadSupplierAccountMovementsData, SuppliersReadSupplierAccountMovementsResponse, TaxesReadTaxesData, TaxesReadTaxesResponse, TaxesCreateTaxData, TaxesCreateTaxResponse, TaxesUpdateTaxData, TaxesUpdateTaxResponse, TaxesDeleteTaxData, TaxesDeleteTaxResponse, TransfersReadTransfersData, TransfersReadTransfersResponse, TransfersCreateTransferData, TransfersCreateTransferResponse, UomsReadUomsData, UomsReadUomsResponse, UomsCreateUomData, UomsCreateUomResponse, UomsUpdateUomData, UomsUpdateUomResponse, UomsDeleteUomData, UomsDeleteUomResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { AccountMovementsReadAccountMovementsData, AccountMovementsReadAccountMovementsResponse, AccountMovementsConciliateMovementData, AccountMovementsConciliateMovementResponse, AttributesReadAttributesData, AttributesReadAttributesResponse, AttributesCreateAttributeData, AttributesCreateAttributeResponse, AttributesUpdateAttributeData, AttributesUpdateAttributeResponse, AttributesDeleteAttributeData, AttributesDeleteAttributeResponse, BackupsReadBackupsData, BackupsReadBackupsResponse, BackupsCreateBackupNowResponse, BackupsReadBackupRunStatusResponse, BackupsDownloadBackupData, BackupsDownloadBackupResponse, BackupsDeleteBackupData, BackupsDeleteBackupResponse, BackupsReadBackupScheduleResponse, BackupsUpdateBackupScheduleData, BackupsUpdateBackupScheduleResponse, BackupsReadRestoreStatusResponse, BackupsRestoreBackupData, BackupsRestoreBackupResponse, BusinessSettingsReadBusinessSettingsResponse, BusinessSettingsUpdateBusinessSettingsData, BusinessSettingsUpdateBusinessSettingsResponse, BusinessSettingsUploadLogoData, BusinessSettingsUploadLogoResponse, BusinessSettingsDeleteLogoResponse, CashSessionsReadCurrentCashSessionResponse, CashSessionsOpenCashSessionData, CashSessionsOpenCashSessionResponse, CashSessionsCloseCashSessionData, CashSessionsCloseCashSessionResponse, CashSessionsReadCashSessionsData, CashSessionsReadCashSessionsResponse, CashSessionsReadCashSessionReportData, CashSessionsReadCashSessionReportResponse, CategoriesReadCategoriesData, CategoriesReadCategoriesResponse, CategoriesCreateCategoryData, CategoriesCreateCategoryResponse, CategoriesReadCategoryData, CategoriesReadCategoryResponse, CategoriesUpdateCategoryData, CategoriesUpdateCategoryResponse, CategoriesDeleteCategoryData, CategoriesDeleteCategoryResponse, CustomersReadCustomersData, CustomersReadCustomersResponse, CustomersCreateCustomerData, CustomersCreateCustomerResponse, CustomersReadCustomerData, CustomersReadCustomerResponse, CustomersUpdateCustomerData, CustomersUpdateCustomerResponse, CustomersDeleteCustomerData, CustomersDeleteCustomerResponse, CustomersReadCustomerAccountMovementsData, CustomersReadCustomerAccountMovementsResponse, DocumentsSuggestFiscalSaleTypeData, DocumentsSuggestFiscalSaleTypeResponse, DocumentsReadDocumentCreatorsResponse, DocumentsReadDocumentsData, DocumentsReadDocumentsResponse, DocumentsCreateDocumentData, DocumentsCreateDocumentResponse, DocumentsReadDocumentData, DocumentsReadDocumentResponse, DocumentsReadDocumentAllocationsData, DocumentsReadDocumentAllocationsResponse, DocumentsVoidDocumentData, DocumentsVoidDocumentResponse, DocumentsConvertToInvoiceData, DocumentsConvertToInvoiceResponse, DocumentTypesReadDocumentTypesData, DocumentTypesReadDocumentTypesResponse, DocumentTypesUpdateDocumentTypeData, DocumentTypesUpdateDocumentTypeResponse, FinancialAccountsReadFinancialAccountsData, FinancialAccountsReadFinancialAccountsResponse, FinancialAccountsCreateFinancialAccountData, FinancialAccountsCreateFinancialAccountResponse, FinancialAccountsReadFinancialAccountData, FinancialAccountsReadFinancialAccountResponse, FinancialAccountsUpdateFinancialAccountData, FinancialAccountsUpdateFinancialAccountResponse, FinancialAccountsDeleteFinancialAccountData, FinancialAccountsDeleteFinancialAccountResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PaymentMethodsReadPaymentMethodsData, PaymentMethodsReadPaymentMethodsResponse, PaymentMethodsCreatePaymentMethodData, PaymentMethodsCreatePaymentMethodResponse, PaymentMethodsReadPaymentMethodData, PaymentMethodsReadPaymentMethodResponse, PaymentMethodsUpdatePaymentMethodData, PaymentMethodsUpdatePaymentMethodResponse, PaymentMethodsDeletePaymentMethodData, PaymentMethodsDeletePaymentMethodResponse, PaymentsReadOutstandingData, PaymentsReadOutstandingResponse, PaymentsCreatePaymentReceiptData, PaymentsCreatePaymentReceiptResponse, PaymentsReadReceiptAllocationsData, PaymentsReadReceiptAllocationsResponse, PermissionsReadPermissionsData, PermissionsReadPermissionsResponse, PrivateCreateUserData, PrivateCreateUserResponse, ProductsReadProductsData, ProductsReadProductsResponse, ProductsCreateProductData, ProductsCreateProductResponse, ProductsReadProductCategoryCountsResponse, ProductsSearchProductsData, ProductsSearchProductsResponse, ProductsReadProductData, ProductsReadProductResponse, ProductsUpdateProductData, ProductsUpdateProductResponse, ProductsDeleteProductData, ProductsDeleteProductResponse, ProductsAddBarcodeData, ProductsAddBarcodeResponse, ProductsDeleteBarcodeData, ProductsDeleteBarcodeResponse, ProductsCreateVariantData, ProductsCreateVariantResponse, ProductsDeleteVariantData, ProductsDeleteVariantResponse, ReportsSalesPerDayData, ReportsSalesPerDayResponse, ReportsLowStockResponse, ReportsMarginReportData, ReportsMarginReportResponse, ReportsVatReportData, ReportsVatReportResponse, ReportsReorderReportData, ReportsReorderReportResponse, RolesReadRolesData, RolesReadRolesResponse, RolesCreateRoleData, RolesCreateRoleResponse, RolesReadRoleData, RolesReadRoleResponse, RolesUpdateRoleData, RolesUpdateRoleResponse, RolesDeleteRoleData, RolesDeleteRoleResponse, StockMovementsReadStockMovementsData, StockMovementsReadStockMovementsResponse, SupplierProductsReadSupplierProductsData, SupplierProductsReadSupplierProductsResponse, SupplierProductsCreateSupplierProductData, SupplierProductsCreateSupplierProductResponse, SupplierProductsUpdateSupplierProductData, SupplierProductsUpdateSupplierProductResponse, SupplierProductsDeleteSupplierProductData, SupplierProductsDeleteSupplierProductResponse, SuppliersReadSuppliersData, SuppliersReadSuppliersResponse, SuppliersCreateSupplierData, SuppliersCreateSupplierResponse, SuppliersReadSupplierData, SuppliersReadSupplierResponse, SuppliersUpdateSupplierData, SuppliersUpdateSupplierResponse, SuppliersDeleteSupplierData, SuppliersDeleteSupplierResponse, SuppliersReadSupplierAccountMovementsData, SuppliersReadSupplierAccountMovementsResponse, TaxesReadTaxesData, TaxesReadTaxesResponse, TaxesCreateTaxData, TaxesCreateTaxResponse, TaxesUpdateTaxData, TaxesUpdateTaxResponse, TaxesDeleteTaxData, TaxesDeleteTaxResponse, TransfersReadTransfersData, TransfersReadTransfersResponse, TransfersCreateTransferData, TransfersCreateTransferResponse, UomsReadUomsData, UomsReadUomsResponse, UomsCreateUomData, UomsCreateUomResponse, UomsUpdateUomData, UomsUpdateUomResponse, UomsDeleteUomData, UomsDeleteUomResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class AccountMovementsService {
     /**
@@ -180,14 +180,27 @@ export class BackupsService {
     
     /**
      * Create Backup Now
-     * Create a backup immediately (manual, synchronous).
-     * @returns BackupPublic Successful Response
+     * Create a backup immediately (manual); runs detached from the request.
+     * @returns BackupRunStatusPublic Successful Response
      * @throws ApiError
      */
     public static createBackupNow(): CancelablePromise<BackupsCreateBackupNowResponse> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/v1/backups/run-now'
+        });
+    }
+    
+    /**
+     * Read Backup Run Status
+     * Get the state of the last/current manual backup run.
+     * @returns BackupRunStatusPublic Successful Response
+     * @throws ApiError
+     */
+    public static readBackupRunStatus(): CancelablePromise<BackupsReadBackupRunStatusResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/backups/run-status'
         });
     }
     
@@ -331,6 +344,144 @@ export class BusinessSettingsService {
             url: '/api/v1/business-settings/',
             body: data.requestBody,
             mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Upload Logo
+     * Upload the business logo shown on printed vouchers.
+     * @param data The data for the request.
+     * @param data.formData
+     * @returns BusinessSettingsPublic Successful Response
+     * @throws ApiError
+     */
+    public static uploadLogo(data: BusinessSettingsUploadLogoData): CancelablePromise<BusinessSettingsUploadLogoResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/business-settings/logo',
+            formData: data.formData,
+            mediaType: 'multipart/form-data',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Logo
+     * Remove the business logo.
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static deleteLogo(): CancelablePromise<BusinessSettingsDeleteLogoResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/v1/business-settings/logo'
+        });
+    }
+}
+
+export class CashSessionsService {
+    /**
+     * Read Current Cash Session
+     * The currently open cash session, or null when none is open.
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static readCurrentCashSession(): CancelablePromise<CashSessionsReadCurrentCashSessionResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/cash-sessions/current'
+        });
+    }
+    
+    /**
+     * Open Cash Session
+     * Open a daily cash session with the initial float.
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns CashSessionPublic Successful Response
+     * @throws ApiError
+     */
+    public static openCashSession(data: CashSessionsOpenCashSessionData): CancelablePromise<CashSessionsOpenCashSessionResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/cash-sessions/open',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Close Cash Session
+     * Close a cash session with the physical drawer count (arqueo).
+     * @param data The data for the request.
+     * @param data.cashSessionId
+     * @param data.requestBody
+     * @returns CashSessionPublic Successful Response
+     * @throws ApiError
+     */
+    public static closeCashSession(data: CashSessionsCloseCashSessionData): CancelablePromise<CashSessionsCloseCashSessionResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/cash-sessions/{cash_session_id}/close',
+            path: {
+                cash_session_id: data.cashSessionId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Cash Sessions
+     * Paginated cash-session history, optionally filtered by status.
+     * @param data The data for the request.
+     * @param data.status
+     * @param data.skip Items to skip
+     * @param data.limit Items per page
+     * @returns Page_CashSessionPublic_ Successful Response
+     * @throws ApiError
+     */
+    public static readCashSessions(data: CashSessionsReadCashSessionsData = {}): CancelablePromise<CashSessionsReadCashSessionsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/cash-sessions/',
+            query: {
+                status: data.status,
+                skip: data.skip,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Cash Session Report
+     * The full closing report for a cash session (computed live).
+     * @param data The data for the request.
+     * @param data.cashSessionId
+     * @returns CashSessionReport Successful Response
+     * @throws ApiError
+     */
+    public static readCashSessionReport(data: CashSessionsReadCashSessionReportData): CancelablePromise<CashSessionsReadCashSessionReportResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/cash-sessions/{cash_session_id}/report',
+            path: {
+                cash_session_id: data.cashSessionId
+            },
             errors: {
                 422: 'Validation Error'
             }
@@ -540,9 +691,12 @@ export class CustomersService {
     
     /**
      * Delete Customer
-     * Deactivate a customer (soft delete).
+     * Hard-delete a customer, unless referenced by documents.
      *
-     * The seeded 'Consumidor Final' customer cannot be deleted.
+     * Customers with documents (or current-account movements) cannot be deleted
+     * to preserve traceability; the response carries the offending documents so
+     * the UI can show them. The seeded 'Consumidor Final' customer cannot be
+     * deleted either. Deactivation stays available via ``PATCH`` ``is_active``.
      * @param data The data for the request.
      * @param data.customerId
      * @returns Message Successful Response
@@ -1370,11 +1524,18 @@ export class PrivateService {
 export class ProductsService {
     /**
      * Read Products
-     * Retrieve products.
+     * Retrieve products (light rows, server-side pagination).
+     *
+     * ``q`` matches name, SKU or barcode (case-insensitive) and includes
+     * inactive products; ``category_id`` filters by exact category. Results are
+     * ordered by name so pagination windows are deterministic regardless of the
+     * catalog size.
      * @param data The data for the request.
+     * @param data.q
+     * @param data.categoryId
      * @param data.skip Items to skip
      * @param data.limit Items per page
-     * @returns Page_ProductPublic_ Successful Response
+     * @returns Page_ProductListItemPublic_ Successful Response
      * @throws ApiError
      */
     public static readProducts(data: ProductsReadProductsData = {}): CancelablePromise<ProductsReadProductsResponse> {
@@ -1382,6 +1543,8 @@ export class ProductsService {
             method: 'GET',
             url: '/api/v1/products/',
             query: {
+                q: data.q,
+                category_id: data.categoryId,
                 skip: data.skip,
                 limit: data.limit
             },
@@ -1408,6 +1571,19 @@ export class ProductsService {
             errors: {
                 422: 'Validation Error'
             }
+        });
+    }
+    
+    /**
+     * Read Product Category Counts
+     * Aggregate product counts per category (None = uncategorized).
+     * @returns ProductCategoryCountsPublic Successful Response
+     * @throws ApiError
+     */
+    public static readProductCategoryCounts(): CancelablePromise<ProductsReadProductCategoryCountsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/products/counts-by-category'
         });
     }
     
@@ -1484,7 +1660,12 @@ export class ProductsService {
     
     /**
      * Delete Product
-     * Deactivate a product (soft delete).
+     * Hard-delete a product, unless it is referenced by any document.
+     *
+     * Products referenced by documents (sales, purchases, quotes, etc.) cannot
+     * be deleted to preserve traceability; the response carries the offending
+     * documents so the UI can show them. The database FKs on ``documentline``
+     * and ``stockmovement`` act as a final safety net.
      * @param data The data for the request.
      * @param data.productId
      * @returns Message Successful Response
@@ -2043,7 +2224,12 @@ export class SuppliersService {
     
     /**
      * Delete Supplier
-     * Deactivate a supplier (soft delete).
+     * Hard-delete a supplier, unless referenced by documents.
+     *
+     * Suppliers with documents (or current-account movements) cannot be deleted
+     * to preserve traceability; the response carries the offending documents so
+     * the UI can show them. Deactivation stays available via ``PATCH``
+     * ``is_active``.
      * @param data The data for the request.
      * @param data.supplierId
      * @returns Message Successful Response
@@ -2137,6 +2323,11 @@ export class TaxesService {
     /**
      * Update Tax
      * Update a tax.
+     *
+     * Taxes referenced by documents can only have their ``name``, ``code``,
+     * ``is_default`` or ``is_active`` edited; fiscal fields (``tipo``, ``rate``,
+     * ``is_percent``, ``aplica_a``) are frozen so historical amounts and report
+     * labels cannot change retroactively.
      * @param data The data for the request.
      * @param data.taxId
      * @param data.requestBody
@@ -2160,7 +2351,12 @@ export class TaxesService {
     
     /**
      * Delete Tax
-     * Delete a tax.
+     * Hard-delete a tax, unless it is referenced by any document.
+     *
+     * Taxes used in documents cannot be deleted to preserve traceability; the
+     * response carries the offending documents so the UI can show them. The
+     * database FKs on ``documentline_tax`` and ``document_tax`` act as a final
+     * safety net.
      * @param data The data for the request.
      * @param data.taxId
      * @returns Message Successful Response

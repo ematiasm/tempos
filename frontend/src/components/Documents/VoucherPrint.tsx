@@ -1,17 +1,21 @@
 import { useQuery } from "@tanstack/react-query"
-
-import type { DocumentPublic } from "@/client"
 import {
   BusinessSettingsService,
+  type DocumentPublic,
+  OpenAPI,
   PaymentMethodsService,
-  ProductsService,
+  PaymentsService,
   TaxesService,
 } from "@/client"
-import { useT } from "@/i18n"
+import { useLocale, useT } from "@/i18n"
+import { formatMoney } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
-const money = (value: string | number | null | undefined) =>
-  value == null || value === "" ? "—" : `$${Number(value).toFixed(2)}`
+const money = (
+  value: string | number | null | undefined,
+  format: "es" | "en",
+) =>
+  value == null || value === "" ? "—" : `$${formatMoney(Number(value), format)}`
 
 const qty = (value: string | number | null | undefined) =>
   value == null || value === "" ? "—" : String(Number(value))
@@ -22,13 +26,10 @@ interface VoucherPrintProps {
 
 export function VoucherPrint({ document }: VoucherPrintProps) {
   const t = useT()
+  const { numberFormat } = useLocale()
   const { data: settings } = useQuery({
     queryFn: () => BusinessSettingsService.readBusinessSettings(),
     queryKey: ["business-settings"],
-  })
-  const { data: productsData } = useQuery({
-    queryFn: () => ProductsService.readProducts({ skip: 0, limit: 1000 }),
-    queryKey: ["products"],
   })
   const { data: methodsData } = useQuery({
     queryFn: () =>
@@ -39,16 +40,35 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
     queryFn: () => TaxesService.readTaxes({ skip: 0, limit: 100 }),
     queryKey: ["taxes"],
   })
+  const isReceipt = document.document_type.operation === "recibo"
+  const { data: allocationsData } = useQuery({
+    queryFn: () =>
+      PaymentsService.readReceiptAllocations({
+        receiptDocumentId: document.id,
+      }),
+    queryKey: ["receipt-allocations", document.id],
+    enabled: isReceipt,
+  })
 
-  const productNames = new Map(
-    (productsData?.data ?? []).map((p) => [p.id, p.name] as const),
-  )
   const methodNames = new Map(
     (methodsData?.data ?? []).map((m) => [m.id, m.name] as const),
   )
   const taxNames = new Map(
     (taxesData?.data ?? []).map((t) => [t.id, t.name] as const),
   )
+  const allocations = allocationsData ?? []
+  const totalInitial = allocations.reduce(
+    (sum, a) => sum + (a.saldo_inicial == null ? 0 : Number(a.saldo_inicial)),
+    0,
+  )
+  const totalPaid = allocations.reduce((sum, a) => sum + Number(a.monto), 0)
+  const totalRemaining = allocations.reduce(
+    (sum, a) =>
+      sum +
+      (a.saldo_inicial == null ? 0 : Number(a.saldo_inicial) - Number(a.monto)),
+    0,
+  )
+  const onAccount = Math.max(0, Number(document.total) - totalPaid)
   const lines = [...(document.lines ?? [])].sort((a, b) => a.orden - b.orden)
   const date = new Date(document.fecha).toLocaleDateString("es-AR")
 
@@ -58,6 +78,13 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
       className="mx-auto max-w-[700px] bg-white text-black"
     >
       <div className="border-b border-black pb-4 text-center">
+        {settings?.logo_path && (
+          <img
+            src={`${OpenAPI.BASE}${settings.logo_path}`}
+            alt={settings.business_name}
+            className="mx-auto mb-2 max-h-20 object-contain"
+          />
+        )}
         <h1 className="text-xl font-bold uppercase tracking-wide">
           {settings?.business_name ?? t("voucher.businessName")}
         </h1>
@@ -103,58 +130,146 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
         </div>
       )}
 
-      <table className="w-full border-b border-black text-sm">
-        <thead>
-          <tr className="border-b border-black text-left">
-            <th className="py-2 pr-2 font-semibold">{t("voucher.product")}</th>
-            <th className="py-2 pr-2 text-right font-semibold">
-              {t("voucher.qty")}
-            </th>
-            <th className="py-2 pr-2 text-right font-semibold">
-              {t("voucher.unitPrice")}
-            </th>
-            <th className="py-2 pr-2 text-right font-semibold">
-              {t("voucher.disc")}
-            </th>
-            <th className="py-2 text-right font-semibold">
-              {t("voucher.subtotal")}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {lines.map((line) => (
-            <tr
-              key={line.id}
-              className="border-b border-dotted border-black/40"
-            >
-              <td className="py-2 pr-2">
-                {productNames.get(line.product_id) ?? line.product_id}
-                {Number(line.descuento_pct) > 0 && (
-                  <span className="ml-1 text-xs">
-                    ({qty(line.descuento_pct)}%)
-                  </span>
-                )}
-                <div className="text-xs text-black/60">
-                  {(line.taxes ?? [])
-                    .filter((t) => t.aplicado)
-                    .map((tt) => taxNames.get(tt.tax_id) ?? t("voucher.tax"))
-                    .join(" · ")}
-                </div>
-              </td>
-              <td className="py-2 pr-2 text-right">{qty(line.cantidad)}</td>
-              <td className="py-2 pr-2 text-right">
-                {money(line.precio_unit)}
-              </td>
-              <td className="py-2 pr-2 text-right">
-                {money(line.descuento_monto)}
-              </td>
-              <td className="py-2 text-right font-medium">
-                {money(line.subtotal_line)}
-              </td>
+      {isReceipt ? (
+        <div className="border-b border-black py-3">
+          <p className="mb-2 text-sm font-semibold">
+            {t("voucher.allocationsTitle")}
+          </p>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-black text-left">
+                <th className="py-2 pr-2 font-semibold">
+                  {t("voucher.document")}
+                </th>
+                <th className="py-2 pr-2 text-right font-semibold">
+                  {t("voucher.balanceInitial")}
+                </th>
+                <th className="py-2 pr-2 text-right font-semibold">
+                  {t("voucher.balancePaid")}
+                </th>
+                <th className="py-2 text-right font-semibold">
+                  {t("voucher.balanceRemaining")}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {allocations.map((allocation) => (
+                <tr
+                  key={allocation.document_id}
+                  className="border-b border-dotted border-black/40"
+                >
+                  <td className="py-2 pr-2">
+                    <span className="font-mono">{allocation.numero}</span>
+                    {allocation.fecha && (
+                      <div className="text-xs text-black/60">
+                        {new Date(allocation.fecha).toLocaleDateString("es-AR")}
+                      </div>
+                    )}
+                  </td>
+                  <td className="py-2 pr-2 text-right">
+                    {money(allocation.saldo_inicial, numberFormat)}
+                  </td>
+                  <td className="py-2 pr-2 text-right">
+                    {money(allocation.monto, numberFormat)}
+                  </td>
+                  <td className="py-2 text-right">
+                    {allocation.saldo_inicial == null
+                      ? "—"
+                      : money(
+                          Number(allocation.saldo_inicial) -
+                            Number(allocation.monto),
+                          numberFormat,
+                        )}
+                  </td>
+                </tr>
+              ))}
+              {(allocations.length > 0 || onAccount > 0) && (
+                <tr className="border-b border-black font-semibold">
+                  <td className="py-2 pr-2">{t("voucher.totals")}</td>
+                  <td className="py-2 pr-2 text-right">
+                    {allocations.length > 0
+                      ? money(totalInitial, numberFormat)
+                      : ""}
+                  </td>
+                  <td className="py-2 pr-2 text-right">
+                    {money(totalPaid, numberFormat)}
+                  </td>
+                  <td className="py-2 text-right">
+                    {allocations.length > 0
+                      ? money(totalRemaining, numberFormat)
+                      : ""}
+                  </td>
+                </tr>
+              )}
+              {onAccount > 0 && (
+                <tr className="border-b border-dotted border-black/40">
+                  <td className="py-2 pr-2">{t("voucher.onAccount")}</td>
+                  <td className="py-2 pr-2 text-right" />
+                  <td className="py-2 pr-2 text-right">
+                    {money(onAccount, numberFormat)}
+                  </td>
+                  <td className="py-2 text-right" />
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <table className="w-full border-b border-black text-sm">
+          <thead>
+            <tr className="border-b border-black text-left">
+              <th className="py-2 pr-2 font-semibold">
+                {t("voucher.product")}
+              </th>
+              <th className="py-2 pr-2 text-right font-semibold">
+                {t("voucher.qty")}
+              </th>
+              <th className="py-2 pr-2 text-right font-semibold">
+                {t("voucher.unitPrice")}
+              </th>
+              <th className="py-2 pr-2 text-right font-semibold">
+                {t("voucher.disc")}
+              </th>
+              <th className="py-2 text-right font-semibold">
+                {t("voucher.subtotal")}
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {lines.map((line) => (
+              <tr
+                key={line.id}
+                className="border-b border-dotted border-black/40"
+              >
+                <td className="py-2 pr-2">
+                  {line.product_name ?? line.product_id}
+                  {Number(line.descuento_pct) > 0 && (
+                    <span className="ml-1 text-xs">
+                      ({qty(line.descuento_pct)}%)
+                    </span>
+                  )}
+                  <div className="text-xs text-black/60">
+                    {(line.taxes ?? [])
+                      .filter((t) => t.aplicado)
+                      .map((tt) => taxNames.get(tt.tax_id) ?? t("voucher.tax"))
+                      .join(" · ")}
+                  </div>
+                </td>
+                <td className="py-2 pr-2 text-right">{qty(line.cantidad)}</td>
+                <td className="py-2 pr-2 text-right">
+                  {money(line.precio_unit, numberFormat)}
+                </td>
+                <td className="py-2 pr-2 text-right">
+                  {money(line.descuento_monto, numberFormat)}
+                </td>
+                <td className="py-2 text-right font-medium">
+                  {money(line.subtotal_line, numberFormat)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
 
       {(document.taxes ?? []).length > 0 && (
         <div className="border-b border-black py-3 text-sm">
@@ -164,10 +279,10 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
                 {taxNames.get(tax.tax_id) ?? t("voucher.tax")}
                 <span className="text-black/60">
                   {" "}
-                  ({t("voucher.base", { base: money(tax.base) })})
+                  ({t("voucher.base", { base: money(tax.base, numberFormat) })})
                 </span>
               </span>
-              <span>{money(tax.monto)}</span>
+              <span>{money(tax.monto, numberFormat)}</span>
             </div>
           ))}
         </div>
@@ -176,17 +291,17 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
       <div className="ml-auto flex w-64 flex-col gap-1 py-4 text-sm">
         <div className="flex justify-between">
           <span>{t("voucher.subtotal")}</span>
-          <span>{money(document.subtotal)}</span>
+          <span>{money(document.subtotal, numberFormat)}</span>
         </div>
         {Number(document.descuento_total) > 0 && (
           <div className="flex justify-between">
             <span>{t("voucher.discount")}</span>
-            <span>-{money(document.descuento_total)}</span>
+            <span>-{money(document.descuento_total, numberFormat)}</span>
           </div>
         )}
         <div className="flex justify-between border-t border-black pt-1 text-base font-bold">
           <span>{t("voucher.total")}</span>
-          <span>{money(document.total)}</span>
+          <span>{money(document.total, numberFormat)}</span>
         </div>
       </div>
 
@@ -199,7 +314,7 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
                 {methodNames.get(payment.payment_method_id) ??
                   payment.payment_method_id}
               </span>
-              <span>{money(payment.monto)}</span>
+              <span>{money(payment.monto, numberFormat)}</span>
             </div>
           ))}
         </div>
@@ -208,7 +323,7 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
       {Number(document.favor_monto) > 0 && (
         <div className="flex justify-between py-0.5 text-sm">
           <span>{t("voucher.favorApplied")}</span>
-          <span>{money(Number(document.favor_monto))}</span>
+          <span>{money(Number(document.favor_monto), numberFormat)}</span>
         </div>
       )}
 

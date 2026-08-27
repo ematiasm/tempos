@@ -16,6 +16,7 @@ from app.core.config import settings
 from app.models import (
     Backup,
     BackupFrequency,
+    BackupKind,
     BackupSchedule,
     BackupStatus,
     RestoreState,
@@ -36,10 +37,24 @@ def _backup_dir(tmp_path, monkeypatch):
             target = args[args.index("-f") + 1]
             with open(target, "wb") as fh:
                 fh.write(b"fake dump")
+        # The restore worker checks the restored alembic_version and then
+        # runs alembic upgrade head; both go through run_command.
+        if any("alembic_version" in arg for arg in args):
+            return "37543f24f0f0"
         return ""
 
     monkeypatch.setattr(backup_service, "run_command", fake_run_command)
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def _backup_runs_sync(monkeypatch):
+    """Run manual backups synchronously instead of via a detached subprocess."""
+
+    def fake_start(kind, user_id):
+        backup_service.run_backup_worker(kind, user_id)
+
+    monkeypatch.setattr(backup_service, "start_backup", fake_start)
 
 
 @pytest.fixture(autouse=True)
@@ -69,9 +84,19 @@ def _preserve_schedule(db: Session):
 
 
 def _create_backup(client: TestClient, headers: dict[str, str]) -> dict:
+    """Run a manual backup (202) and return the newest backup row."""
     r = client.post(f"{settings.API_V1_STR}/backups/run-now", headers=headers)
+    assert r.status_code == 202, r.text
+    assert r.json()["estado"] in ("running", "success")
+    state = client.get(
+        f"{settings.API_V1_STR}/backups/run-status", headers=headers
+    ).json()
+    assert state["estado"] == "success", state
+    r = client.get(f"{settings.API_V1_STR}/backups/", headers=headers)
     assert r.status_code == 200, r.text
-    return r.json()
+    data = r.json()["data"]
+    assert data, "expected at least one backup row"
+    return data[0]
 
 
 def _schedule(client: TestClient, headers: dict[str, str]) -> dict:
@@ -189,7 +214,10 @@ def test_run_now_creates_backup(
     assert backup["status"] == "success"
     assert backup["size_bytes"] > 0
     assert backup["filename"].endswith(".dump")
-    assert backup["created_by_name"] == settings.FIRST_SUPERUSER
+    me = client.get(
+        f"{settings.API_V1_STR}/users/me", headers=superuser_token_headers
+    ).json()
+    assert backup["created_by_id"] == me["id"]
     path = _backup_dir / backup["filename"]
     assert path.is_file()
 
@@ -206,10 +234,44 @@ def test_run_now_records_failure(
         raise backup_service.BackupError("pg_dump exploded")
 
     monkeypatch.setattr(backup_service, "run_command", boom)
-    backup = _create_backup(client, superuser_token_headers)
+    r = client.post(
+        f"{settings.API_V1_STR}/backups/run-now", headers=superuser_token_headers
+    )
+    assert r.status_code == 202, r.text
+    state = client.get(
+        f"{settings.API_V1_STR}/backups/run-status", headers=superuser_token_headers
+    ).json()
+    assert state["estado"] == "failed"
+    assert "pg_dump exploded" in state["error"]
+    backup = client.get(
+        f"{settings.API_V1_STR}/backups/", headers=superuser_token_headers
+    ).json()["data"][0]
     assert backup["status"] == "failed"
     assert "pg_dump exploded" in backup["error"]
     assert not (_backup_dir / backup["filename"]).exists()
+
+
+def test_backup_failure_notifies_superusers(
+    client: TestClient, superuser_token_headers, monkeypatch, _backup_dir
+):
+    """A failed manual backup triggers the email alert dispatcher."""
+    notified: list[dict] = []
+    monkeypatch.setattr(
+        backup_service,
+        "_notify_backup_failure",
+        lambda **kwargs: notified.append(kwargs),
+    )
+
+    def boom(_args: list[str]) -> str:
+        raise backup_service.BackupError("pg_dump exploded")
+
+    monkeypatch.setattr(backup_service, "run_command", boom)
+    r = client.post(
+        f"{settings.API_V1_STR}/backups/run-now", headers=superuser_token_headers
+    )
+    assert r.status_code == 202, r.text
+    assert any(n.get("kind") == "manual" for n in notified)
+    assert any("pg_dump exploded" in n.get("error", "") for n in notified)
 
 
 def test_retention_prunes_old_backups(
@@ -352,6 +414,13 @@ def _restore_runs_sync(monkeypatch):
     monkeypatch.setattr(backup_service, "start_restore", fake_start)
 
 
+@pytest.fixture
+def _restore_noop(monkeypatch):
+    """Leave the restore running (no worker) so a second POST can be tested."""
+
+    monkeypatch.setattr(backup_service, "start_restore", lambda *a, **k: None)
+
+
 def test_restore_conflict_when_running(
     client: TestClient, superuser_token_headers, _restore_running
 ):
@@ -396,11 +465,14 @@ def test_restore_passes_connection_args(
     _backup_dir,
     _restore_runs_sync,
 ):
-    """pg_restore must reach the database via the same args as psql."""
+    """pg_restore must reach the database via the same args as psql, abort on
+    error, and the restore must migrate the schema to the current head."""
     calls: list[list[str]] = []
 
     def capture(args: list[str]) -> str:
         calls.append(args)
+        if any("alembic_version" in arg for arg in args):
+            return "37543f24f0f0"
         return ""
 
     monkeypatch.setattr(backup_service, "run_command", capture)
@@ -411,20 +483,44 @@ def test_restore_passes_connection_args(
     )
     assert r.status_code == 202, r.text
 
-    pg_restore_call = next(call for call in calls if "pg_restore" in call[0])
+    pg_restore_call = next(
+        call for call in calls if "pg_restore" in call[0] and "-l" not in call
+    )
     assert "-h" in pg_restore_call
     assert "-p" in pg_restore_call
     assert "-U" in pg_restore_call
+    assert "--exit-on-error" in pg_restore_call
+    assert any(call == ["alembic", "upgrade", "head"] for call in calls)
 
     state = backup_service.read_restore_state()
     assert state["estado"] == RestoreState.SUCCESS.value
 
 
+def test_restore_fails_without_alembic_version(
+    client: TestClient, superuser_token_headers, monkeypatch, _restore_runs_sync
+):
+    """A dump without alembic bookkeeping must not be reported as success."""
+    monkeypatch.setattr(backup_service, "run_command", lambda _args: "")
+    r = client.post(
+        f"{settings.API_V1_STR}/backups/restore",
+        headers=superuser_token_headers,
+        files={"file": ("dump.dump", io.BytesIO(b"data"), "application/octet-stream")},
+    )
+    assert r.status_code == 202, r.text
+    state = backup_service.read_restore_state()
+    assert state["estado"] == RestoreState.FAILED.value
+    assert "alembic_version" in state["error"]
+
+
 def test_restore_failure_is_recorded(
     client: TestClient, superuser_token_headers, monkeypatch, _restore_runs_sync
 ):
-    def boom(_args: list[str]) -> str:
-        raise backup_service.BackupError("restore exploded")
+    def boom(args: list[str]) -> str:
+        if "pg_restore" in args[0] and "-l" not in args:
+            raise backup_service.BackupError("restore exploded")
+        if any("alembic_version" in arg for arg in args):
+            return "37543f24f0f0"
+        return ""
 
     monkeypatch.setattr(backup_service, "run_command", boom)
     r = client.post(
@@ -444,6 +540,160 @@ def test_restore_rejects_empty_upload(client: TestClient, superuser_token_header
         files={"file": ("empty.dump", io.BytesIO(b""), "application/octet-stream")},
     )
     assert r.status_code == 400
+
+
+def test_restore_rejects_invalid_upload(
+    client: TestClient, superuser_token_headers, monkeypatch
+):
+    def boom(args: list[str]) -> str:
+        if "pg_restore" in args[0] and "-l" in args:
+            raise backup_service.BackupError("not a dump")
+        return ""
+
+    monkeypatch.setattr(backup_service, "run_command", boom)
+    r = client.post(
+        f"{settings.API_V1_STR}/backups/restore",
+        headers=superuser_token_headers,
+        files={"file": ("bad.dump", io.BytesIO(b"junk"), "application/octet-stream")},
+    )
+    assert r.status_code == 400
+    leftovers = [
+        p
+        for p in backup_service.backup_dir().iterdir()
+        if p.name.startswith("restore_upload_")
+    ]
+    assert leftovers == []
+
+
+def test_restore_second_post_conflicts(
+    client: TestClient, superuser_token_headers, _restore_noop
+):
+    """Two concurrent restore requests must not both spawn a worker."""
+    for _ in range(2):
+        r = client.post(
+            f"{settings.API_V1_STR}/backups/restore",
+            headers=superuser_token_headers,
+            files={
+                "file": ("dump.dump", io.BytesIO(b"data"), "application/octet-stream")
+            },
+        )
+    assert r.status_code == 409
+
+
+def test_run_now_conflict_when_backup_running(
+    client: TestClient, superuser_token_headers, _backup_dir
+):
+    backup_service.write_backup_run_state(backup_service.BackupRunState.RUNNING)
+    r = client.post(
+        f"{settings.API_V1_STR}/backups/run-now", headers=superuser_token_headers
+    )
+    assert r.status_code == 409
+
+
+def test_stale_backup_run_is_recovered(
+    client: TestClient, superuser_token_headers, _backup_dir
+):
+    backup_service.write_backup_run_state(
+        backup_service.BackupRunState.RUNNING,
+        started_at=datetime.now().astimezone() - timedelta(hours=1),
+    )
+    state = client.get(
+        f"{settings.API_V1_STR}/backups/run-status", headers=superuser_token_headers
+    ).json()
+    assert state["estado"] == "failed"
+
+
+def test_prune_removes_orphan_rows(
+    client: TestClient, superuser_token_headers, db: Session, _backup_dir
+):
+    """Rows whose dump file is gone (stale references) are pruned, while
+    FAILED rows stay as an error record."""
+    db.add(
+        Backup(
+            filename="ghost.dump",
+            size_bytes=123,
+            kind=BackupKind.MANUAL,
+            status=BackupStatus.SUCCESS,
+        )
+    )
+    db.add(
+        Backup(
+            filename="failed.dump",
+            size_bytes=0,
+            kind=BackupKind.MANUAL,
+            status=BackupStatus.FAILED,
+            error="boom",
+        )
+    )
+    db.commit()
+    _create_backup(client, superuser_token_headers)
+    db.expire_all()
+    remaining = db.exec(select(Backup)).all()
+    assert not any(b.filename == "ghost.dump" for b in remaining)
+    assert any(b.filename == "failed.dump" for b in remaining)
+
+
+def test_sync_imports_orphan_dump_files(
+    client: TestClient, superuser_token_headers, _backup_dir
+):
+    """Dumps present on disk without a Backup row are surfaced by the list."""
+    (_backup_dir / "tempos_backup_20260101_120000_aabbccdd.dump").write_bytes(
+        b"fake dump"
+    )
+    r = client.get(f"{settings.API_V1_STR}/backups/", headers=superuser_token_headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["count"] == 1
+    row = r.json()["data"][0]
+    assert row["filename"] == "tempos_backup_20260101_120000_aabbccdd.dump"
+    assert row["kind"] == "manual"
+    assert row["status"] == "success"
+    assert row["created_by_id"] is None
+    assert row["created_by_name"] is None
+    # The embedded timestamp is parsed into the row's creation time.
+    assert row["created_at"] is not None
+    assert (_backup_dir / row["filename"]).is_file()
+
+
+def test_sync_is_idempotent(client: TestClient, superuser_token_headers, _backup_dir):
+    """Repeated listings must not duplicate imported backups."""
+    (_backup_dir / "tempos_backup_20260101_120000_aabbccdd.dump").write_bytes(
+        b"fake dump"
+    )
+    headers = superuser_token_headers
+    first = client.get(f"{settings.API_V1_STR}/backups/", headers=headers)
+    second = client.get(f"{settings.API_V1_STR}/backups/", headers=headers)
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
+    assert first.json()["count"] == 1
+    assert second.json()["count"] == 1
+    assert first.json()["data"][0]["id"] == second.json()["data"][0]["id"]
+
+
+def test_sync_skips_restore_uploads(
+    client: TestClient, superuser_token_headers, _backup_dir
+):
+    """Temp files left behind by a restore upload are not imported."""
+    (_backup_dir / "restore_upload_abcdef01.dump").write_bytes(b"fake dump")
+    r = client.get(f"{settings.API_V1_STR}/backups/", headers=superuser_token_headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["count"] == 0
+
+
+def test_sync_falls_back_to_mtime(
+    client: TestClient, superuser_token_headers, _backup_dir
+):
+    """Files whose name does not follow the dump pattern use file mtime."""
+    path = _backup_dir / "odd_name.dump"
+    path.write_bytes(b"fake dump")
+    import os
+
+    os.utime(path, (1700000000, 1700000000))
+    r = client.get(f"{settings.API_V1_STR}/backups/", headers=superuser_token_headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["count"] == 1
+    row = r.json()["data"][0]
+    assert row["filename"] == "odd_name.dump"
+    assert row["created_at"] is not None
 
 
 def test_permissions_required(client: TestClient, normal_user_token_headers):
@@ -566,3 +816,37 @@ def test_scheduled_tick_skips_when_not_due(
 
     db.expire_all()
     assert db.exec(select(Backup)).all() == []
+
+
+def test_scheduled_tick_advances_on_failure(
+    client: TestClient, superuser_token_headers, db: Session, monkeypatch
+):
+    """A failing scheduled dump advances next_run_at instead of retrying every tick."""
+    _schedule(client, superuser_token_headers)
+    db.expire_all()
+    schedule = db.get(BackupSchedule, 1)
+    assert schedule is not None
+    schedule.enabled = True
+    schedule.next_run_at = PAST
+    db.commit()
+
+    notified: list[dict] = []
+    monkeypatch.setattr(
+        backup_service,
+        "_notify_backup_failure",
+        lambda **kwargs: notified.append(kwargs),
+    )
+
+    def boom(_args: list[str]) -> str:
+        raise backup_service.BackupError("pg_dump exploded")
+
+    monkeypatch.setattr(backup_service, "run_command", boom)
+    backup_service.run_scheduled_backups()
+
+    db.expire_all()
+    schedule = db.get(BackupSchedule, 1)
+    assert schedule is not None
+    assert schedule.last_status == BackupStatus.FAILED
+    assert "pg_dump exploded" in (schedule.last_error or "")
+    assert schedule.next_run_at is not None and schedule.next_run_at > PAST
+    assert any(n.get("kind") == "scheduled" for n in notified)

@@ -52,6 +52,7 @@ const DeleteProduct = ({ product, onSuccess }: DeleteProductProps) => {
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: ["product-counts"] })
     },
   })
 
@@ -73,6 +74,7 @@ const DeleteProduct = ({ product, onSuccess }: DeleteProductProps) => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: ["product-counts"] })
     },
   })
 

@@ -4,15 +4,16 @@ import type { CustomerPublic } from "@/client"
 import { CONSUMIDOR_FINAL_NAME } from "@/components/Common/conditionOptions"
 import { Badge } from "@/components/ui/badge"
 import type { useT } from "@/i18n"
+import type { NumberFormat } from "@/lib/format"
+import { formatMoney } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { CustomerActionsMenu } from "./CustomerActionsMenu"
 
 export type CustomerTableData = CustomerPublic
 
-const money = (value: string | number) => `$${Number(value).toFixed(2)}`
-
 export function getColumns(
   t: ReturnType<typeof useT>,
+  numberFormat: NumberFormat,
   onOpen?: (customer: CustomerTableData) => void,
 ): ColumnDef<CustomerTableData>[] {
   return [
@@ -74,7 +75,7 @@ export function getColumns(
               saldo < 0 && "text-green-600",
             )}
           >
-            {money(saldo)}
+            ${formatMoney(saldo, numberFormat)}
           </div>
         )
       },
@@ -88,7 +89,7 @@ export function getColumns(
         <div className="text-right text-muted-foreground text-sm">
           {Number(row.original.limite_credito ?? 0) === 0
             ? t("customers.noLimit")
-            : money(row.original.limite_credito ?? 0)}
+            : `$${formatMoney(Number(row.original.limite_credito ?? 0), numberFormat)}`}
         </div>
       ),
     },

@@ -11,6 +11,7 @@ import {
   PaymentMethodsService,
 } from "@/client"
 import { PrintVoucherDialog } from "@/components/Documents/VoucherPrint"
+import { CashRegisterBar } from "@/components/Sell/CashRegisterBar"
 import ProductSearch, { type CartLine } from "@/components/Sell/ProductSearch"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,7 +25,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
-import { formatStatic, useT } from "@/i18n"
+import { formatStatic, useLocale, useT } from "@/i18n"
+import type { NumberFormat } from "@/lib/format"
+import { formatMoney } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 
@@ -38,7 +41,7 @@ export const Route = createFileRoute("/_layout/sell")({
 const SALE_PREFIXES = ["FA", "FB", "FC", "TCK"]
 
 const round2 = (n: number) => Math.round(n * 100) / 100
-const money = (n: number) => `$${n.toFixed(2)}`
+const money = (n: number, format: NumberFormat) => `$${formatMoney(n, format)}`
 
 function useReferenceData() {
   const { data: customersData } = useQuery({
@@ -107,6 +110,7 @@ function Sell() {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const t = useT()
+  const { numberFormat } = useLocale()
   const { customers, consumidorFinal, methods, saleTypes } = useReferenceData()
 
   const [cart, setCart] = useState<CartLine[]>([])
@@ -275,7 +279,7 @@ function Sell() {
           </h2>
           <p className="text-muted-foreground">
             {t("sell.totaling", {
-              total: money(Number(created.total)),
+              total: money(Number(created.total), numberFormat),
               customer: created.contraparte_name ?? "",
             })}
           </p>
@@ -305,6 +309,8 @@ function Sell() {
         <h1 className="text-2xl font-bold tracking-tight">{t("sell.title")}</h1>
         <p className="text-muted-foreground">{t("sell.subtitle")}</p>
       </div>
+
+      <CashRegisterBar />
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="flex flex-1 flex-col gap-4">
@@ -452,7 +458,7 @@ function Sell() {
                           />
                         </td>
                         <td className="px-3 py-2 text-right font-medium">
-                          {money(lineTotal)}
+                          {money(lineTotal, numberFormat)}
                         </td>
                         <td className="px-2 py-2">
                           <Button
@@ -501,7 +507,10 @@ function Sell() {
               {selectedCustomer && Number(selectedCustomer.saldo) !== 0 && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   {t("sell.balance", {
-                    balance: money(Number(selectedCustomer.saldo)),
+                    balance: money(
+                      Number(selectedCustomer.saldo),
+                      numberFormat,
+                    ),
                   })}
                 </p>
               )}
@@ -554,14 +563,14 @@ function Sell() {
               <span className="text-muted-foreground">
                 {t("sell.subtotal")}
               </span>
-              <span>{money(subtotal)}</span>
+              <span>{money(subtotal, numberFormat)}</span>
             </div>
             {discountTotal > 0 && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
                   {t("sell.discount")}
                 </span>
-                <span>-{money(discountTotal)}</span>
+                <span>-{money(discountTotal, numberFormat)}</span>
               </div>
             )}
             {perceptions > 0 && (
@@ -569,19 +578,19 @@ function Sell() {
                 <span className="text-muted-foreground">
                   {t("sell.perceptions")}
                 </span>
-                <span>{money(perceptions)}</span>
+                <span>{money(perceptions, numberFormat)}</span>
               </div>
             )}
             <div className="flex justify-between border-t font-semibold">
               <span>{t("sell.total")}</span>
-              <span>{money(total)}</span>
+              <span>{money(total, numberFormat)}</span>
             </div>
             {appliedFavor > 0 && (
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">
                   {t("sell.creditInFavor")}
                 </span>
-                <span>-{money(appliedFavor)}</span>
+                <span>-{money(appliedFavor, numberFormat)}</span>
               </div>
             )}
           </div>
@@ -629,7 +638,10 @@ function Sell() {
                 </span>
                 <p className="text-xs text-muted-foreground">
                   {t("sell.onCreditHint", {
-                    amount: money(round2(Math.max(total - appliedFavor, 0))),
+                    amount: money(
+                      round2(Math.max(total - appliedFavor, 0)),
+                      numberFormat,
+                    ),
                   })}
                 </p>
               </div>
@@ -650,13 +662,15 @@ function Sell() {
                 {amount > 0 && amount < total && (
                   <p className="mt-1 text-xs text-muted-foreground">
                     {t("sell.goOnBalance", {
-                      amount: money(round2(total - amount)),
+                      amount: money(round2(total - amount), numberFormat),
                     })}
                   </p>
                 )}
                 {cashChange > 0 && (
                   <p className="mt-1 text-xs text-emerald-600">
-                    {t("sell.changeDue", { change: money(cashChange) })}
+                    {t("sell.changeDue", {
+                      change: money(cashChange, numberFormat),
+                    })}
                   </p>
                 )}
               </div>
@@ -673,7 +687,9 @@ function Sell() {
                   }}
                   className="h-3.5 w-3.5"
                 />
-                {t("sell.useCredit", { credit: money(creditInFavor) })}
+                {t("sell.useCredit", {
+                  credit: money(creditInFavor, numberFormat),
+                })}
               </label>
             )}
           </div>
@@ -684,7 +700,7 @@ function Sell() {
             disabled={issueDisabled}
             onClick={() => createMutation.mutate()}
           >
-            {t("sell.issueSale", { total: money(total) })}
+            {t("sell.issueSale", { total: money(total, numberFormat) })}
           </LoadingButton>
         </div>
       </div>

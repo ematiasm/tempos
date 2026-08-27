@@ -16,6 +16,7 @@ import type {
   ProductVariantPublic,
 } from "@/client"
 import {
+  BusinessSettingsService,
   CustomersService,
   DocumentsService,
   DocumentTypesService,
@@ -120,6 +121,10 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
       PaymentMethodsService.readPaymentMethods({ skip: 0, limit: 100 }),
     queryKey: ["payment-methods"],
   })
+  const { data: settingsData } = useQuery({
+    queryFn: () => BusinessSettingsService.readBusinessSettings(),
+    queryKey: ["business-settings"],
+  })
 
   const types = useMemo(
     () =>
@@ -189,7 +194,12 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
     if (!open) return
     if (isCustomerOp && consumidorFinal && !counterpartId)
       setCounterpartId(consumidorFinal.id)
-    if (defaultMethod && !methodId) setMethodId(defaultMethod.id)
+    if (!methodId) {
+      const preferred =
+        methods.find((m) => m.id === settingsData?.payment_method_default_id) ??
+        defaultMethod
+      if (preferred) setMethodId(preferred.id)
+    }
   }, [
     open,
     isCustomerOp,
@@ -197,6 +207,8 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
     counterpartId,
     methodId,
     defaultMethod,
+    methods,
+    settingsData,
   ])
 
   const { subtotal, perceptions, total } = useMemo(() => {
@@ -339,6 +351,9 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
     },
     onSuccess: (doc) => {
       showSuccessToast(t("documents.created", { numero: doc.numero }))
+      for (const warning of doc.stock_warnings ?? []) {
+        showErrorToast(warning)
+      }
       setCreated(doc)
       setSuggestions(doc.cost_change_suggestions ?? [])
       setApplied(new Set())

@@ -5,16 +5,17 @@ import type { DocumentPublic } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { useT } from "@/i18n"
+import type { NumberFormat } from "@/lib/format"
+import { formatMoney } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export type DocumentTableData = DocumentPublic & {
   onView: (document: DocumentPublic) => void
 }
 
-const money = (value: string | number) => `$${Number(value).toFixed(2)}`
-
 export function getColumns(
   t: ReturnType<typeof useT>,
+  numberFormat: NumberFormat,
 ): ColumnDef<DocumentTableData>[] {
   return [
     {
@@ -60,7 +61,7 @@ export function getColumns(
       header: () => <div className="text-right">{t("documents.total")}</div>,
       cell: ({ row }) => (
         <div className="text-right font-mono text-sm">
-          {money(row.original.total)}
+          ${formatMoney(Number(row.original.total), numberFormat)}
         </div>
       ),
     },

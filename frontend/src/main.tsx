@@ -44,12 +44,12 @@ declare module "@tanstack/react-router" {
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <LocaleProvider>
-        <QueryClientProvider client={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <LocaleProvider>
           <RouterProvider router={router} />
           <Toaster richColors closeButton />
-        </QueryClientProvider>
-      </LocaleProvider>
+        </LocaleProvider>
+      </QueryClientProvider>
     </ThemeProvider>
   </StrictMode>,
 )

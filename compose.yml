@@ -84,6 +84,7 @@ services:
       - default
     volumes:
       - app-backups-data:/backups
+      - app-uploads-data:/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -170,6 +171,7 @@ services:
 volumes:
   app-db-data:
   app-backups-data:
+  app-uploads-data:
 
 networks:
   traefik-public:

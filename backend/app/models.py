@@ -3,6 +3,7 @@ import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy import DateTime, Numeric
@@ -61,6 +62,11 @@ class AccountMovementType(enum.StrEnum):
     AJUSTE = "ajuste"
 
 
+class CashSessionStatus(enum.StrEnum):
+    OPEN = "open"
+    CLOSED = "closed"
+
+
 class BackupFrequency(enum.StrEnum):
     DAILY = "daily"
     WEEKLY = "weekly"
@@ -82,6 +88,28 @@ class RestoreState(enum.StrEnum):
     RUNNING = "running"
     SUCCESS = "success"
     FAILED = "failed"
+
+
+class BackupRunState(enum.StrEnum):
+    IDLE = "idle"
+    RUNNING = "running"
+    SUCCESS = "success"
+    FAILED = "failed"
+
+
+class NumberFormat(enum.StrEnum):
+    ES = "es"
+    EN = "en"
+
+
+class StockPolicy(enum.StrEnum):
+    BLOCK = "block"
+    WARN = "warn"
+
+
+class LocalePreference(enum.StrEnum):
+    ES = "es"
+    EN = "en"
 
 
 # ---------------------------------------------------------------------------
@@ -152,6 +180,22 @@ class BusinessSettingsUpdate(SQLModel):
     allow_negative_stock: bool | None = None
     enable_variants: bool | None = None
     default_iva: Decimal | None = None
+    timezone: str | None = Field(default=None, max_length=100)
+    # Payment method preselected when creating a new sale/purchase.
+    payment_method_default_id: uuid.UUID | None = None
+    number_format: NumberFormat | None = None
+    stock_policy: StockPolicy | None = None
+    default_locale: LocalePreference | None = None
+
+    @field_validator("timezone")
+    @classmethod
+    def _validate_timezone(cls, value: str | None) -> str | None:
+        if value is not None:
+            try:
+                ZoneInfo(value)
+            except Exception as exc:
+                raise ValueError(f"{value!r} is not a valid IANA timezone") from exc
+        return value
 
 
 # ---------------------------------------------------------------------------
@@ -552,12 +596,19 @@ class DocumentPaymentCreate(SQLModel):
 
 
 class PaymentReceiptCreate(SQLModel):
-    """Input for a standalone payment against a counterpart's current account."""
+    """Input for a standalone payment against a counterpart's current account.
+
+    ``cash_session_id`` is optional: when provided (an open session), the
+    receipt is linked to that session and counts toward its drawer arqueo;
+    when NULL, the money books only to the financial account and stays out of
+    the daily cash-session report.
+    """
 
     contraparte_type: CounterpartType
     contraparte_id: uuid.UUID
     fecha: datetime | None = None
     payments: list[DocumentPaymentCreate] = Field(min_length=1)
+    cash_session_id: uuid.UUID | None = None
 
 
 class DocumentCreate(SQLModel):
@@ -662,6 +713,17 @@ class BusinessSettings(SQLModel, table=True):
         default=None,
         sa_type=Numeric(5, 2),  # type: ignore
     )
+    # IANA timezone used by schedules and file timestamps across the system.
+    timezone: str = Field(default="America/Argentina/Buenos_Aires", max_length=100)
+    # Payment method preselected when creating a new sale/purchase.
+    payment_method_default_id: uuid.UUID | None = Field(
+        default=None, foreign_key="paymentmethod.id"
+    )
+    number_format: NumberFormat = Field(default=NumberFormat.EN, max_length=10)
+    # Path (public, served under /uploads) to the business logo shown on vouchers.
+    logo_path: str | None = Field(default=None, max_length=255)
+    stock_policy: StockPolicy = Field(default=StockPolicy.WARN, max_length=10)
+    default_locale: LocalePreference = Field(default=LocalePreference.EN, max_length=5)
 
 
 # ---------------------------------------------------------------------------
@@ -879,6 +941,9 @@ class PaymentMethod(SQLModel, table=True):
     # current-account balance (credit/current-account method).
     marks_paid: bool = Field(default=True)
     requiere_conciliacion: bool = Field(default=False)
+    # True when payments via this method physically enter the counted cash
+    # drawer (e.g. "Efectivo"). Drives the daily cash-session arqueo.
+    is_cash_drawer: bool = Field(default=False)
     financial_account: Optional[FinancialAccount] = Relationship(  # noqa: UP045
         back_populates="payment_methods"
     )
@@ -903,6 +968,10 @@ class Transfer(SQLModel, table=True):
     )
     descripcion: str | None = Field(default=None, max_length=255)
     user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False)
+    # Daily cash session this transfer belongs to (a drawer deposit / withdrawal).
+    cash_session_id: uuid.UUID | None = Field(
+        default=None, foreign_key="cashregistersession.id", index=True
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -919,6 +988,11 @@ class AccountMovement(SQLModel, table=True):
         default=None, foreign_key="paymentmethod.id"
     )
     transfer_id: uuid.UUID | None = Field(default=None, foreign_key="transfer.id")
+    # Daily cash session this movement belongs to (session funding at open,
+    # transfers) so the cierre report can list its money movements.
+    cash_session_id: uuid.UUID | None = Field(
+        default=None, foreign_key="cashregistersession.id", index=True
+    )
     monto: Decimal = Field(
         default=Decimal("0"),
         sa_type=Numeric(12, 2),  # type: ignore
@@ -1033,6 +1107,12 @@ class Document(SQLModel, table=True):
     )
     parent_document_id: uuid.UUID | None = Field(
         default=None, foreign_key="document.id"
+    )
+    # Daily cash session this document was created in; NULL for documents
+    # registered outside any open session (quotes, adjustments, transfer- or
+    # account-paid purchases/receipts created with the register closed).
+    cash_session_id: uuid.UUID | None = Field(
+        default=None, foreign_key="cashregistersession.id", index=True
     )
     # Reserved for the future AFIP/ARCA integration; unused until then.
     cae: str | None = Field(default=None, max_length=20)
@@ -1175,6 +1255,74 @@ class DocumentPaymentAllocation(SQLModel, table=True):
         default=Decimal("0"),
         sa_type=Numeric(12, 2),  # type: ignore
     )
+    # Snapshot of the document's pending balance before this receipt settled
+    # it (historical traceability; NULL for rows created before this column).
+    saldo_inicial: Decimal | None = Field(
+        default=None,
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+# ---------------------------------------------------------------------------
+# Daily cash session (caja diaria)
+# ---------------------------------------------------------------------------
+class CashRegisterSession(SQLModel, table=True):
+    """A daily cash-register session: opening float, closing arqueo.
+
+    The session is a control/reconciliation layer on top of the append-only
+    ledgers. Sales (operation ``venta``) require an open session; every other
+    document/transfer is linked only when a session is open. The ``open`` ->
+    ``closed`` transition is the only mutation; the closing figures
+    (``expected_amount``, ``counted_amount``, ``difference``) are frozen at
+    close for audit purposes.
+    """
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    opened_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    closed_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    opened_by_user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False)
+    closed_by_user_id: uuid.UUID | None = Field(default=None, foreign_key="user.id")
+    # The financial account reconciled against the physical drawer; defaults to
+    # the account of the default cash-drawer payment method.
+    cash_account_id: uuid.UUID = Field(
+        foreign_key="financialaccount.id", nullable=False
+    )
+    # Physical cash placed in the drawer at open (the change float).
+    opening_amount: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    # Financial account the opening float comes from (user-chosen at open;
+    # defaults to the drawer account). When it differs from the drawer account,
+    # a funding movement moves the float into the drawer so its saldo reflects
+    # the physical cash.
+    opening_source_account_id: uuid.UUID = Field(
+        foreign_key="financialaccount.id", nullable=False
+    )
+    counted_amount: Decimal | None = Field(
+        default=None,
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    expected_amount: Decimal | None = Field(
+        default=None,
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    difference: Decimal | None = Field(
+        default=None,
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    notes: str | None = Field(default=None, max_length=500)
+    status: CashSessionStatus = Field(default=CashSessionStatus.OPEN, max_length=20)
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -1212,6 +1360,12 @@ class BusinessSettingsPublic(SQLModel):
     allow_negative_stock: bool
     enable_variants: bool
     default_iva: Decimal | None = None
+    timezone: str
+    payment_method_default_id: uuid.UUID | None = None
+    number_format: NumberFormat
+    logo_path: str | None = None
+    stock_policy: StockPolicy
+    default_locale: LocalePreference
 
 
 # ---------------------------------------------------------------------------
@@ -1278,6 +1432,42 @@ class ProductPublic(SQLModel):
     barcodes: list[BarcodePublic] = []
 
 
+class ProductListItemPublic(SQLModel):
+    """Lightweight product row for list views (server-side pagination).
+
+    Keeps the fields the table columns render (including taxes for the tax
+    badges); nested barcodes/variants are loaded on demand via the detail
+    endpoint so the payload stays flat regardless of catalog size.
+    """
+
+    id: uuid.UUID
+    name: str
+    sku: str | None = None
+    category_id: uuid.UUID | None = None
+    uom_id: uuid.UUID
+    is_active: bool
+    margen_pct: Decimal
+    costo_actual: Decimal
+    precio_venta: Decimal
+    stock_current: Decimal
+    stock_minimo: Decimal | None = None
+    taxes: list[TaxPublic] = []
+
+
+class ProductCategoryCountPublic(SQLModel):
+    """Product count per category (None category = uncategorized)."""
+
+    category_id: uuid.UUID | None
+    count: int
+
+
+class ProductCategoryCountsPublic(SQLModel):
+    """Aggregate product counts for the catalog sidebar."""
+
+    total: int
+    by_category: list[ProductCategoryCountPublic]
+
+
 # ---------------------------------------------------------------------------
 # Counterparty output schemas
 # ---------------------------------------------------------------------------
@@ -1319,6 +1509,7 @@ class PaymentMethodPublic(SQLModel):
     financial_account_id: uuid.UUID
     marks_paid: bool
     requiere_conciliacion: bool
+    is_cash_drawer: bool
 
 
 class PaymentMethodCreate(SQLModel):
@@ -1326,6 +1517,7 @@ class PaymentMethodCreate(SQLModel):
     financial_account_id: uuid.UUID
     marks_paid: bool = True
     requiere_conciliacion: bool = False
+    is_cash_drawer: bool = False
 
 
 class PaymentMethodUpdate(SQLModel):
@@ -1333,6 +1525,7 @@ class PaymentMethodUpdate(SQLModel):
     financial_account_id: uuid.UUID | None = None
     marks_paid: bool | None = None
     requiere_conciliacion: bool | None = None
+    is_cash_drawer: bool | None = None
 
 
 class TransferCreate(SQLModel):
@@ -1354,6 +1547,7 @@ class TransferPublic(SQLModel):
     fecha: datetime
     descripcion: str | None = None
     user_id: uuid.UUID
+    cash_session_id: uuid.UUID | None = None
     created_at: datetime | None = None
 
 
@@ -1379,6 +1573,7 @@ class AccountMovementPublic(SQLModel):
     document_id: uuid.UUID | None = None
     payment_method_id: uuid.UUID | None = None
     transfer_id: uuid.UUID | None = None
+    cash_session_id: uuid.UUID | None = None
     monto: Decimal
     tipo: AccountMovementType
     fecha: datetime
@@ -1446,6 +1641,8 @@ class DocumentLinePublic(SQLModel):
     taxes: list[DocumentLineTaxPublic] = []
     # Quantity still voidable; only filled by the document detail endpoint.
     cantidad_pendiente: Decimal | None = None
+    # Resolved by the route for display purposes.
+    product_name: str | None = None
 
 
 class DocumentTaxPublic(SQLModel):
@@ -1481,6 +1678,8 @@ class ReceiptAllocationPublic(SQLModel):
     numero: str
     fecha: datetime | None = None
     monto: Decimal
+    # Pending balance of the document before this receipt settled it.
+    saldo_inicial: Decimal | None = None
 
 
 class DocumentAllocationPublic(SQLModel):
@@ -1512,6 +1711,7 @@ class DocumentPublic(SQLModel):
     total: Decimal
     favor_monto: Decimal = Decimal("0")
     parent_document_id: uuid.UUID | None = None
+    cash_session_id: uuid.UUID | None = None
     created_at: datetime | None = None
     document_type: DocumentTypePublic
     lines: list[DocumentLinePublic] = []
@@ -1524,6 +1724,105 @@ class DocumentPublic(SQLModel):
     child_document_numero: str | None = None
     # Cost-update proposals surfaced on purchase creation (decided by the user).
     cost_change_suggestions: list[CostChangeSuggestion] = []
+    # Warnings surfaced when the stock policy is WARN and a line went negative.
+    stock_warnings: list[str] = []
+
+
+# ---------------------------------------------------------------------------
+# Daily cash session schemas
+# ---------------------------------------------------------------------------
+class CashSessionOpenCreate(SQLModel):
+    """Open a daily cash session.
+
+    ``opening_amount`` is the physical float placed in the drawer;
+    ``opening_source_account_id`` is the financial account that float comes
+    from (defaults to the drawer account, i.e. no movement is generated).
+    """
+
+    opening_amount: Decimal = Field(
+        ge=0,
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    opening_source_account_id: uuid.UUID | None = None
+
+
+class CashSessionCloseCreate(SQLModel):
+    """Close a daily cash session with the physical drawer count."""
+
+    counted_amount: Decimal = Field(
+        ge=0,
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
+    notes: str | None = Field(default=None, max_length=500)
+
+
+class CashSessionPublic(SQLModel):
+    id: uuid.UUID
+    opened_at: datetime
+    closed_at: datetime | None = None
+    opened_by_user_id: uuid.UUID
+    closed_by_user_id: uuid.UUID | None = None
+    cash_account_id: uuid.UUID
+    opening_amount: Decimal
+    opening_source_account_id: uuid.UUID
+    counted_amount: Decimal | None = None
+    expected_amount: Decimal | None = None
+    difference: Decimal | None = None
+    notes: str | None = None
+    status: CashSessionStatus
+    created_at: datetime | None = None
+    # Resolved by the route for display purposes.
+    opened_by_name: str | None = None
+    closed_by_name: str | None = None
+    cash_account_name: str | None = None
+    opening_source_account_name: str | None = None
+
+
+class CashSessionPerUser(SQLModel):
+    """Document totals grouped by the user who registered them."""
+
+    user_id: uuid.UUID
+    user_name: str
+    count: int
+    total: Decimal
+
+
+class CashSessionMethodTotals(SQLModel):
+    """Payment totals per method, with the financial account they book to."""
+
+    payment_method_id: uuid.UUID
+    payment_method_name: str
+    financial_account_id: uuid.UUID
+    financial_account_name: str
+    ingresos: Decimal
+    egresos: Decimal
+    net: Decimal
+
+
+class CashSessionMovement(SQLModel):
+    """A money movement belonging to the session (funding, transfers)."""
+
+    fecha: datetime
+    tipo: AccountMovementType
+    concept: str
+    monto: Decimal
+    financial_account_name: str | None = None
+
+
+class CashSessionReport(SQLModel):
+    """Full closing report for a daily cash session (computed live)."""
+
+    session: CashSessionPublic
+    sales: list[CashSessionPerUser] = []
+    returns: list[CashSessionPerUser] = []
+    purchases: list[CashSessionPerUser] = []
+    receipts_collected: list[CashSessionPerUser] = []
+    receipts_paid: list[CashSessionPerUser] = []
+    methods: list[CashSessionMethodTotals] = []
+    movements: list[CashSessionMovement] = []
+    expected_amount: Decimal
+    counted_amount: Decimal | None = None
+    difference: Decimal | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -1580,6 +1879,15 @@ class RestoreStatusPublic(SQLModel):
 
     estado: RestoreState
     source_filename: str | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    error: str | None = None
+
+
+class BackupRunStatusPublic(SQLModel):
+    """Manual (run-now) backup progress, sourced from the backup state file."""
+
+    estado: BackupRunState
     started_at: datetime | None = None
     finished_at: datetime | None = None
     error: str | None = None

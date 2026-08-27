@@ -7,7 +7,6 @@ import {
   DocumentsService,
   PaymentMethodsService,
   PaymentsService,
-  ProductsService,
   TaxesService,
 } from "@/client"
 import VoidDocumentDialog from "@/components/Documents/VoidDocumentDialog"
@@ -23,10 +22,12 @@ import {
 } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import useCustomToast from "@/hooks/useCustomToast"
-import { useT } from "@/i18n"
+import { useLocale, useT } from "@/i18n"
+import { formatMoney } from "@/lib/format"
 import { handleError } from "@/utils"
 
-const money = (value: string | number) => `$${Number(value).toFixed(2)}`
+const money = (value: string | number, format: "es" | "en") =>
+  `$${formatMoney(Number(value), format)}`
 
 interface DocumentDetailSheetProps {
   document: DocumentPublic | null
@@ -40,6 +41,7 @@ const DocumentDetailSheet = ({
   onOpenChange,
 }: DocumentDetailSheetProps) => {
   const t = useT()
+  const { numberFormat } = useLocale()
   const [voidOpen, setVoidOpen] = useState(false)
   const [printOpen, setPrintOpen] = useState(false)
   const queryClient = useQueryClient()
@@ -56,11 +58,6 @@ const DocumentDetailSheet = ({
     onError: handleError.bind(showErrorToast),
   })
 
-  const { data: productsData } = useQuery({
-    queryFn: () => ProductsService.readProducts({ skip: 0, limit: 1000 }),
-    queryKey: ["products"],
-    enabled: open,
-  })
   const { data: methodsData } = useQuery({
     queryFn: () =>
       PaymentMethodsService.readPaymentMethods({ skip: 0, limit: 100 }),
@@ -107,9 +104,6 @@ const DocumentDetailSheet = ({
     document.document_type.operation === "cotizacion" &&
     !document.child_document_id
 
-  const productNames = new Map(
-    (productsData?.data ?? []).map((p) => [p.id, p.name] as const),
-  )
   const methodNames = new Map(
     (methodsData?.data ?? []).map((m) => [m.id, m.name] as const),
   )
@@ -139,13 +133,14 @@ const DocumentDetailSheet = ({
                 <li key={line.id} className="px-3 py-2 text-sm">
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex-1 truncate font-medium">
-                      {productNames.get(line.product_id) ?? line.product_id}
+                      {line.product_name ?? line.product_id}
                     </span>
                     <span className="text-muted-foreground whitespace-nowrap">
-                      {Number(line.cantidad)} × {money(line.precio_unit)}
+                      {Number(line.cantidad)} ×{" "}
+                      {money(line.precio_unit, numberFormat)}
                     </span>
                     <span className="font-mono whitespace-nowrap w-24 text-right">
-                      {money(line.subtotal_line)}
+                      {money(line.subtotal_line, numberFormat)}
                     </span>
                   </div>
                   <div className="mt-1 flex items-center gap-2">
@@ -157,7 +152,7 @@ const DocumentDetailSheet = ({
                     {(line.taxes ?? []).map((tax) => (
                       <Badge key={tax.id} variant="outline" className="text-xs">
                         {taxNames.get(tax.tax_id) ?? t("documents.tax")}{" "}
-                        {money(tax.monto)}
+                        {money(tax.monto, numberFormat)}
                       </Badge>
                     ))}
                   </div>
@@ -180,10 +175,15 @@ const DocumentDetailSheet = ({
                     <span>
                       {taxNames.get(tax.tax_id) ?? t("documents.tax")}{" "}
                       <span className="text-muted-foreground">
-                        · {t("documents.base", { base: money(tax.base) })}
+                        ·{" "}
+                        {t("documents.base", {
+                          base: money(tax.base, numberFormat),
+                        })}
                       </span>
                     </span>
-                    <span className="font-mono">{money(tax.monto)}</span>
+                    <span className="font-mono">
+                      {money(tax.monto, numberFormat)}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -195,7 +195,9 @@ const DocumentDetailSheet = ({
               <span className="text-muted-foreground">
                 {t("documents.subtotal")}
               </span>
-              <span className="font-mono">{money(document.subtotal)}</span>
+              <span className="font-mono">
+                {money(document.subtotal, numberFormat)}
+              </span>
             </div>
             {Number(document.descuento_total) > 0 && (
               <div className="flex w-64 justify-between text-sm">
@@ -203,19 +205,21 @@ const DocumentDetailSheet = ({
                   {t("documents.discount")}
                 </span>
                 <span className="font-mono">
-                  -{money(document.descuento_total)}
+                  -{money(document.descuento_total, numberFormat)}
                 </span>
               </div>
             )}
             <div className="flex w-64 justify-between border-t pt-1 font-medium">
               <span>{t("documents.total")}</span>
-              <span className="font-mono">{money(document.total)}</span>
+              <span className="font-mono">
+                {money(document.total, numberFormat)}
+              </span>
             </div>
             {Number(document.favor_monto) > 0 && (
               <div className="flex w-64 justify-between text-sm text-muted-foreground">
                 <span>{t("sell.creditInFavor")}</span>
                 <span className="font-mono">
-                  -{money(Number(document.favor_monto))}
+                  -{money(Number(document.favor_monto), numberFormat)}
                 </span>
               </div>
             )}
@@ -236,7 +240,9 @@ const DocumentDetailSheet = ({
                       {methodNames.get(payment.payment_method_id) ??
                         payment.payment_method_id}
                     </span>
-                    <span className="font-mono">{money(payment.monto)}</span>
+                    <span className="font-mono">
+                      {money(payment.monto, numberFormat)}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -273,7 +279,7 @@ const DocumentDetailSheet = ({
                           : "—"}
                       </span>
                       <span className="font-mono">
-                        {money(allocation.monto)}
+                        {money(allocation.monto, numberFormat)}
                       </span>
                     </li>
                   ))}
@@ -309,7 +315,7 @@ const DocumentDetailSheet = ({
                           : "—"}
                       </span>
                       <span className="font-mono">
-                        {money(allocation.monto)}
+                        {money(allocation.monto, numberFormat)}
                       </span>
                     </li>
                   ))}

@@ -17,6 +17,15 @@ from app.models import (
     AttributeCreate,
     AttributeValue,
     BusinessSettings,
+    CashRegisterSession,
+    CashSessionCloseCreate,
+    CashSessionMethodTotals,
+    CashSessionMovement,
+    CashSessionOpenCreate,
+    CashSessionPerUser,
+    CashSessionPublic,
+    CashSessionReport,
+    CashSessionStatus,
     CostChangeSuggestion,
     CounterpartType,
     Customer,
@@ -48,6 +57,7 @@ from app.models import (
     ProductVariantAttribute,
     Role,
     StockMovement,
+    StockPolicy,
     Supplier,
     SupplierAccountMovement,
     SupplierProduct,
@@ -212,6 +222,15 @@ def _money(value: Decimal) -> Decimal:
     return value.quantize(_Q2)
 
 
+def _get_open_cash_session(session: Session) -> CashRegisterSession | None:
+    """The single open daily cash session, or None (unique per business)."""
+    return session.exec(
+        select(CashRegisterSession).where(
+            CashRegisterSession.status == CashSessionStatus.OPEN
+        )
+    ).first()
+
+
 def next_document_number(
     *, session: Session, document_type_id: uuid.UUID, year: int
 ) -> int:
@@ -254,18 +273,19 @@ def next_document_number(
 
 def create_document(
     *, session: Session, document_in: DocumentCreate, user_id: uuid.UUID
-) -> tuple[Document, list[CostChangeSuggestion]]:
+) -> tuple[Document, list[CostChangeSuggestion], list[str]]:
     """Create a document with lines, taxes and payments in one transaction.
 
-    Returns the document plus any cost-change suggestions computed for
-    purchases (never applied automatically; the user decides on the UI).
+    Returns the document, any cost-change suggestions computed for purchases
+    (never applied automatically; the user decides on the UI) and any stock
+    warnings surfaced when the stock policy is WARN.
     """
-    document, cost_suggestions = _create_document_in_tx(
+    document, cost_suggestions, stock_warnings = _create_document_in_tx(
         session=session, document_in=document_in, user_id=user_id
     )
     session.commit()
     session.refresh(document)
-    return document, cost_suggestions
+    return document, cost_suggestions, stock_warnings
 
 
 def documents_for_counterpart(
@@ -338,7 +358,7 @@ def _create_document_in_tx(
     user_id: uuid.UUID,
     parent_document_id: uuid.UUID | None = None,
     parent_line_ids: dict[int, uuid.UUID] | None = None,
-) -> tuple[Document, list[CostChangeSuggestion]]:
+) -> tuple[Document, list[CostChangeSuggestion], list[str]]:
     """Transactional core of document creation (no commit/refresh).
 
     Prices carry IVA inside (retail convention): line-tax rows are an
@@ -370,6 +390,17 @@ def _create_document_in_tx(
             raise BusinessError("counterpart_not_found", "Counterpart not found")
         if not counterpart.is_active:
             raise BusinessError("counterpart_inactive", "The counterpart is inactive")
+
+    # Daily cash session. Sales always require an open session (the session is
+    # the sales-day flag, as in Odoo/ERPNext POS); every other document is
+    # linked only when a session happens to be open.
+    cash_session = _get_open_cash_session(session)
+    if doc_type.operation == DocumentOperation.VENTA:
+        if cash_session is None:
+            raise BusinessError(
+                "cash_session_required",
+                "An open cash session is required to register a sale",
+            )
 
     fecha = (
         document_in.fecha.replace(tzinfo=document_in.fecha.tzinfo or UTC)
@@ -582,6 +613,7 @@ def _create_document_in_tx(
         total=total,
         favor_monto=_money(favor_monto),
         parent_document_id=parent_document_id,
+        cash_session_id=cash_session.id if cash_session else None,
     )
     session.add(document)
     session.flush()
@@ -652,10 +684,12 @@ def _create_document_in_tx(
     cost_suggestions = _purchase_cost_hook(
         session=session, document=document
     )  # Phase 5
-    _stock_movements_hook(session=session, document=document)  # Phase 6
+    stock_warnings = _stock_movements_hook(
+        session=session, document=document
+    )  # Phase 6
     _financial_movements_hook(session=session, document=document)  # Phase 7
 
-    return document, cost_suggestions
+    return document, cost_suggestions, stock_warnings
 
 
 def get_line_voided_quantities(
@@ -825,7 +859,7 @@ def void_document(
         lines=nc_lines,
         payments=payments_in,
     )
-    nc, _ = _create_document_in_tx(
+    nc, _, _ = _create_document_in_tx(
         session=session,
         document_in=nc_in,
         user_id=user_id,
@@ -949,7 +983,7 @@ def convert_quote_to_invoice(
         lines=lines,
         payments=[],
     )
-    invoice, _ = _create_document_in_tx(
+    invoice, _, _ = _create_document_in_tx(
         session=session,
         document_in=invoice_in,
         user_id=user_id,
@@ -1151,19 +1185,31 @@ def _apply_stock_delta(
     delta: Decimal,
     allow_negative: bool,
     motivo: str,
-) -> None:
+) -> bool:
     """Atomically apply a signed stock delta and append the ledger row.
 
     When negative stock is not allowed, the UPDATE itself guards
     ``stock_current + delta >= 0``; a 0-rowcount result means the operation
     would take the stock below zero and raises ``ValueError``.
+
+    Returns ``True`` when the delta takes the stock below zero (only possible
+    when ``allow_negative`` is true); callers surface it as a warning.
     """
     if line.variant_id is not None:
         target: type[Product | ProductVariant] = ProductVariant
         key = col(ProductVariant.id) == line.variant_id
+        current = session.exec(
+            select(col(ProductVariant.stock_current)).where(
+                col(ProductVariant.id) == line.variant_id
+            )
+        ).first()
     else:
         target = Product
         key = col(Product.id) == line.product_id
+        current = session.exec(
+            select(col(Product.stock_current)).where(col(Product.id) == line.product_id)
+        ).first()
+    below_zero = current is not None and current + delta < Decimal("0")
     conditions = [key]
     if not allow_negative:
         conditions.append(col(target.stock_current) + delta >= Decimal("0"))
@@ -1188,6 +1234,7 @@ def _apply_stock_delta(
             user_id=document.user_id,
         )
     )
+    return below_zero
 
 
 def _apply_account_delta(
@@ -1276,16 +1323,22 @@ def _apply_supplier_balance_delta(
     )
 
 
-def _stock_movements_hook(*, session: Session, document: Document) -> None:
-    """Phase 6: emit StockMovement rows and reconcile product stock caches."""
+def _stock_movements_hook(*, session: Session, document: Document) -> list[str]:
+    """Phase 6: emit StockMovement rows and reconcile product stock caches.
+
+    Returns warnings when the stock policy is WARN and a line took the stock
+    below zero (the sale is allowed either way).
+    """
     doc_type = session.get(DocumentType, document.document_type_id)
     if doc_type is None:
-        return
+        return []
     is_adjustment = doc_type.operation == DocumentOperation.AJUSTE
     if doc_type.signo_stock == 0 and not is_adjustment:
-        return
-    settings = session.exec(select(BusinessSettings)).first()
-    allow_negative = settings.allow_negative_stock if settings else False
+        return []
+    settings_row = session.exec(select(BusinessSettings)).first()
+    allow_negative = settings_row.allow_negative_stock if settings_row else False
+    stock_policy = settings_row.stock_policy if settings_row else StockPolicy.WARN
+    warnings: list[str] = []
     lines = session.exec(
         select(DocumentLine).where(DocumentLine.document_id == document.id)
     ).all()
@@ -1293,14 +1346,34 @@ def _stock_movements_hook(*, session: Session, document: Document) -> None:
         delta = line.cantidad if is_adjustment else doc_type.signo_stock * line.cantidad
         if delta == 0:
             continue
-        _apply_stock_delta(
+        below_zero = _apply_stock_delta(
             session=session,
             document=document,
             line=line,
             delta=delta,
-            allow_negative=allow_negative or is_adjustment,
+            allow_negative=(
+                allow_negative or is_adjustment or stock_policy == StockPolicy.WARN
+            ),
             motivo=doc_type.name,
         )
+        if below_zero and stock_policy == StockPolicy.WARN:
+            name = _line_product_name(session, line)
+            warnings.append(f"Insufficient stock for {name}; the sale went below zero")
+    return warnings
+
+
+def _line_product_name(session: Session, line: DocumentLine) -> str:
+    if line.variant_id is not None:
+        variant = session.get(ProductVariant, line.variant_id)
+        if variant is not None:
+            product = session.get(Product, variant.product_id)
+            return (
+                f"{product.name} ({variant.sku_suffix})"
+                if product
+                else (variant.sku_suffix or "variant")
+            )
+    product = session.get(Product, line.product_id)
+    return product.name if product else "product"
 
 
 def _financial_movements_hook(*, session: Session, document: Document) -> None:
@@ -1453,7 +1526,11 @@ def outstanding_documents(
 
 
 def create_receipt(
-    *, session: Session, receipt_in: PaymentReceiptCreate, user_id: uuid.UUID
+    *,
+    session: Session,
+    receipt_in: PaymentReceiptCreate,
+    user_id: uuid.UUID,
+    cash_session_id: uuid.UUID | None = None,
 ) -> Document:
     """Register a standalone payment (receipt) against a counterpart.
 
@@ -1462,6 +1539,10 @@ def create_receipt(
     outstanding documents and emits the financial + current-account ledger
     rows in the same transaction. Overpayments stay as an on-account credit
     (negative counterpart balance). Commit/refresh happen at the call site.
+
+    ``cash_session_id`` links the receipt to an open daily cash session so its
+    drawer payments count toward that session's arqueo (user-chosen via the UI
+    checkbox); NULL keeps it out of every cash-session report.
     """
     party = receipt_in.contraparte_type
     doc_type = session.exec(
@@ -1487,6 +1568,15 @@ def create_receipt(
         raise BusinessError("counterpart_not_found", "Counterpart not found")
     if not counterpart.is_active:
         raise BusinessError("counterpart_inactive", "The counterpart is inactive")
+
+    if cash_session_id is not None:
+        cash_session = session.get(CashRegisterSession, cash_session_id)
+        if cash_session is None:
+            raise BusinessError("cash_session_not_found", "Cash session not found")
+        if cash_session.status != CashSessionStatus.OPEN:
+            raise BusinessError(
+                "cash_session_already_closed", "The cash session is already closed"
+            )
 
     payment_specs: list[tuple[uuid.UUID, Decimal, Decimal | None, datetime | None]] = []
     total = Decimal("0")
@@ -1534,6 +1624,7 @@ def create_receipt(
         subtotal=Decimal("0"),
         descuento_total=Decimal("0"),
         total=total,
+        cash_session_id=cash_session_id,
     )
     session.add(document)
     session.flush()
@@ -1567,6 +1658,7 @@ def create_receipt(
                 receipt_document_id=document.id,
                 document_id=row["document_id"],
                 monto=portion,
+                saldo_inicial=row["pendiente"],
             )
         )
         remaining -= portion
@@ -1595,6 +1687,9 @@ def create_transfer(
         if transfer_in.fecha
         else datetime.now(UTC)
     )
+    # Transfers never require a session, but they are linked when one is open
+    # so drawer deposits/withdrawals show up in the closing report.
+    cash_session = _get_open_cash_session(session)
     transfer = Transfer(
         from_account_id=from_account.id,
         to_account_id=to_account.id,
@@ -1602,6 +1697,7 @@ def create_transfer(
         fecha=fecha,
         descripcion=transfer_in.descripcion,
         user_id=user_id,
+        cash_session_id=cash_session.id if cash_session else None,
     )
     session.add(transfer)
     session.flush()
@@ -1622,6 +1718,7 @@ def create_transfer(
             AccountMovement(
                 financial_account_id=account_id,
                 transfer_id=transfer.id,
+                cash_session_id=transfer.cash_session_id,
                 monto=delta,
                 tipo=AccountMovementType.TRANSFERENCIA,
                 fecha=fecha,
@@ -1631,6 +1728,323 @@ def create_transfer(
     session.commit()
     session.refresh(transfer)
     return transfer
+
+
+# ---------------------------------------------------------------------------
+# Daily cash session
+# ---------------------------------------------------------------------------
+def _cash_drawer_account(session: Session) -> FinancialAccount:
+    """The financial account of the default cash-drawer payment method."""
+    method = session.exec(
+        select(PaymentMethod).where(col(PaymentMethod.is_cash_drawer) == True)  # noqa: E712
+    ).first()
+    if method is None:
+        raise BusinessError(
+            "cash_drawer_method_missing",
+            "No cash-drawer payment method is configured",
+        )
+    account = session.get(FinancialAccount, method.financial_account_id)
+    if account is None:
+        raise BusinessError(
+            "financial_account_not_found", "Financial account not found"
+        )
+    return account
+
+
+def open_cash_session(
+    *, session: Session, open_in: CashSessionOpenCreate, user_id: uuid.UUID
+) -> CashRegisterSession:
+    """Open a daily cash session (unique per business; no double open).
+
+    The opening float is placed in the drawer. When it comes from a different
+    account than the drawer, a funding movement moves it into the drawer so
+    its saldo reflects the physical cash; the common case (same account) needs
+    no movement because the float is already part of that balance.
+    """
+    if _get_open_cash_session(session) is not None:
+        raise BusinessError(
+            "cash_session_already_open", "A cash session is already open"
+        )
+    drawer = _cash_drawer_account(session)
+    source_id = open_in.opening_source_account_id or drawer.id
+    if session.get(FinancialAccount, source_id) is None:
+        raise BusinessError(
+            "financial_account_not_found", "Financial account not found"
+        )
+    opening_amount = _money(open_in.opening_amount)
+    cash_session = CashRegisterSession(
+        opened_by_user_id=user_id,
+        cash_account_id=drawer.id,
+        opening_amount=opening_amount,
+        opening_source_account_id=source_id,
+    )
+    session.add(cash_session)
+    session.flush()
+    if source_id != drawer.id and opening_amount > 0:
+        for account_id, delta in (
+            (source_id, -opening_amount),
+            (drawer.id, opening_amount),
+        ):
+            result = session.exec(
+                update(FinancialAccount)
+                .where(col(FinancialAccount.id) == account_id)
+                .values(saldo=col(FinancialAccount.saldo) + delta)
+            )
+            if result.rowcount == 0:
+                raise BusinessError(
+                    "financial_account_not_found", "Financial account not found"
+                )
+            session.add(
+                AccountMovement(
+                    financial_account_id=account_id,
+                    cash_session_id=cash_session.id,
+                    monto=delta,
+                    tipo=AccountMovementType.AJUSTE,
+                    fecha=cash_session.opened_at,
+                    user_id=user_id,
+                )
+            )
+    session.commit()
+    session.refresh(cash_session)
+    return cash_session
+
+
+def close_cash_session(
+    *,
+    session: Session,
+    cash_session: CashRegisterSession,
+    close_in: CashSessionCloseCreate,
+    user_id: uuid.UUID,
+) -> CashRegisterSession:
+    """Close a session with the physical drawer count (arqueo).
+
+    The expected/difference figures are frozen at close for audit purposes;
+    the ``open`` -> ``closed`` transition is the only mutation of the row.
+    """
+    if cash_session.status != CashSessionStatus.OPEN:
+        raise BusinessError(
+            "cash_session_already_closed", "The cash session is already closed"
+        )
+    expected = _cash_session_expected(session, cash_session)
+    counted = _money(close_in.counted_amount)
+    cash_session.counted_amount = counted
+    cash_session.expected_amount = expected
+    cash_session.difference = _money(counted - expected)
+    cash_session.notes = close_in.notes
+    cash_session.closed_by_user_id = user_id
+    cash_session.closed_at = datetime.now(UTC)
+    cash_session.status = CashSessionStatus.CLOSED
+    session.add(cash_session)
+    session.commit()
+    session.refresh(cash_session)
+    return cash_session
+
+
+def _cash_session_drawer_methods(
+    session: Session, cash_session: CashRegisterSession
+) -> set[uuid.UUID]:
+    """Payment methods that physically feed the drawer account."""
+    return {
+        m.id
+        for m in session.exec(
+            select(PaymentMethod).where(
+                PaymentMethod.is_cash_drawer == True,  # noqa: E712
+                PaymentMethod.financial_account_id == cash_session.cash_account_id,
+            )
+        ).all()
+    }
+
+
+def _cash_session_expected(
+    session: Session, cash_session: CashRegisterSession
+) -> Decimal:
+    """Expected physical drawer at close.
+
+    = opening float + drawer-method payments (signed by the document type's
+    cash sign) + transfers into the drawer - transfers out of the drawer
+    (all transfer legs linked to this session).
+    """
+    expected = cash_session.opening_amount
+    drawer_methods = _cash_session_drawer_methods(session, cash_session)
+    docs = session.exec(
+        select(Document, DocumentType.signo_caja)
+        .join(DocumentType, col(Document.document_type_id) == col(DocumentType.id))
+        .where(col(Document.cash_session_id) == cash_session.id)
+    ).all()
+    if drawer_methods and docs:
+        doc_ids = [d.id for d, _ in docs]
+        payments = session.exec(
+            select(DocumentPayment)
+            .where(col(DocumentPayment.document_id).in_(doc_ids))
+            .where(col(DocumentPayment.payment_method_id).in_(drawer_methods))
+        ).all()
+        by_doc: dict[uuid.UUID, Decimal] = {}
+        for payment in payments:
+            by_doc[payment.document_id] = (
+                by_doc.get(payment.document_id, Decimal("0")) + payment.monto
+            )
+        for document, signo in docs:
+            amount = by_doc.get(document.id)
+            if amount:
+                expected += _money(amount * signo)
+    transfers = session.exec(
+        select(Transfer).where(col(Transfer.cash_session_id) == cash_session.id)
+    ).all()
+    for transfer in transfers:
+        if transfer.from_account_id == cash_session.cash_account_id:
+            expected -= _money(transfer.monto)
+        if transfer.to_account_id == cash_session.cash_account_id:
+            expected += _money(transfer.monto)
+    return _money(expected)
+
+
+def _cash_session_public(
+    session: Session, cash_session: CashRegisterSession
+) -> CashSessionPublic:
+    users = {u.id: u.full_name or u.email for u in session.exec(select(User)).all()}
+    accounts = {a.id: a.name for a in session.exec(select(FinancialAccount)).all()}
+    public = CashSessionPublic.model_validate(cash_session)
+    public.opened_by_name = users.get(cash_session.opened_by_user_id)
+    public.closed_by_name = (
+        users.get(cash_session.closed_by_user_id)
+        if cash_session.closed_by_user_id
+        else None
+    )
+    public.cash_account_name = accounts.get(cash_session.cash_account_id)
+    public.opening_source_account_name = accounts.get(
+        cash_session.opening_source_account_id
+    )
+    return public
+
+
+def cash_session_report(
+    *, session: Session, cash_session: CashRegisterSession
+) -> CashSessionReport:
+    """Compute the closing report for a session (derived live from the ledgers).
+
+    Documents are grouped per user by operation; the payment-method table
+    covers every method (with its financial account) so the user can control
+    the financial accounts, and the money movements list the session's funding
+    and transfers.
+    """
+    accounts = {a.id: a.name for a in session.exec(select(FinancialAccount)).all()}
+    users = {u.id: u.full_name or u.email for u in session.exec(select(User)).all()}
+    public = _cash_session_public(session, cash_session)
+
+    docs: list[tuple[Document, DocumentOperation, int]] = [
+        (document, DocumentOperation(operation), signo)
+        for document, operation, signo in session.exec(
+            select(Document, DocumentType.operation, DocumentType.signo_caja)
+            .join(DocumentType, col(Document.document_type_id) == col(DocumentType.id))
+            .where(col(Document.cash_session_id) == cash_session.id)
+        ).all()
+    ]
+
+    def _per_user(
+        rows: list[tuple[Document, DocumentOperation, int]],
+    ) -> list[CashSessionPerUser]:
+        acc: dict[uuid.UUID, dict[str, Any]] = {}
+        for document, _operation, _signo in rows:
+            entry = acc.setdefault(
+                document.user_id, {"count": 0, "total": Decimal("0")}
+            )
+            entry["count"] += 1
+            entry["total"] = _money(entry["total"] + document.total)
+        return [
+            CashSessionPerUser(
+                user_id=uid,
+                user_name=users.get(uid, ""),
+                count=entry["count"],
+                total=entry["total"],
+            )
+            for uid, entry in acc.items()
+        ]
+
+    sales = [r for r in docs if r[1] == DocumentOperation.VENTA and r[2] > 0]
+    returns = [r for r in docs if r[1] == DocumentOperation.VENTA and r[2] < 0]
+    purchases = [r for r in docs if r[1] == DocumentOperation.COMPRA]
+    receipts_collected = [
+        r for r in docs if r[1] == DocumentOperation.RECIBO and r[2] > 0
+    ]
+    receipts_paid = [r for r in docs if r[1] == DocumentOperation.RECIBO and r[2] < 0]
+
+    methods_by_id = {m.id: m for m in session.exec(select(PaymentMethod)).all()}
+    methods: dict[uuid.UUID, dict[str, Decimal]] = {}
+    if docs:
+        payments = session.exec(
+            select(DocumentPayment, DocumentType.signo_caja)
+            .join(Document, col(Document.id) == col(DocumentPayment.document_id))
+            .join(
+                DocumentType,
+                col(Document.document_type_id) == col(DocumentType.id),
+            )
+            .where(col(Document.cash_session_id) == cash_session.id)
+        ).all()
+        for payment, signo in payments:
+            acc = methods.setdefault(
+                payment.payment_method_id,
+                {"ingresos": Decimal("0"), "egresos": Decimal("0")},
+            )
+            amount = _money(payment.monto)
+            if signo > 0:
+                acc["ingresos"] += amount
+            else:
+                acc["egresos"] += amount
+    method_totals = [
+        CashSessionMethodTotals(
+            payment_method_id=method_id,
+            payment_method_name=methods_by_id[method_id].name,
+            financial_account_id=methods_by_id[method_id].financial_account_id,
+            financial_account_name=accounts.get(
+                methods_by_id[method_id].financial_account_id, ""
+            ),
+            ingresos=acc["ingresos"],
+            egresos=acc["egresos"],
+            net=_money(acc["ingresos"] - acc["egresos"]),
+        )
+        for method_id, acc in methods.items()
+        if method_id in methods_by_id
+    ]
+    method_totals.sort(key=lambda m: m.payment_method_name)
+
+    movement_rows = session.exec(
+        select(AccountMovement)
+        .where(col(AccountMovement.cash_session_id) == cash_session.id)
+        .order_by(col(AccountMovement.fecha).asc())
+    ).all()
+    movements = [
+        CashSessionMovement(
+            fecha=movement.fecha,
+            tipo=movement.tipo,
+            concept=(
+                "Transfer"
+                if movement.tipo == AccountMovementType.TRANSFERENCIA
+                else "Opening float funding"
+            ),
+            monto=movement.monto,
+            financial_account_name=accounts.get(movement.financial_account_id),
+        )
+        for movement in movement_rows
+    ]
+
+    expected = (
+        cash_session.expected_amount
+        if cash_session.expected_amount is not None
+        else _cash_session_expected(session, cash_session)
+    )
+    return CashSessionReport(
+        session=public,
+        sales=_per_user(sales),
+        returns=_per_user(returns),
+        purchases=_per_user(purchases),
+        receipts_collected=_per_user(receipts_collected),
+        receipts_paid=_per_user(receipts_paid),
+        methods=method_totals,
+        movements=movements,
+        expected_amount=_money(expected),
+        counted_amount=cash_session.counted_amount,
+        difference=cash_session.difference,
+    )
 
 
 def create_attribute(*, session: Session, attribute_in: AttributeCreate) -> Attribute:

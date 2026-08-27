@@ -42,6 +42,7 @@ def _receipt_allocations(
             numero=document.numero,
             fecha=document.fecha,
             monto=allocation.monto,
+            saldo_inicial=allocation.saldo_inicial,
         )
         for allocation, document in rows
     ]
@@ -89,7 +90,10 @@ def create_payment_receipt(
     """
     try:
         receipt = crud.create_receipt(
-            session=session, receipt_in=receipt_in, user_id=current_user.id
+            session=session,
+            receipt_in=receipt_in,
+            user_id=current_user.id,
+            cash_session_id=receipt_in.cash_session_id,
         )
     except crud.BusinessError as e:
         session.rollback()

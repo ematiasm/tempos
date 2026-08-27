@@ -11,11 +11,14 @@ from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, PaginationDep, SessionDep, require_permissions
 from app.core import backup as backup_service
+from app.core.backup import BackupError
 from app.models import (
     Backup,
     BackupFrequency,
     BackupKind,
     BackupPublic,
+    BackupRunState,
+    BackupRunStatusPublic,
     BackupSchedulePublic,
     BackupScheduleUpdate,
     Page,
@@ -30,6 +33,11 @@ router = APIRouter(prefix="/backups", tags=["backups"])
 def _get_restore_status() -> RestoreStatusPublic:
     backup_service.recover_stale_restore()
     return RestoreStatusPublic(**backup_service.read_restore_state())
+
+
+def _get_backup_run_status() -> BackupRunStatusPublic:
+    backup_service.recover_stale_backup_run()
+    return BackupRunStatusPublic(**backup_service.read_backup_run_state())
 
 
 def _resolve_names(session: SessionDep, backups: list[Backup]) -> dict[uuid.UUID, str]:
@@ -57,6 +65,9 @@ def _to_public(backup: Backup, names: dict[uuid.UUID, str]) -> BackupPublic:
 )
 def read_backups(session: SessionDep, pagination: PaginationDep) -> Any:
     """List stored backups, newest first."""
+    # Reconcile the metadata table with the backup volume so orphan dumps
+    # (e.g. from before a DB reset/restore) show up here too.
+    backup_service.sync_backup_rows(session)
     count = session.exec(select(func.count()).select_from(Backup)).one()
     rows = session.exec(
         select(Backup)
@@ -71,21 +82,40 @@ def read_backups(session: SessionDep, pagination: PaginationDep) -> Any:
 
 @router.post(
     "/run-now",
-    response_model=BackupPublic,
+    status_code=202,
+    response_model=BackupRunStatusPublic,
     dependencies=[require_permissions("backup.create")],
 )
-def create_backup_now(session: SessionDep, current_user: CurrentUser) -> Any:
-    """Create a backup immediately (manual, synchronous)."""
+def create_backup_now(current_user: CurrentUser) -> Any:
+    """Create a backup immediately (manual); runs detached from the request."""
     if _get_restore_status().estado == RestoreState.RUNNING:
         raise HTTPException(
             status_code=409, detail="A restore is in progress; backups are disabled"
         )
-    backup = backup_service.create_backup(
-        session, kind=BackupKind.MANUAL, user_id=current_user.id
-    )
-    session.commit()
-    session.refresh(backup)
-    return _to_public(backup, _resolve_names(session, [backup]))
+    try:
+        with backup_service.backup_run_lock():
+            if _get_backup_run_status().estado == BackupRunState.RUNNING:
+                raise HTTPException(
+                    status_code=409, detail="A backup is already running"
+                )
+            backup_service.write_backup_run_state(
+                BackupRunState.RUNNING,
+                started_at=datetime.now().astimezone(),
+            )
+            backup_service.start_backup(BackupKind.MANUAL, current_user.id)
+    except BackupError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return _get_backup_run_status()
+
+
+@router.get(
+    "/run-status",
+    response_model=BackupRunStatusPublic,
+    dependencies=[require_permissions("backup.read")],
+)
+def read_backup_run_status() -> Any:
+    """Get the state of the last/current manual backup run."""
+    return _get_backup_run_status()
 
 
 @router.get(
@@ -162,7 +192,9 @@ def update_backup_schedule(
         data["day_of_week"] = None
         data["day_of_month"] = None
     schedule.sqlmodel_update(data)
-    schedule.next_run_at = backup_service.compute_next_run(schedule)
+    schedule.next_run_at = backup_service.compute_next_run(
+        schedule, now=backup_service.system_now(session)
+    )
     session.add(schedule)
     session.commit()
     session.refresh(schedule)
@@ -195,40 +227,57 @@ def restore_backup(
     Runs detached from the API process: the current database is dropped and
     recreated, so the API is briefly unavailable while the restore runs.
     """
-    if _get_restore_status().estado == RestoreState.RUNNING:
-        raise HTTPException(status_code=409, detail="A restore is already running")
-    if file is None and backup_id is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Provide either a backup file or an existing backup_id",
-        )
-    if file is not None:
-        file.file.seek(0, 2)
-        size = file.file.tell()
-        file.file.seek(0)
-        if size == 0:
-            raise HTTPException(status_code=400, detail="The uploaded file is empty")
-        dest = (
-            backup_service.backup_dir()
-            / f"restore_upload_{uuid.uuid4().hex}{backup_service.DUMP_SUFFIX}"
-        )
-        with dest.open("wb") as out:
-            shutil.copyfileobj(file.file, out)
-        source_path: Path = dest
-        source_filename = file.filename or dest.name
-    else:
-        backup = session.get(Backup, backup_id)
-        if not backup:
-            raise HTTPException(status_code=404, detail="Backup not found")
-        source_path = backup_service.backup_dir() / backup.filename
-        if not source_path.is_file():
-            raise HTTPException(status_code=404, detail="Backup file not found")
-        source_filename = backup.filename
+    try:
+        with backup_service.restore_lock():
+            if _get_restore_status().estado == RestoreState.RUNNING:
+                raise HTTPException(
+                    status_code=409, detail="A restore is already running"
+                )
+            if file is None and backup_id is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Provide either a backup file or an existing backup_id",
+                )
+            if file is not None:
+                file.file.seek(0, 2)
+                size = file.file.tell()
+                file.file.seek(0)
+                if size == 0:
+                    raise HTTPException(
+                        status_code=400, detail="The uploaded file is empty"
+                    )
+                dest = (
+                    backup_service.backup_dir()
+                    / f"restore_upload_{uuid.uuid4().hex}{backup_service.DUMP_SUFFIX}"
+                )
+                with dest.open("wb") as out:
+                    shutil.copyfileobj(file.file, out)
+                try:
+                    # Listing the archive validates that it really is a dump.
+                    backup_service.run_command(["pg_restore", "-l", str(dest)])
+                except BackupError:
+                    dest.unlink(missing_ok=True)
+                    raise HTTPException(
+                        status_code=400,
+                        detail="The uploaded file is not a valid PostgreSQL dump",
+                    )
+                source_path: Path = dest
+                source_filename = file.filename or dest.name
+            else:
+                backup = session.get(Backup, backup_id)
+                if not backup:
+                    raise HTTPException(status_code=404, detail="Backup not found")
+                source_path = backup_service.backup_dir() / backup.filename
+                if not source_path.is_file():
+                    raise HTTPException(status_code=404, detail="Backup file not found")
+                source_filename = backup.filename
 
-    backup_service.write_restore_state(
-        RestoreState.RUNNING,
-        source_filename,
-        started_at=datetime.now().astimezone(),
-    )
-    backup_service.start_restore(source_path, source_filename)
+            backup_service.write_restore_state(
+                RestoreState.RUNNING,
+                source_filename,
+                started_at=datetime.now().astimezone(),
+            )
+            backup_service.start_restore(source_path, source_filename)
+    except BackupError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return _get_restore_status()

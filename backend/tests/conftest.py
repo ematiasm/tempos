@@ -17,6 +17,7 @@ from app.models import (
     BackupSchedule,
     Barcode,
     BusinessSettings,
+    CashRegisterSession,
     Category,
     Customer,
     CustomerAccountMovement,
@@ -64,6 +65,7 @@ CLEANUP_MODELS: tuple[type[SQLModel], ...] = (
     DocumentPaymentAllocation,
     Document,
     DocumentSequence,
+    CashRegisterSession,
     DocumentType,
     Item,
     Backup,
@@ -151,3 +153,24 @@ def normal_user_token_headers(client: TestClient, db: Session) -> dict[str, str]
     return authentication_token_from_email(
         client=client, email=settings.EMAIL_TEST_USER, db=db
     )
+
+
+@pytest.fixture(scope="function", autouse=True)
+def open_cash_session(db: Session) -> Generator[None]:
+    """Every test starts with an open daily cash session.
+
+    Sales (operation ``venta``) require an open session; tests that exercise
+    the session lifecycle close/reopen it explicitly.
+    """
+    from decimal import Decimal
+
+    from app import crud
+    from app.models import CashSessionOpenCreate, User
+
+    opener = db.exec(select(User).where(User.email == settings.FIRST_SUPERUSER)).one()
+    crud.open_cash_session(
+        session=db,
+        open_in=CashSessionOpenCreate(opening_amount=Decimal("0")),
+        user_id=opener.id,
+    )
+    yield

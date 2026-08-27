@@ -78,6 +78,9 @@ SEED_PERMISSIONS: list[tuple[str, str]] = [
     ("finance.create", "Create financial transactions"),
     ("finance.update", "Update financial transactions"),
     ("transfer.create", "Create internal transfers"),
+    ("cash.read", "View cash sessions and closing reports"),
+    ("cash.open", "Open a daily cash session"),
+    ("cash.close", "Close a daily cash session"),
     ("report.view", "View reports"),
     ("backup.read", "View backups and backup schedule"),
     ("backup.create", "Create backups"),
@@ -384,16 +387,22 @@ def init_db(session: Session) -> None:
         session.add(account)
         session.commit()
         session.refresh(account)
-    if not session.exec(
+    cash_method = session.exec(
         select(PaymentMethod).where(PaymentMethod.name == SEED_CASH_PAYMENT_METHOD)
-    ).first():
+    ).first()
+    if not cash_method:
         session.add(
             PaymentMethod(
                 name=SEED_CASH_PAYMENT_METHOD,
                 financial_account_id=account.id,
+                is_cash_drawer=True,
             )
         )
-        session.commit()
+    elif not cash_method.is_cash_drawer:
+        # Backfill on pre-existing databases: the cash method feeds the drawer.
+        cash_method.is_cash_drawer = True
+        session.add(cash_method)
+    session.commit()
 
     # --- Seed the current-account (credit) account + payment method ---
     # Credit payments never mark documents as paid and generate no account
