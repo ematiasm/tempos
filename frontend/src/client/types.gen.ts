@@ -149,6 +149,9 @@ export type BusinessSettingsPublic = {
     logo_path?: (string | null);
     stock_policy: StockPolicy;
     default_locale: LocalePreference;
+    default_print_format: PrintFormat;
+    voucher_footer?: (string | null);
+    voucher_legends?: (string | null);
 };
 
 export type BusinessSettingsUpdate = {
@@ -166,6 +169,9 @@ export type BusinessSettingsUpdate = {
     number_format?: (NumberFormat | null);
     stock_policy?: (StockPolicy | null);
     default_locale?: (LocalePreference | null);
+    default_print_format?: (PrintFormat | null);
+    voucher_footer?: (string | null);
+    voucher_legends?: (string | null);
 };
 
 /**
@@ -740,6 +746,8 @@ export type PermissionPublic = {
     code: string;
     description?: (string | null);
 };
+
+export type PrintFormat = 'a4' | 'ticket80';
 
 export type PrivateUserCreate = {
     email: string;

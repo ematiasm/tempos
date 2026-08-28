@@ -865,10 +865,35 @@ export const BusinessSettingsPublicSchema = {
         },
         default_locale: {
             '$ref': '#/components/schemas/LocalePreference'
+        },
+        default_print_format: {
+            '$ref': '#/components/schemas/PrintFormat'
+        },
+        voucher_footer: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Voucher Footer'
+        },
+        voucher_legends: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Voucher Legends'
         }
     },
     type: 'object',
-    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants', 'timezone', 'number_format', 'stock_policy', 'default_locale'],
+    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants', 'timezone', 'number_format', 'stock_policy', 'default_locale', 'default_print_format'],
     title: 'BusinessSettingsPublic'
 } as const;
 
@@ -1034,6 +1059,40 @@ export const BusinessSettingsUpdateSchema = {
                     type: 'null'
                 }
             ]
+        },
+        default_print_format: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PrintFormat'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        voucher_footer: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Voucher Footer'
+        },
+        voucher_legends: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 500
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Voucher Legends'
         }
     },
     type: 'object',
@@ -3904,6 +3963,12 @@ export const PermissionPublicSchema = {
     type: 'object',
     required: ['id', 'code'],
     title: 'PermissionPublic'
+} as const;
+
+export const PrintFormatSchema = {
+    type: 'string',
+    enum: ['a4', 'ticket80'],
+    title: 'PrintFormat'
 } as const;
 
 export const PrivateUserCreateSchema = {
