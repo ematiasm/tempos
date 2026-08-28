@@ -349,12 +349,15 @@ test.describe("Sell flow", () => {
 
     await page.getByTestId("split-payment-button").click()
     await expect(page.getByTestId("split-dialog")).toBeVisible()
+    // the first row prefills with the full remaining total
+    await expect(page.getByTestId("split-row-0-amount")).toHaveValue("1000")
 
     // row 0: cash 400
     await page.getByTestId("split-row-0-amount").fill("400")
 
-    // row 1: debit 600
+    // row 1: debit 600 — prefilled with what is still uncovered
     await page.getByTestId("split-add-row").click()
+    await expect(page.getByTestId("split-row-1-amount")).toHaveValue("600")
     await page.getByTestId("split-row-1-method").click()
     await page
       .getByRole("option", { name: new RegExp(`Débito ${suffix}`) })
