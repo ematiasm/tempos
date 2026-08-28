@@ -289,6 +289,9 @@ test.describe("Admin Printing settings", () => {
 })
 
 test.describe("Admin Sell screen settings", () => {
+  // the singleton business-settings row is shared: these tests must not race
+  test.describe.configure({ mode: "default" })
+
   const openSellScreenTab = async (page: Page) => {
     await page.goto("/admin")
     await page.getByRole("tab", { name: "Pantalla de venta" }).click()

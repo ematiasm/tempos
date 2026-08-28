@@ -3,6 +3,20 @@ import { useState } from "react"
 import type { CartLine } from "./ProductSearch"
 import { round2 } from "./paymentMath"
 
+/** Sensible minimum quantity: the smallest amount the UoM can represent. */
+export const minQtyFor = (decimalPlaces: number): number =>
+  decimalPlaces > 0 ? 1 / 10 ** decimalPlaces : 1
+
+/** Keyboard / action-bar step: 1 for integer UoMs, 0.1 for decimal ones. */
+export const qtyStepFor = (decimalPlaces: number): number =>
+  decimalPlaces > 0 ? 0.1 : 1
+
+/** Clamp to the minimum sensible quantity and round at the UoM precision. */
+export const clampQty = (qty: number, decimalPlaces: number): number => {
+  const factor = 10 ** decimalPlaces
+  return Math.max(minQtyFor(decimalPlaces), Math.round(qty * factor) / factor)
+}
+
 export function computeTotals(cart: CartLine[], discountTotal: number) {
   let subtotal = 0
   const perceptionsBase: { rate: number; isPercent: boolean }[] = []
