@@ -1543,7 +1543,22 @@ test.describe("Sell flow", () => {
     page,
     request,
   }) => {
-    // the F2 shortcut is whatever method the quick bar lists first
+    // the F2 shortcut is whatever method the quick bar lists first; ensure
+    // no explicit shortcut order is configured (suite default), polling
+    // because other specs may be restoring the shared settings concurrently
+    await api.patch(request, "/business-settings/", {
+      sell_quick_method_ids: null,
+    })
+    await expect
+      .poll(async () =>
+        api
+          .getOne<{ sell_quick_method_ids: string[] | null }>(
+            request,
+            "/business-settings/",
+          )
+          .then((s) => s.sell_quick_method_ids),
+      )
+      .toBe(null)
     const methods = await api
       .get<{ id: string; name: string }>(
         request,

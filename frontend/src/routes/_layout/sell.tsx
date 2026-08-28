@@ -293,6 +293,9 @@ function Sell() {
     const onKey = (e: KeyboardEvent) => {
       if (cart.length === 0) return
       if (created || splitOpen || qtyTarget) return
+      // Skip while ANY Radix dialog is open (e.g. cash open/close): focus may
+      // land on a button, so the typing-target check alone is not enough.
+      if (document.querySelector('[role="dialog"][data-state="open"]')) return
       if (isTypingTarget(e.target)) return
 
       if (e.key === "ArrowDown") {
