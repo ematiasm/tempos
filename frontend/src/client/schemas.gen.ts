@@ -2144,6 +2144,41 @@ export const DocumentCreateSchema = {
     title: 'DocumentCreate'
 } as const;
 
+export const DocumentEmailCreateSchema = {
+    properties: {
+        email_to: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'email'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Email To'
+        }
+    },
+    type: 'object',
+    title: 'DocumentEmailCreate',
+    description: `Body of POST /documents/{id}/email (optional destination override).
+
+When \`\`email_to\`\` is omitted the document's counterpart email is used.`
+} as const;
+
+export const DocumentEmailStatusSchema = {
+    properties: {
+        emails_enabled: {
+            type: 'boolean',
+            title: 'Emails Enabled'
+        }
+    },
+    type: 'object',
+    required: ['emails_enabled'],
+    title: 'DocumentEmailStatus',
+    description: 'Payload of GET /documents/email-status (fail-closed visibility).'
+} as const;
+
 export const DocumentLineCreateSchema = {
     properties: {
         product_id: {
@@ -2674,6 +2709,17 @@ export const DocumentPublicSchema = {
                 }
             ],
             title: 'Contraparte Name'
+        },
+        contraparte_email: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contraparte Email'
         },
         child_document_id: {
             anyOf: [

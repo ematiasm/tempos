@@ -363,6 +363,22 @@ export type DocumentCreate = {
     notes?: (string | null);
 };
 
+/**
+ * Body of POST /documents/{id}/email (optional destination override).
+ *
+ * When ``email_to`` is omitted the document's counterpart email is used.
+ */
+export type DocumentEmailCreate = {
+    email_to?: (string | null);
+};
+
+/**
+ * Payload of GET /documents/email-status (fail-closed visibility).
+ */
+export type DocumentEmailStatus = {
+    emails_enabled: boolean;
+};
+
 export type DocumentLineCreate = {
     product_id: string;
     variant_id?: (string | null);
@@ -446,6 +462,7 @@ export type DocumentPublic = {
     taxes?: Array<DocumentTaxPublic>;
     payments?: Array<DocumentPaymentPublic>;
     contraparte_name?: (string | null);
+    contraparte_email?: (string | null);
     child_document_id?: (string | null);
     child_document_numero?: (string | null);
     cost_change_suggestions?: Array<CostChangeSuggestion>;
@@ -1441,6 +1458,8 @@ export type DocumentsCreateDocumentData = {
 
 export type DocumentsCreateDocumentResponse = (DocumentPublic);
 
+export type DocumentsReadEmailStatusResponse = (DocumentEmailStatus);
+
 export type DocumentsReadDocumentData = {
     documentId: string;
 };
@@ -1459,6 +1478,13 @@ export type DocumentsUpdateDocumentNotesData = {
 };
 
 export type DocumentsUpdateDocumentNotesResponse = (DocumentPublic);
+
+export type DocumentsEmailDocumentData = {
+    documentId: string;
+    requestBody: DocumentEmailCreate;
+};
+
+export type DocumentsEmailDocumentResponse = (void);
 
 export type DocumentsVoidDocumentData = {
     documentId: string;

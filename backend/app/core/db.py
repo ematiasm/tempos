@@ -70,6 +70,7 @@ SEED_PERMISSIONS: list[tuple[str, str]] = [
     ("document.read", "View documents"),
     ("document.create", "Create documents"),
     ("document.void", "Void documents"),
+    ("document.email", "Send document vouchers by email"),
     ("payment.read", "View receipts and outstanding documents"),
     ("payment.create", "Register payments (receipts)"),
     ("stock.read", "View stock movements"),

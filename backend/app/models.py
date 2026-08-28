@@ -639,6 +639,21 @@ class DocumentNotesUpdate(SQLModel):
     notes: str | None = Field(default=None, max_length=500)
 
 
+class DocumentEmailCreate(SQLModel):
+    """Body of POST /documents/{id}/email (optional destination override).
+
+    When ``email_to`` is omitted the document's counterpart email is used.
+    """
+
+    email_to: EmailStr | None = None
+
+
+class DocumentEmailStatus(SQLModel):
+    """Payload of GET /documents/email-status (fail-closed visibility)."""
+
+    emails_enabled: bool
+
+
 # ---------------------------------------------------------------------------
 # Link tables (must be defined before main tables that reference them
 # as ``link_model`` in Relationship calls)
@@ -1752,6 +1767,9 @@ class DocumentPublic(SQLModel):
     payments: list[DocumentPaymentPublic] = []
     # Resolved from the polymorphic counterpart (customer/supplier name).
     contraparte_name: str | None = None
+    # Resolved counterpart email; lets the post-sale dialog decide between
+    # auto-send and prompting for an address.
+    contraparte_email: str | None = None
     # Active document derived from this one (for quotes: its invoice).
     child_document_id: uuid.UUID | None = None
     child_document_numero: str | None = None
