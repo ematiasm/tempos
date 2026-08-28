@@ -47,7 +47,9 @@ repos:
 
       - id: local-mypy
         name: mypy check
-        entry: uv run mypy backend/app
+        # The config lives in backend/pyproject.toml; mypy only discovers config
+        # in the working directory (repo root here), so pass it explicitly.
+        entry: uv run mypy --config-file backend/pyproject.toml backend/app
         require_serial: true
         language: unsupported
         pass_filenames: false

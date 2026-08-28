@@ -3,10 +3,8 @@
 import uuid
 
 from fastapi.testclient import TestClient
-from sqlmodel import Session, select
 
 from app.core.config import settings
-from app.models import PaymentMethod
 from tests.utils.ledger import load_stock
 from tests.utils.utils import random_lower_string
 
@@ -86,7 +84,7 @@ def _note_of(length: int) -> str:
 
 
 def test_document_notes_round_trip_on_all_types(
-    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+    client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
     """Notes ride the create payload and come back on reads, on every type."""
     product = _create_product(client, superuser_token_headers)
@@ -240,7 +238,7 @@ def test_update_document_notes_unknown_document_404(
 
 
 def test_update_document_notes_voided_document_rejected(
-    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+    client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
     product = _create_product(client, superuser_token_headers)
     customer = _create_customer(client, superuser_token_headers)

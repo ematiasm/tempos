@@ -39,3 +39,7 @@ vas = "vas"
 # Document-type prefixes (Remito) and credit/debit note abbreviations.
 ND = "ND"
 RTO = "RTO"
+
+[default.extend-identifiers]
+# Upstream template's GitHub Actions job naming pattern (re-actors/alls-green).
+alls = "alls"

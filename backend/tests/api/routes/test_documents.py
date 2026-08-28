@@ -199,10 +199,10 @@ def _documents_count(client: TestClient, headers: dict[str, str]) -> int:
     return r.json()["count"]
 
 
-def _customer_saldo_str(client: TestClient, headers: dict[str, str], customer_id: str) -> str:
-    r = client.get(
-        f"{settings.API_V1_STR}/customers/{customer_id}", headers=headers
-    )
+def _customer_saldo_str(
+    client: TestClient, headers: dict[str, str], customer_id: str
+) -> str:
+    r = client.get(f"{settings.API_V1_STR}/customers/{customer_id}", headers=headers)
     assert r.status_code == 200, r.text
     return r.json()["saldo"]
 
@@ -248,13 +248,14 @@ def test_credit_exceeds_total_rejected(
     assert r.json()["detail"]["code"] == "credit_exceeds_total"
     # no document may be created and no balance change may leak
     assert _documents_count(client, superuser_token_headers) == count_before
-    assert _customer_saldo_str(
-        client, superuser_token_headers, customer["id"]
-    ) in ("0.00", "0")
+    assert _customer_saldo_str(client, superuser_token_headers, customer["id"]) in (
+        "0.00",
+        "0",
+    )
 
 
 def test_non_cash_payment_exceeds_total_rejected(
-    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+    client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
     """A non-cash paid row above the total is rejected (400), no document.
 
@@ -287,9 +288,10 @@ def test_non_cash_payment_exceeds_total_rejected(
     assert r.status_code == 400, r.text
     assert r.json()["detail"]["code"] == "payment_exceeds_total"
     assert _documents_count(client, superuser_token_headers) == count_before
-    assert _customer_saldo_str(
-        client, superuser_token_headers, customer["id"]
-    ) in ("0.00", "0")
+    assert _customer_saldo_str(client, superuser_token_headers, customer["id"]) in (
+        "0.00",
+        "0",
+    )
 
 
 def test_full_cash_overpay_stays_permissive(

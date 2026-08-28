@@ -540,9 +540,7 @@ def test_search_variant_barcode_returns_parent_exposing_variant(
 ) -> None:
     """A variant-barcode query returns the parent product exposing the variant."""
     product = _create_product(client, superuser_token_headers)
-    attribute = _create_attribute(
-        client, superuser_token_headers, ["Large", "XLarge"]
-    )
+    attribute = _create_attribute(client, superuser_token_headers, ["Large", "XLarge"])
     value_ids = [v["id"] for v in attribute["values"]]
     r = client.post(
         f"{settings.API_V1_STR}/products/{product['id']}/variants",
@@ -591,8 +589,7 @@ def test_search_variant_barcode_returns_parent_exposing_variant(
     assert variant_xl["id"] in variants
     assert variant_l["id"] in variants
     assert any(
-        b["code"] == "888000000002"
-        for b in variants[variant_xl["id"]]["barcodes"]
+        b["code"] == "888000000002" for b in variants[variant_xl["id"]]["barcodes"]
     )
 
 

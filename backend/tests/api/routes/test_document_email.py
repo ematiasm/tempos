@@ -5,12 +5,11 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from app import crud
 from app.core.config import settings
 from app.models import UserCreate
-from app.utils import EmailData
 from tests.utils.ledger import load_stock
 from tests.utils.utils import random_email, random_lower_string
 
@@ -74,9 +73,7 @@ def _create_customer(
     }
     if email is not None:
         payload["email"] = email
-    r = client.post(
-        f"{settings.API_V1_STR}/customers/", headers=headers, json=payload
-    )
+    r = client.post(f"{settings.API_V1_STR}/customers/", headers=headers, json=payload)
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -92,7 +89,10 @@ def _doc_type_id(client: TestClient, headers: dict[str, str], prefix: str) -> st
 
 
 def _create_sale(
-    client: TestClient, headers: dict[str, str], customer: dict, notes: str | None = None
+    client: TestClient,
+    headers: dict[str, str],
+    customer: dict,
+    notes: str | None = None,
 ) -> dict:
     product = _create_product(client, headers)
     load_stock(client, headers, product["id"], "1")
@@ -125,15 +125,12 @@ def _email_document(
 def test_email_auto_uses_counterpart_email(
     client: TestClient,
     superuser_token_headers: dict[str, str],
-    db: Session,
-    smtp_on,
+    smtp_on,  # noqa: ARG001
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     recorder = _SendRecorder()
     monkeypatch.setattr("app.api.routes.documents.send_email", recorder)
-    customer = _create_customer(
-        client, superuser_token_headers, email=random_email()
-    )
+    customer = _create_customer(client, superuser_token_headers, email=random_email())
     doc = _create_sale(
         client, superuser_token_headers, customer, notes="Thanks for buying"
     )
@@ -153,14 +150,12 @@ def test_email_auto_uses_counterpart_email(
 def test_email_explicit_address_overrides_counterpart(
     client: TestClient,
     superuser_token_headers: dict[str, str],
-    smtp_on,
+    smtp_on,  # noqa: ARG001
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     recorder = _SendRecorder()
     monkeypatch.setattr("app.api.routes.documents.send_email", recorder)
-    customer = _create_customer(
-        client, superuser_token_headers, email=random_email()
-    )
+    customer = _create_customer(client, superuser_token_headers, email=random_email())
     doc = _create_sale(client, superuser_token_headers, customer)
 
     override = random_email()
@@ -174,7 +169,7 @@ def test_email_explicit_address_overrides_counterpart(
 def test_email_missing_address_rejected(
     client: TestClient,
     superuser_token_headers: dict[str, str],
-    smtp_on,
+    smtp_on,  # noqa: ARG001
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     recorder = _SendRecorder()
@@ -197,9 +192,7 @@ def test_email_disabled_rejected(
     assert not settings.emails_enabled
     recorder = _SendRecorder()
     monkeypatch.setattr("app.api.routes.documents.send_email", recorder)
-    customer = _create_customer(
-        client, superuser_token_headers, email=random_email()
-    )
+    customer = _create_customer(client, superuser_token_headers, email=random_email())
     doc = _create_sale(client, superuser_token_headers, customer)
 
     r = _email_document(client, superuser_token_headers, doc["id"])
@@ -211,16 +204,14 @@ def test_email_disabled_rejected(
 def test_email_smtp_failure_maps_to_business_error(
     client: TestClient,
     superuser_token_headers: dict[str, str],
-    smtp_on,
+    smtp_on,  # noqa: ARG001
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def _raise(*, email_to: str, subject: str, html_content: str) -> None:
+    def _raise(*, email_to: str, subject: str, html_content: str) -> None:  # noqa: ARG001
         raise RuntimeError("smtp down")
 
     monkeypatch.setattr("app.api.routes.documents.send_email", _raise)
-    customer = _create_customer(
-        client, superuser_token_headers, email=random_email()
-    )
+    customer = _create_customer(client, superuser_token_headers, email=random_email())
     doc = _create_sale(
         client, superuser_token_headers, customer, notes="untouched note"
     )
@@ -244,7 +235,7 @@ def test_email_smtp_failure_maps_to_business_error(
 def test_email_status_reports_emails_enabled(
     client: TestClient,
     superuser_token_headers: dict[str, str],
-    smtp_on,
+    smtp_on,  # noqa: ARG001
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     r = client.get(
@@ -268,7 +259,7 @@ def test_email_requires_document_email_permission(
     client: TestClient,
     superuser_token_headers: dict[str, str],
     db: Session,
-    smtp_on,
+    smtp_on,  # noqa: ARG001
 ) -> None:
     """A role without document.email gets 403 on both endpoints."""
     r = client.post(
@@ -295,14 +286,10 @@ def test_email_requires_document_email_permission(
     assert r.status_code == 200, r.text
     headers = {"Authorization": f"Bearer {r.json()['access_token']}"}
 
-    customer = _create_customer(
-        client, superuser_token_headers, email=random_email()
-    )
+    customer = _create_customer(client, superuser_token_headers, email=random_email())
     doc = _create_sale(client, superuser_token_headers, customer)
 
     r = _email_document(client, headers, doc["id"])
     assert r.status_code == 403
-    r = client.get(
-        f"{settings.API_V1_STR}/documents/email-status", headers=headers
-    )
+    r = client.get(f"{settings.API_V1_STR}/documents/email-status", headers=headers)
     assert r.status_code == 403
