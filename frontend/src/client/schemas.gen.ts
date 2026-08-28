@@ -4233,6 +4233,16 @@ export const ProductPublicSchema = {
             format: 'uuid',
             title: 'Uom Id'
         },
+        uom: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/UoMPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
         description: {
             anyOf: [
                 {

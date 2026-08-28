@@ -1418,6 +1418,9 @@ class ProductPublic(SQLModel):
     sku: str | None = None
     category_id: uuid.UUID | None = None
     uom_id: uuid.UUID
+    # Nested UoM (search results carry it so quantity precision and display
+    # abbreviations need no extra round-trip).
+    uom: UoMPublic | None = None
     description: str | None = None
     is_active: bool
     margen_pct: Decimal

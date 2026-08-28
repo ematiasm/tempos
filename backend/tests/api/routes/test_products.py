@@ -454,6 +454,186 @@ def test_search_products_by_name_sku_and_barcode(
     assert r.status_code == 422
 
 
+def test_search_exact_barcode_beats_exact_name_match(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """An exact barcode match outranks an exact name match (spec product-search).
+
+    The name-matching product ("777000000001") sorts before any letter-named
+    product alphabetically, so name-only ordering would put it first.
+    """
+    barcode_product = _create_product(client, superuser_token_headers)
+    r = client.post(
+        f"{settings.API_V1_STR}/products/{barcode_product['id']}/barcodes",
+        headers=superuser_token_headers,
+        json={"code": "777000000001", "product_id": barcode_product["id"]},
+    )
+    assert r.status_code == 200, r.text
+    name_product_payload = _build_product_payload(
+        _create_uom(client, superuser_token_headers)["id"]
+    )
+    name_product_payload["name"] = "777000000001"
+    r = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json=name_product_payload,
+    )
+    assert r.status_code == 200, r.text
+    name_product = r.json()
+
+    r = client.get(
+        f"{settings.API_V1_STR}/products/search",
+        headers=superuser_token_headers,
+        params={"q": "777000000001"},
+    )
+    assert r.status_code == 200, r.text
+    ids = [p["id"] for p in r.json()["data"]]
+    assert ids[0] == barcode_product["id"]
+    assert name_product["id"] in ids
+
+
+def test_search_exact_name_beats_partial_match(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """An exact name match outranks a partial match (spec product-search).
+
+    The partial match sorts before the exact match alphabetically, so
+    name-only ordering would put it first.
+    """
+    exact_payload = _build_product_payload(
+        _create_uom(client, superuser_token_headers)["id"]
+    )
+    exact_payload["name"] = "Zeta Product"
+    r = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json=exact_payload,
+    )
+    assert r.status_code == 200, r.text
+    exact_product = r.json()
+
+    partial_payload = _build_product_payload(
+        _create_uom(client, superuser_token_headers)["id"]
+    )
+    partial_payload["name"] = "Alpha Zeta Product Extra"
+    r = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json=partial_payload,
+    )
+    assert r.status_code == 200, r.text
+    partial_product = r.json()
+
+    r = client.get(
+        f"{settings.API_V1_STR}/products/search",
+        headers=superuser_token_headers,
+        params={"q": "Zeta Product"},
+    )
+    assert r.status_code == 200, r.text
+    ids = [p["id"] for p in r.json()["data"]]
+    assert ids[0] == exact_product["id"]
+    assert partial_product["id"] in ids
+
+
+def test_search_variant_barcode_returns_parent_exposing_variant(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """A variant-barcode query returns the parent product exposing the variant."""
+    product = _create_product(client, superuser_token_headers)
+    attribute = _create_attribute(
+        client, superuser_token_headers, ["Large", "XLarge"]
+    )
+    value_ids = [v["id"] for v in attribute["values"]]
+    r = client.post(
+        f"{settings.API_V1_STR}/products/{product['id']}/variants",
+        headers=superuser_token_headers,
+        json={
+            "product_id": product["id"],
+            "sku_suffix": "L",
+            "attribute_value_ids": [value_ids[0]],
+        },
+    )
+    assert r.status_code == 200, r.text
+    variant_l = r.json()
+    r = client.post(
+        f"{settings.API_V1_STR}/products/{product['id']}/variants",
+        headers=superuser_token_headers,
+        json={
+            "product_id": product["id"],
+            "sku_suffix": "XL",
+            "attribute_value_ids": [value_ids[1]],
+        },
+    )
+    assert r.status_code == 200, r.text
+    variant_xl = r.json()
+    r = client.post(
+        f"{settings.API_V1_STR}/products/{product['id']}/barcodes",
+        headers=superuser_token_headers,
+        json={
+            "code": "888000000002",
+            "product_id": product["id"],
+            "variant_id": variant_xl["id"],
+        },
+    )
+    assert r.status_code == 200, r.text
+
+    r = client.get(
+        f"{settings.API_V1_STR}/products/search",
+        headers=superuser_token_headers,
+        params={"q": "888000000002"},
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()["data"]
+    assert [p["id"] for p in data] == [product["id"]]
+    # the parent exposes the variants (with barcodes) so the caller can
+    # resolve which variant the scanned code belongs to
+    variants = {v["id"]: v for v in data[0]["variants"]}
+    assert variant_xl["id"] in variants
+    assert variant_l["id"] in variants
+    assert any(
+        b["code"] == "888000000002"
+        for b in variants[variant_xl["id"]]["barcodes"]
+    )
+
+
+def test_search_results_carry_uom(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """Search items embed the product's unit of measure (name/abbrev/decimals)."""
+    r = client.post(
+        f"{settings.API_V1_STR}/uoms/",
+        headers=superuser_token_headers,
+        json={
+            "name": "kilogram",
+            "abbreviation": "kg",
+            "decimal_places": 3,
+        },
+    )
+    assert r.status_code == 200, r.text
+    uom = r.json()
+    payload = _build_product_payload(uom["id"])
+    r = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json=payload,
+    )
+    assert r.status_code == 200, r.text
+    product = r.json()
+
+    r = client.get(
+        f"{settings.API_V1_STR}/products/search",
+        headers=superuser_token_headers,
+        params={"q": product["name"]},
+    )
+    assert r.status_code == 200, r.text
+    items = [p for p in r.json()["data"] if p["id"] == product["id"]]
+    assert len(items) == 1
+    assert items[0]["uom"]["id"] == uom["id"]
+    assert items[0]["uom"]["name"] == "kilogram"
+    assert items[0]["uom"]["abbreviation"] == "kg"
+    assert items[0]["uom"]["decimal_places"] == 3
+
+
 # ----- Server-side list (q / category filters, ordering, counts) -----
 
 

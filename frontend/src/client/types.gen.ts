@@ -806,6 +806,7 @@ export type ProductPublic = {
     sku?: (string | null);
     category_id?: (string | null);
     uom_id: string;
+    uom?: (UoMPublic | null);
     description?: (string | null);
     is_active: boolean;
     margen_pct: string;

@@ -1591,7 +1591,9 @@ export class ProductsService {
      * Search Products
      * Search active products by name, SKU or barcode (case-insensitive).
      *
-     * Returns the top matches ordered by name; meant for the point-of-sale
+     * Results are ranked in three tiers: exact barcode match first (product- or
+     * variant-level codes), then exact name match, then partial matches; within
+     * each tier products are ordered by name. Meant for the point-of-sale
      * lookup where the typing is live and the result set is small.
      * @param data The data for the request.
      * @param data.q
