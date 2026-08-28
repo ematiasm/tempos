@@ -16,6 +16,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read # Required to check out a private repository.
+      actions: read # Required by zizmor-action to query workflow runs.
       security-events: write # Required for upload-sarif (used by zizmor-action) to upload SARIF files.
     steps:
       - name: Checkout repository
