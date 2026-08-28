@@ -562,14 +562,44 @@ def _create_document_in_tx(
         doc_tax_rows.append((tax_id, acc["base"], monto))
         doc_taxes_total += monto
 
+    methods: dict[uuid.UUID, PaymentMethod] = {}
     for payment_in in document_in.payments:
-        if not session.get(PaymentMethod, payment_in.payment_method_id):
+        method = session.get(PaymentMethod, payment_in.payment_method_id)
+        if not method:
             raise BusinessError(
                 "payment_method_not_found",
                 f"Payment method not found: {payment_in.payment_method_id}",
             )
+        methods[method.id] = method
 
     total = subtotal - descuento_total + doc_taxes_total
+
+    # Payment-composition validations (authoritative backend guard for the
+    # sell-screen dialog; the frontend enforces the same rules).
+    paid_total = Decimal("0")
+    credit_total = Decimal("0")
+    non_cash_paid_total = Decimal("0")
+    for payment_in in document_in.payments:
+        method = methods[payment_in.payment_method_id]
+        if method.marks_paid:
+            paid_total += payment_in.monto
+            if not method.is_cash_drawer:
+                non_cash_paid_total += payment_in.monto
+        else:
+            credit_total += payment_in.monto
+    # (clamped at zero: a cash overpay leaves no remaining total to cover)
+    if credit_total > max(total - paid_total, Decimal("0")):
+        raise BusinessError(
+            "credit_exceeds_total",
+            "The credit portion exceeds the total minus the paid portions",
+        )
+    if non_cash_paid_total > total:
+        raise BusinessError(
+            "payment_exceeds_total",
+            "Non-cash paid portions exceed the document total",
+        )
+    # Full cash overpay stays permissive: the excess is on-account semantics
+    # (credit in favor), matching the receipt behavior.
     favor_monto = Decimal("0")
     favor_allocations: list[tuple[Document, Decimal]] = []
     if (
