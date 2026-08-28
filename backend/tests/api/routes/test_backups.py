@@ -6,6 +6,7 @@ database.
 
 import io
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,6 +20,7 @@ from app.models import (
     BackupKind,
     BackupSchedule,
     BackupStatus,
+    BusinessSettings,
     RestoreState,
 )
 
@@ -161,7 +163,16 @@ def test_schedule_update_daily(
     row = db.get(BackupSchedule, 1)
     assert row is not None
     assert row.next_run_at is not None
-    assert row.next_run_at.astimezone().strftime("%H:%M") == "05:30"
+    # next_run_at is computed against the business timezone (system_now),
+    # not the runner's local zone: convert with the same zone so the
+    # assertion is deterministic on any runner TZ.
+    business = db.get(BusinessSettings, 1)
+    tz_name = (
+        business.timezone
+        if business is not None and business.timezone
+        else backup_service.DEFAULT_TIMEZONE
+    )
+    assert row.next_run_at.astimezone(ZoneInfo(tz_name)).strftime("%H:%M") == "05:30"
 
 
 def test_schedule_update_weekly_requires_day(
