@@ -1,9 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { CheckCircle2, Printer } from "lucide-react"
+import { CheckCircle2, Printer, SplitSquareHorizontal } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
-import type { DocumentPublic } from "@/client"
+import type {
+  DocumentPaymentCreate,
+  DocumentPublic,
+  PaymentMethodPublic,
+} from "@/client"
 import {
   CustomersService,
   DocumentsService,
@@ -15,18 +19,12 @@ import { CartTable } from "@/components/Sell/CartTable"
 import { CashRegisterBar } from "@/components/Sell/CashRegisterBar"
 import ProductSearch from "@/components/Sell/ProductSearch"
 import { round2 } from "@/components/Sell/paymentMath"
+import { QuickPaymentBar } from "@/components/Sell/QuickPaymentBar"
 import { SellSidebar } from "@/components/Sell/SellSidebar"
+import { SplitPaymentDialog } from "@/components/Sell/SplitPaymentDialog"
+import { useOpenCashSession } from "@/components/Sell/useOpenCashSession"
 import { computeTotals, useSellCart } from "@/components/Sell/useSellCart"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { LoadingButton } from "@/components/ui/loading-button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
 import { formatStatic, useLocale, useT } from "@/i18n"
 import { money } from "@/lib/format"
@@ -84,6 +82,7 @@ function Sell() {
   const t = useT()
   const { numberFormat } = useLocale()
   const { customers, consumidorFinal, methods, saleTypes } = useReferenceData()
+  const { isOpen: sessionOpen } = useOpenCashSession()
 
   const {
     cart,
@@ -93,17 +92,19 @@ function Sell() {
     reset: resetCart,
   } = useSellCart()
   const [customerId, setCustomerId] = useState<string | null>(null)
+  // once the operator explicitly picks (or clears) a customer, the
+  // Consumidor Final default must never re-apply
+  const [customerTouched, setCustomerTouched] = useState(false)
   const [docTypeId, setDocTypeId] = useState<string | null>(null)
   const [date, setDate] = useState<string>(() =>
     new Date().toISOString().slice(0, 10),
   )
   const [discountTotal, setDiscountTotal] = useState(0)
-  const [methodId, setMethodId] = useState<string | null>(null)
-  const [amount, setAmount] = useState<number>(0)
-  const [useCredit, setUseCredit] = useState(false)
+  const [splitOpen, setSplitOpen] = useState(false)
+  const [creditWarning, setCreditWarning] = useState(false)
   const [printOpen, setPrintOpen] = useState(false)
-  const [autoAmount, setAutoAmount] = useState(true)
   const [created, setCreated] = useState<DocumentPublic | null>(null)
+  const [vuelto, setVuelto] = useState(0)
 
   const selectedCustomer = customers.find((c) => c.id === customerId) ?? null
   const creditInFavor =
@@ -111,15 +112,10 @@ function Sell() {
       ? -Number(selectedCustomer.saldo)
       : 0
 
-  const creditMethod = methods.find((m) => m.marks_paid === false) ?? null
-  const defaultMethod =
-    methods.find((m) => m.marks_paid !== false) ?? methods[0] ?? null
-  const onCredit = !!creditMethod && methodId === creditMethod.id
-
   useEffect(() => {
-    if (consumidorFinal && !customerId) setCustomerId(consumidorFinal.id)
-    if (defaultMethod && !methodId) setMethodId(defaultMethod.id)
-  }, [consumidorFinal, customerId, methodId, defaultMethod])
+    if (!customerTouched && consumidorFinal && !customerId)
+      setCustomerId(consumidorFinal.id)
+  }, [consumidorFinal, customerId, customerTouched])
 
   useEffect(() => {
     if (!customerId) return
@@ -140,35 +136,22 @@ function Sell() {
   }, [customerId, saleTypes])
 
   useEffect(() => {
-    if (selectedCustomer && Number(selectedCustomer.saldo) < 0)
-      setUseCredit(true)
-  }, [selectedCustomer])
+    if (customerId) setCreditWarning(false)
+  }, [customerId])
 
   const { subtotal, perceptions, total } = useMemo(
     () => computeTotals(cart, discountTotal),
     [cart, discountTotal],
   )
 
-  useEffect(() => {
-    if (!autoAmount) return
-    const base = useCredit ? Math.max(total - creditInFavor, 0) : total
-    setAmount(round2(base))
-  }, [total, useCredit, creditInFavor, autoAmount])
-
-  const cashChange = total > 0 && amount > total ? round2(amount - total) : 0
-
-  const appliedFavor =
-    creditInFavor > 0
-      ? round2(
-          Math.min(
-            creditInFavor,
-            onCredit ? total : Math.max(total - amount, 0),
-          ),
-        )
-      : 0
-
   const createMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: ({
+      payments,
+      vuelto: saleVuelto,
+    }: {
+      payments: DocumentPaymentCreate[]
+      vuelto: number
+    }) => {
       if (!docTypeId || !customerId) throw new Error("Missing type or customer")
       return DocumentsService.createDocument({
         requestBody: {
@@ -183,18 +166,16 @@ function Sell() {
             precio_unit: l.unitPrice,
             descuento_pct: l.discountPct,
           })),
-          payments:
-            amount > 0 ? [{ payment_method_id: methodId!, monto: amount }] : [],
+          payments,
         },
-      })
+      }).then((doc) => ({ doc, vuelto: saleVuelto }))
     },
-    onSuccess: (doc) => {
+    onSuccess: ({ doc, vuelto: saleVuelto }) => {
       showSuccessToast(t("sell.issued", { numero: doc.numero }))
       setCreated(doc)
+      setVuelto(saleVuelto)
       resetCart()
       setDiscountTotal(0)
-      setUseCredit(false)
-      setAutoAmount(true)
       queryClient.invalidateQueries({ queryKey: ["documents"] })
       queryClient.invalidateQueries({ queryKey: ["products"] })
       queryClient.invalidateQueries({ queryKey: ["products-search"] })
@@ -202,8 +183,34 @@ function Sell() {
     onError: handleError.bind(showErrorToast),
   })
 
-  const issueDisabled =
-    cart.length === 0 || !docTypeId || !customerId || createMutation.isPending
+  // Cash-session gate: without an open session no sale can be issued and the
+  // CashRegisterBar open prompt is the visible call to action. A
+  // cash_session_required slip-through is surfaced by handleError and the
+  // cart is preserved (the failed mutation never resets state).
+  const baseDisabled =
+    !sessionOpen ||
+    cart.length === 0 ||
+    !docTypeId ||
+    !customerId ||
+    createMutation.isPending
+  const quickCreditDisabled =
+    !sessionOpen || cart.length === 0 || !docTypeId || createMutation.isPending
+
+  const payWithMethod = (method: PaymentMethodPublic) => {
+    if (method.marks_paid === false && !customerId) {
+      setCreditWarning(true)
+      return
+    }
+    createMutation.mutate({
+      payments: [{ payment_method_id: method.id, monto: total }],
+      vuelto: 0,
+    })
+  }
+
+  const resetAfterSale = () => {
+    setCreated(null)
+    setVuelto(0)
+  }
 
   if (created) {
     return (
@@ -222,6 +229,16 @@ function Sell() {
               customer: created.contraparte_name ?? "",
             })}
           </p>
+          {vuelto > 0 && (
+            <p
+              className="font-medium text-emerald-600"
+              data-testid="sale-vuelto"
+            >
+              {t("sell.changeDue", {
+                change: money(vuelto, numberFormat),
+              })}
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           <PrintVoucherDialog
@@ -229,8 +246,8 @@ function Sell() {
             open={printOpen}
             onOpenChange={setPrintOpen}
           />
-          <Button onClick={() => setCreated(null)}>{t("sell.newSale")}</Button>
-          <Button variant="secondary" onClick={() => setCreated(null)}>
+          <Button onClick={resetAfterSale}>{t("sell.newSale")}</Button>
+          <Button variant="secondary" onClick={resetAfterSale}>
             {t("sell.keepSelling")}
           </Button>
           <Button variant="outline" onClick={() => setPrintOpen(true)}>
@@ -274,8 +291,8 @@ function Sell() {
           selectedCustomer={selectedCustomer}
           customerId={customerId}
           onCustomerChange={(v) => {
-            setCustomerId(v)
-            setAutoAmount(true)
+            setCustomerTouched(true)
+            setCustomerId(v === "none" ? null : v)
           }}
           docTypeId={docTypeId}
           onDocTypeChange={setDocTypeId}
@@ -286,117 +303,52 @@ function Sell() {
           subtotal={subtotal}
           perceptions={perceptions}
           total={total}
-          appliedFavor={appliedFavor}
+          appliedFavor={round2(Math.min(creditInFavor, total))}
         >
-          <div className="grid gap-3">
-            {creditMethod && (
-              <label className="flex cursor-pointer items-center gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  checked={onCredit}
-                  onChange={(e) => {
-                    setMethodId(
-                      e.target.checked
-                        ? creditMethod.id
-                        : (defaultMethod?.id ?? null),
-                    )
-                    setAutoAmount(true)
-                  }}
-                  className="h-3.5 w-3.5"
-                />
-                {t("sell.onCredit")}
-              </label>
+          <div className="flex flex-col gap-3">
+            <QuickPaymentBar
+              methods={methods}
+              disabledForPaid={baseDisabled}
+              disabledForCredit={quickCreditDisabled}
+              onPay={payWithMethod}
+            />
+            {creditWarning && (
+              <p
+                className="text-xs text-destructive"
+                role="alert"
+                data-testid="credit-customer-warning"
+              >
+                {t("sell.quickPayment.customerRequired")}
+              </p>
             )}
-            <div>
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                {t("sell.paymentMethod")}
-              </span>
-              <Select value={methodId ?? ""} onValueChange={setMethodId}>
-                <SelectTrigger data-testid="payment-method-select">
-                  <SelectValue placeholder={t("sell.selectMethod")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {methods.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {onCredit ? (
-              <div>
-                <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                  {t("sell.amountReceived")}
-                </span>
-                <p className="text-xs text-muted-foreground">
-                  {t("sell.onCreditHint", {
-                    amount: money(
-                      round2(Math.max(total - appliedFavor, 0)),
-                      numberFormat,
-                    ),
-                  })}
-                </p>
-              </div>
-            ) : (
-              <div>
-                <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                  {t("sell.amountReceived")}
-                </span>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={amount}
-                  onChange={(e) => {
-                    setAmount(Number(e.target.value) || 0)
-                    setAutoAmount(false)
-                  }}
-                />
-                {amount > 0 && amount < total && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t("sell.goOnBalance", {
-                      amount: money(round2(total - amount), numberFormat),
-                    })}
-                  </p>
-                )}
-                {cashChange > 0 && (
-                  <p className="mt-1 text-xs text-emerald-600">
-                    {t("sell.changeDue", {
-                      change: money(cashChange, numberFormat),
-                    })}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {creditInFavor > 0 && (
-              <label className="flex cursor-pointer items-center gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  checked={useCredit}
-                  onChange={(e) => {
-                    setUseCredit(e.target.checked)
-                    setAutoAmount(true)
-                  }}
-                  className="h-3.5 w-3.5"
-                />
-                {t("sell.useCredit", {
-                  credit: money(creditInFavor, numberFormat),
-                })}
-              </label>
-            )}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              data-testid="split-payment-button"
+              disabled={baseDisabled}
+              title={!sessionOpen ? t("cash.registerClosedHint") : undefined}
+              onClick={() => setSplitOpen(true)}
+            >
+              <SplitSquareHorizontal className="mr-2 h-4 w-4" />
+              {t("sell.quickPayment.splitEntry")}
+            </Button>
           </div>
-          <LoadingButton
-            className="w-full"
-            data-testid="issue-sale-button"
-            loading={createMutation.isPending}
-            disabled={issueDisabled}
-            onClick={() => createMutation.mutate()}
-          >
-            {t("sell.issueSale", { total: money(total, numberFormat) })}
-          </LoadingButton>
         </SellSidebar>
       </div>
+
+      <SplitPaymentDialog
+        open={splitOpen}
+        onOpenChange={setSplitOpen}
+        methods={methods}
+        total={total}
+        creditInFavor={creditInFavor}
+        pending={createMutation.isPending}
+        onConfirm={(payments, saleVuelto) => {
+          setSplitOpen(false)
+          createMutation.mutate({ payments, vuelto: saleVuelto })
+        }}
+      />
     </div>
   )
 }

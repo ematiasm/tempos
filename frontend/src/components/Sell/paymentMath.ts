@@ -87,6 +87,14 @@ export function computeSplitMetrics(
   const nonCashPaid = round2(paidSum - cashSum)
   const target = round2(total - favorApplied)
   const remaining = round2(target - paidSum - creditSum)
+  // Only cash can back a change, and only what remains after every other
+  // row is covered. Compositions that violate the limits never show vuelto.
+  const vuelto = round2(
+    Math.max(
+      cashSum - Math.max(round2(target - nonCashPaid - creditSum), 0),
+      0,
+    ),
+  )
   return {
     paidSum,
     creditSum,
@@ -94,9 +102,12 @@ export function computeSplitMetrics(
     nonCashPaid,
     target,
     remaining,
-    vuelto: remaining < 0 ? round2(-remaining) : 0,
+    vuelto,
     uncovered: remaining > 0,
-    creditExceeded: creditSum > round2(target - nonCashPaid),
+    // The credit portion may not exceed the remaining total once the
+    // non-credit rows (cash included, as entered) are counted. The room is
+    // clamped at 0 so a pure-cash overpayment (vuelto) is never flagged.
+    creditExceeded: creditSum > Math.max(round2(target - paidSum), 0),
     nonCashOverpaid: nonCashPaid > target,
   }
 }

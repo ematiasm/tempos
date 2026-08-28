@@ -118,11 +118,24 @@ export const es = {
   "sell.amountReceived": "Monto recibido",
   "sell.goOnBalance": "{amount} van a la cuenta del cliente",
   "sell.changeDue": "Vuelto: {change}",
+  "sell.noCustomer": "Sin cliente",
+  "sell.quickPayment.customerRequired":
+    "Seleccioná un cliente para vender a cuenta corriente",
+  "sell.quickPayment.splitEntry": "Pago dividido",
+  "sell.split.title": "Pago dividido",
+  "sell.split.addRow": "Agregar medio de pago",
+  "sell.split.covered": "Cubierto: {amount}",
+  "sell.split.coveredLabel": "Cubierto",
+  "sell.split.remaining": "Restante: {amount}",
+  "sell.split.remainingLabel": "Restante",
+  "sell.split.uncovered": "Falta cubrir {amount}",
+  "sell.split.method": "Medio",
+  "sell.split.amount": "Monto",
+  "sell.split.confirm": "Confirmar pago",
   "sell.useCredit": "Usar {credit} de crédito a favor",
   "sell.onCredit": "Venta a crédito",
   "sell.onCreditHint":
     "El monto ({amount}) se registra en la cuenta corriente del cliente. No se cobra dinero.",
-  "sell.issueSale": "Emitir venta ({total})",
   "sell.issued": "Venta {numero} emitida",
   "buy.title": "Comprar",
   "buy.subtitle":
@@ -690,6 +703,9 @@ export const es = {
   "errors.cash_session_already_closed": "La caja ya está cerrada",
   "errors.cash_drawer_method_missing":
     "No hay un medio de pago configurado como caja (efectivo)",
+  "errors.credit_exceeds_total":
+    "El crédito supera el total restante de la venta",
+  "errors.payment_exceeds_total": "El pago supera el total de la venta",
   "settings.title": "Ajustes de usuario",
   "settings.subtitle": "Administrá los ajustes y preferencias de tu cuenta",
   "settings.tabProfile": "Mi perfil",

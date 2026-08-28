@@ -68,6 +68,7 @@ export function SellSidebar({
               <SelectValue placeholder={t("sell.selectCustomer")} />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="none">{t("sell.noCustomer")}</SelectItem>
               {customers.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.razon_social}
