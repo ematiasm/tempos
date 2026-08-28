@@ -57,6 +57,7 @@ const formSchema = z.object({
   costo_actual: z.string().min(1, { message: "El costo es obligatorio" }),
   stock_minimo: z.string().optional().or(z.literal("")),
   stock_maximo: z.string().optional().or(z.literal("")),
+  allow_price_edit_in_sale: z.boolean(),
 })
 
 type FormData = z.infer<typeof formSchema>
@@ -114,6 +115,7 @@ const AddProduct = () => {
       costo_actual: "0",
       stock_minimo: "",
       stock_maximo: "",
+      allow_price_edit_in_sale: false,
     },
   })
 
@@ -134,6 +136,7 @@ const AddProduct = () => {
         margen_pct: parseFloat(data.margen_pct) || 0,
         costo_actual: parseFloat(data.costo_actual) || 0,
         is_active: true,
+        allow_price_edit_in_sale: data.allow_price_edit_in_sale,
         tax_ids: selectedTaxIds,
       }
       if (data.stock_minimo)
@@ -427,6 +430,24 @@ const AddProduct = () => {
                           />
                         </FormControl>
                         <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="allow_price_edit_in_sale"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center gap-3 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            data-testid="allow-price-edit-checkbox"
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          {t("products.allowPriceEdit")}
+                        </FormLabel>
                       </FormItem>
                     )}
                   />

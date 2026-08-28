@@ -542,6 +542,7 @@ export const es = {
   "products.sheetHint":
     "SKU: {sku} · Hacé clic en Editar para actualizar los detalles",
   "products.isActive": "Activo",
+  "products.allowPriceEdit": "Permitir cambio de precio en la venta",
   "products.saveChanges": "Guardar cambios",
   "products.taxesToggleHint": "Marcá qué impuestos aplican a este producto.",
   "products.saveTaxes": "Guardar impuestos",
@@ -769,6 +770,7 @@ export const es = {
   "admin.tabDocumentTypes": "Tipos de documento",
   "admin.tabFinance": "Finanzas",
   "admin.tabPrinting": "Impresión",
+  "admin.tabSellScreen": "Pantalla de venta",
   "admin.tabBackups": "Backups",
   "admin.printing.title": "Impresión",
   "admin.printing.subtitle":
@@ -786,6 +788,29 @@ export const es = {
     "Las leyendas no pueden superar 500 caracteres",
   "admin.printing.saved": "Configuración de impresión guardada",
   "admin.printing.save": "Guardar",
+  "admin.sellScreen.title": "Pantalla de venta",
+  "admin.sellScreen.subtitle":
+    "Atajos de pago, valores por defecto y políticas de la pantalla de venta",
+  "admin.sellScreen.quickMethods": "Atajos de pago rápido",
+  "admin.sellScreen.quickMethodsHint":
+    "Define qué métodos se muestran como atajos y en qué orden; sin selección se muestran todos.",
+  "admin.sellScreen.noMethods": "No hay métodos de pago configurados",
+  "admin.sellScreen.selectedOrder": "Orden de los atajos",
+  "admin.sellScreen.moveUp": "Subir",
+  "admin.sellScreen.moveDown": "Bajar",
+  "admin.sellScreen.defaultDocType": "Tipo de documento por defecto",
+  "admin.sellScreen.defaultDocTypeAuto":
+    "Sin valor por defecto (sugerencia automática)",
+  "admin.sellScreen.defaultCustomer": "Cliente por defecto",
+  "admin.sellScreen.defaultCustomerNone": "Ninguno (Consumidor Final)",
+  "admin.sellScreen.blockPriceEdit": "Bloquear edición de precios en la venta",
+  "admin.sellScreen.blockPriceEditHint":
+    "Con el bloqueo activo, solo los productos marcados para permitir cambio de precio admiten editar el precio en la venta.",
+  "admin.sellScreen.hideDate": "Ocultar el selector de fecha",
+  "admin.sellScreen.hideDateHint":
+    "Las ventas se registran siempre con la fecha del día.",
+  "admin.sellScreen.saved": "Configuración de venta guardada",
+  "admin.sellScreen.save": "Guardar",
   "admin.backups.title": "Backups",
   "admin.backups.subtitle":
     "Creá, programá y restaurá copias de seguridad de la base de datos",
