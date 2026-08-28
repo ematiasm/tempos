@@ -6,7 +6,7 @@ from typing import Optional
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, EmailStr, field_validator
-from sqlalchemy import DateTime, Numeric
+from sqlalchemy import JSON, DateTime, Numeric
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.validators import normalize_and_validate_documento
@@ -194,6 +194,12 @@ class BusinessSettingsUpdate(SQLModel):
     default_print_format: PrintFormat | None = None
     voucher_footer: str | None = Field(default=None, max_length=255)
     voucher_legends: str | None = Field(default=None, max_length=500)
+    # Sell-screen configuration (see BusinessSettings for semantics).
+    sell_quick_method_ids: list[str] | None = None
+    sell_default_document_type_id: uuid.UUID | None = None
+    sell_default_customer_id: uuid.UUID | None = None
+    sell_block_price_edit: bool | None = None
+    sell_hide_date: bool | None = None
 
     @field_validator("timezone")
     @classmethod
@@ -293,6 +299,9 @@ class ProductBase(SQLModel):
         default=None,
         sa_type=Numeric(12, 3),  # type: ignore
     )
+    # Exception flag: when the global sell_block_price_edit is on, only
+    # products with allow_price_edit_in_sale have an editable price at sale.
+    allow_price_edit_in_sale: bool = False
 
 
 class ProductCreate(ProductBase):
@@ -322,6 +331,7 @@ class ProductUpdate(SQLModel):
         default=None,
         sa_type=Numeric(12, 3),  # type: ignore
     )
+    allow_price_edit_in_sale: bool | None = None
     tax_ids: list[uuid.UUID] | None = None
 
 
@@ -761,6 +771,19 @@ class BusinessSettings(SQLModel, table=True):
     # Extra legends (newline-separated) printed under the footer; NULL
     # renders nothing.
     voucher_legends: str | None = Field(default=None, max_length=500)
+    # --- Sell-screen configuration ---
+    # Ordered list of payment-method UUID strings shown as quick shortcuts.
+    # None = show ALL methods in current list order (legacy behavior).
+    sell_quick_method_ids: list[str] | None = Field(default=None, sa_type=JSON)
+    # Fixed sale document type; None = auto-suggest from tax conditions.
+    sell_default_document_type_id: uuid.UUID | None = Field(default=None)
+    # Customer preselected on every new sale; None = Consumidor Final.
+    sell_default_customer_id: uuid.UUID | None = Field(default=None)
+    # When True, cart line prices are locked except for products flagged
+    # with allow_price_edit_in_sale.
+    sell_block_price_edit: bool = Field(default=True)
+    # When True, the sell screen hides the date selector (uses today).
+    sell_hide_date: bool = Field(default=False)
 
 
 # ---------------------------------------------------------------------------
@@ -1410,6 +1433,12 @@ class BusinessSettingsPublic(SQLModel):
     default_print_format: PrintFormat
     voucher_footer: str | None = None
     voucher_legends: str | None = None
+    # Sell-screen configuration (see BusinessSettings for semantics).
+    sell_quick_method_ids: list[str] | None = None
+    sell_default_document_type_id: uuid.UUID | None = None
+    sell_default_customer_id: uuid.UUID | None = None
+    sell_block_price_edit: bool
+    sell_hide_date: bool
 
 
 # ---------------------------------------------------------------------------
@@ -1473,6 +1502,7 @@ class ProductPublic(SQLModel):
     stock_current: Decimal
     stock_minimo: Decimal | None = None
     stock_maximo: Decimal | None = None
+    allow_price_edit_in_sale: bool
     created_at: datetime | None = None
     taxes: list[TaxPublic] = []
     variants: list[ProductVariantPublic] = []

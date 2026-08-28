@@ -123,6 +123,7 @@ export const createProduct = async (
     stock_minimo?: number
     stock_maximo?: number
     tax_ids?: string[]
+    allow_price_edit_in_sale?: boolean
   },
 ): Promise<ApiProduct> =>
   api.post<ApiProduct>(request, "/products/", {
@@ -134,6 +135,7 @@ export const createProduct = async (
     stock_minimo: data.stock_minimo ?? null,
     stock_maximo: data.stock_maximo ?? null,
     is_active: true,
+    allow_price_edit_in_sale: data.allow_price_edit_in_sale ?? false,
     tax_ids: data.tax_ids ?? [],
   })
 

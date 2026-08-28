@@ -152,6 +152,11 @@ export type BusinessSettingsPublic = {
     default_print_format: PrintFormat;
     voucher_footer?: (string | null);
     voucher_legends?: (string | null);
+    sell_quick_method_ids?: (Array<(string)> | null);
+    sell_default_document_type_id?: (string | null);
+    sell_default_customer_id?: (string | null);
+    sell_block_price_edit: boolean;
+    sell_hide_date: boolean;
 };
 
 export type BusinessSettingsUpdate = {
@@ -172,6 +177,11 @@ export type BusinessSettingsUpdate = {
     default_print_format?: (PrintFormat | null);
     voucher_footer?: (string | null);
     voucher_legends?: (string | null);
+    sell_quick_method_ids?: (Array<(string)> | null);
+    sell_default_document_type_id?: (string | null);
+    sell_default_customer_id?: (string | null);
+    sell_block_price_edit?: (boolean | null);
+    sell_hide_date?: (boolean | null);
 };
 
 /**
@@ -809,6 +819,7 @@ export type ProductCreate = {
     costo_actual?: (number | string);
     stock_minimo?: (number | string | null);
     stock_maximo?: (number | string | null);
+    allow_price_edit_in_sale?: boolean;
     tax_ids?: Array<(string)>;
 };
 
@@ -849,6 +860,7 @@ export type ProductPublic = {
     stock_current: string;
     stock_minimo?: (string | null);
     stock_maximo?: (string | null);
+    allow_price_edit_in_sale: boolean;
     created_at?: (string | null);
     taxes?: Array<TaxPublic>;
     variants?: Array<ProductVariantPublic>;
@@ -866,6 +878,7 @@ export type ProductUpdate = {
     costo_actual?: (number | string | null);
     stock_minimo?: (number | string | null);
     stock_maximo?: (number | string | null);
+    allow_price_edit_in_sale?: (boolean | null);
     tax_ids?: (Array<(string)> | null);
 };
 

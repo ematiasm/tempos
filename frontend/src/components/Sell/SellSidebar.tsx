@@ -24,6 +24,8 @@ interface SellSidebarProps {
   onDateChange: (date: string) => void
   discountTotal: number
   onDiscountChange: (discount: number) => void
+  /** Config-driven: hides the date selector (sales use today). */
+  hideDate?: boolean
   notes: string
   onNotesChange: (notes: string) => void
   subtotal: number
@@ -45,6 +47,7 @@ export function SellSidebar({
   onDateChange,
   discountTotal,
   onDiscountChange,
+  hideDate = false,
   notes,
   onNotesChange,
   subtotal,
@@ -108,16 +111,18 @@ export function SellSidebar({
           </Select>
         </div>
 
-        <div>
-          <span className="mb-1 block text-xs font-medium text-muted-foreground">
-            {t("sell.date")}
-          </span>
-          <Input
-            type="date"
-            value={date}
-            onChange={(e) => onDateChange(e.target.value)}
-          />
-        </div>
+        {!hideDate && (
+          <div>
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              {t("sell.date")}
+            </span>
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => onDateChange(e.target.value)}
+            />
+          </div>
+        )}
 
         <div>
           <span className="mb-1 block text-xs font-medium text-muted-foreground">

@@ -19,6 +19,8 @@ interface QuantityModalProps {
   /** Decimal-UoM product waiting for a hand-typed quantity. */
   product: ProductPublic | null
   variant?: ProductVariantPublic
+  /** Pre-filled quantity (used when re-opening a cart line's quantity). */
+  initialQty?: number | null
   onConfirm: (qty: number) => void
   onOpenChange: (open: boolean) => void
 }
@@ -38,6 +40,7 @@ export function QuantityModal({
   open,
   product,
   variant,
+  initialQty = null,
   onConfirm,
   onOpenChange,
 }: QuantityModalProps) {
@@ -48,10 +51,10 @@ export function QuantityModal({
 
   useEffect(() => {
     if (open) {
-      setRaw("")
+      setRaw(initialQty != null ? String(initialQty) : "")
       setError(null)
     }
-  }, [open])
+  }, [open, initialQty])
 
   if (!product) return null
 

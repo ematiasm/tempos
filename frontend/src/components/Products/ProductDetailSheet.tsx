@@ -62,6 +62,7 @@ const detailsSchema = z.object({
   stock_minimo: z.string().optional().or(z.literal("")),
   stock_maximo: z.string().optional().or(z.literal("")),
   is_active: z.boolean(),
+  allow_price_edit_in_sale: z.boolean(),
 })
 
 type DetailsFormData = z.infer<typeof detailsSchema>
@@ -145,6 +146,7 @@ const ProductDetailSheet = ({
       stock_minimo: product.stock_minimo ?? "",
       stock_maximo: product.stock_maximo ?? "",
       is_active: product.is_active,
+      allow_price_edit_in_sale: product.allow_price_edit_in_sale,
     })
     setPendingTaxIds(new Set((product.taxes ?? []).map((t) => t.id)))
   }, [product, form])
@@ -167,6 +169,7 @@ const ProductDetailSheet = ({
         margen_pct: parseFloat(data.margen_pct) || 0,
         costo_actual: parseFloat(data.costo_actual) || 0,
         is_active: data.is_active,
+        allow_price_edit_in_sale: data.allow_price_edit_in_sale,
       }
       if (data.stock_minimo)
         requestBody.stock_minimo = parseFloat(data.stock_minimo)
@@ -538,6 +541,24 @@ const ProductDetailSheet = ({
                         </FormControl>
                         <FormLabel className="font-normal">
                           {t("products.isActive")}
+                        </FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="allow_price_edit_in_sale"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center gap-3 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            data-testid="allow-price-edit-checkbox"
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          {t("products.allowPriceEdit")}
                         </FormLabel>
                       </FormItem>
                     )}

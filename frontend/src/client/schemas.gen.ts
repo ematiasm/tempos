@@ -890,10 +890,56 @@ export const BusinessSettingsPublicSchema = {
                 }
             ],
             title: 'Voucher Legends'
+        },
+        sell_quick_method_ids: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sell Quick Method Ids'
+        },
+        sell_default_document_type_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sell Default Document Type Id'
+        },
+        sell_default_customer_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sell Default Customer Id'
+        },
+        sell_block_price_edit: {
+            type: 'boolean',
+            title: 'Sell Block Price Edit'
+        },
+        sell_hide_date: {
+            type: 'boolean',
+            title: 'Sell Hide Date'
         }
     },
     type: 'object',
-    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants', 'timezone', 'number_format', 'stock_policy', 'default_locale', 'default_print_format'],
+    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants', 'timezone', 'number_format', 'stock_policy', 'default_locale', 'default_print_format', 'sell_block_price_edit', 'sell_hide_date'],
     title: 'BusinessSettingsPublic'
 } as const;
 
@@ -1093,6 +1139,66 @@ export const BusinessSettingsUpdateSchema = {
                 }
             ],
             title: 'Voucher Legends'
+        },
+        sell_quick_method_ids: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sell Quick Method Ids'
+        },
+        sell_default_document_type_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sell Default Document Type Id'
+        },
+        sell_default_customer_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sell Default Customer Id'
+        },
+        sell_block_price_edit: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sell Block Price Edit'
+        },
+        sell_hide_date: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sell Hide Date'
         }
     },
     type: 'object',
@@ -4240,6 +4346,11 @@ export const ProductCreateSchema = {
             ],
             title: 'Stock Maximo'
         },
+        allow_price_edit_in_sale: {
+            type: 'boolean',
+            title: 'Allow Price Edit In Sale',
+            default: false
+        },
         tax_ids: {
             items: {
                 type: 'string',
@@ -4456,6 +4567,10 @@ export const ProductPublicSchema = {
             ],
             title: 'Stock Maximo'
         },
+        allow_price_edit_in_sale: {
+            type: 'boolean',
+            title: 'Allow Price Edit In Sale'
+        },
         created_at: {
             anyOf: [
                 {
@@ -4494,7 +4609,7 @@ export const ProductPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'name', 'uom_id', 'is_active', 'margen_pct', 'costo_actual', 'precio_venta', 'stock_current'],
+    required: ['id', 'name', 'uom_id', 'is_active', 'margen_pct', 'costo_actual', 'precio_venta', 'stock_current', 'allow_price_edit_in_sale'],
     title: 'ProductPublic'
 } as const;
 
@@ -4631,6 +4746,17 @@ export const ProductUpdateSchema = {
                 }
             ],
             title: 'Stock Maximo'
+        },
+        allow_price_edit_in_sale: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Allow Price Edit In Sale'
         },
         tax_ids: {
             anyOf: [

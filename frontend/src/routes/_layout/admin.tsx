@@ -64,6 +64,7 @@ import {
   getRoleColumns,
   type RoleTableData,
 } from "@/components/Admin/roleColumns"
+import SellScreenSettings from "@/components/Admin/SellScreenSettings"
 import {
   getColumns as getTaxColumns,
   type TaxTableData,
@@ -619,6 +620,9 @@ function Admin() {
           </TabsTrigger>
           <TabsTrigger value="finance">{t("admin.tabFinance")}</TabsTrigger>
           <TabsTrigger value="printing">{t("admin.tabPrinting")}</TabsTrigger>
+          <TabsTrigger value="sell-screen">
+            {t("admin.tabSellScreen")}
+          </TabsTrigger>
           <TabsTrigger value="backups">{t("admin.tabBackups")}</TabsTrigger>
         </TabsList>
         <TabsContent value="general">
@@ -647,6 +651,9 @@ function Admin() {
         </TabsContent>
         <TabsContent value="printing">
           <PrintingSettings />
+        </TabsContent>
+        <TabsContent value="sell-screen">
+          <SellScreenSettings />
         </TabsContent>
         <TabsContent value="backups">
           <BackupsTab />

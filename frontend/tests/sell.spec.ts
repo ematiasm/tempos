@@ -1452,4 +1452,226 @@ test.describe("Sell flow", () => {
       })
       .toBe(true)
   })
+
+  test("Cart keyboard: arrows select lines and +/-/Delete act on the selection", async ({
+    page,
+    request,
+  }) => {
+    const secondName = `Producto E2E Teclado ${uid()}`
+    const uoms = await getUoms(request)
+    const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
+    const second = await createProduct(request, {
+      name: secondName,
+      sku: `TEC-${uid().toUpperCase()}`,
+      uom_id: uom.id,
+      costo_actual: 100,
+      margen_pct: 50,
+    })
+    await adjustStock(request, second.id, 500)
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(productName)
+    await page.getByRole("button", { name: new RegExp(productName) }).click()
+    await page.getByTestId("product-search").fill(secondName)
+    await page.getByRole("button", { name: new RegExp(secondName) }).click()
+    await expect(
+      page.getByRole("row").filter({ hasText: secondName }),
+    ).toBeVisible()
+
+    const rows = page.getByTestId("cart-row")
+    await expect(rows).toHaveCount(2)
+
+    // clicking a row selects it: aim at the product-name cell, not an input
+    await rows.nth(0).getByText(productName).click()
+    await expect(rows.nth(0)).toHaveAttribute("data-selected", "true")
+
+    // arrows move the selection, no wrap in either direction
+    await page.keyboard.press("ArrowDown")
+    await expect(rows.nth(1)).toHaveAttribute("data-selected", "true")
+    await page.keyboard.press("ArrowDown")
+    await expect(rows.nth(1)).toHaveAttribute("data-selected", "true")
+    await page.keyboard.press("ArrowUp")
+    await expect(rows.nth(0)).toHaveAttribute("data-selected", "true")
+    await page.keyboard.press("ArrowUp")
+    await expect(rows.nth(0)).toHaveAttribute("data-selected", "true")
+
+    // +/- adjust the selected integer-UoM line, clamped at 1 (never 0)
+    const qty = rows.nth(0).getByRole("spinbutton").nth(1)
+    await expect(qty).toHaveValue("1")
+    await page.keyboard.press("+")
+    await expect(qty).toHaveValue("2")
+    await page.keyboard.press("-")
+    await expect(qty).toHaveValue("1")
+    await page.keyboard.press("-")
+    await expect(qty).toHaveValue("1")
+
+    // Delete removes the selected line without confirmation; the selection
+    // lands on the remaining line
+    await page.keyboard.press("Delete")
+    await expect(rows).toHaveCount(1)
+    await expect(rows.nth(0)).toHaveAttribute("data-selected", "true")
+  })
+
+  test("Action bar: +/- adjust, Descuento focuses the discount input, Eliminar removes", async ({
+    page,
+  }) => {
+    await searchAndAdd(page)
+    const rows = page.getByTestId("cart-row")
+
+    // no selection: the bar is hidden
+    await expect(page.getByTestId("cart-action-bar")).toHaveCount(0)
+
+    await rows.nth(0).click()
+    const bar = page.getByTestId("cart-action-bar")
+    await expect(bar).toBeVisible()
+
+    const qty = rows.nth(0).getByRole("spinbutton").nth(1)
+    await page.getByTestId("cart-action-increase").click()
+    await expect(qty).toHaveValue("2")
+    await page.getByTestId("cart-action-decrease").click()
+    await expect(qty).toHaveValue("1")
+
+    await page.getByTestId("cart-action-discount").click()
+    await expect(rows.nth(0).getByTestId("cart-discount-input")).toBeFocused()
+
+    await page.getByTestId("cart-action-remove").click()
+    await expect(page.getByTestId("cart-action-bar")).toHaveCount(0)
+    await expect(rows).toHaveCount(0)
+  })
+
+  test("F2 confirms the sale with the first quick-payment shortcut", async ({
+    page,
+    request,
+  }) => {
+    // the F2 shortcut is whatever method the quick bar lists first; ensure
+    // no explicit shortcut order is configured (suite default), polling
+    // because other specs may be restoring the shared settings concurrently
+    await api.patch(request, "/business-settings/", {
+      sell_quick_method_ids: null,
+    })
+    await expect
+      .poll(async () =>
+        api
+          .getOne<{ sell_quick_method_ids: string[] | null }>(
+            request,
+            "/business-settings/",
+          )
+          .then((s) => s.sell_quick_method_ids),
+      )
+      .toBe(null)
+    const methods = await api
+      .get<{ id: string; name: string }>(
+        request,
+        "/payment-methods/?skip=0&limit=100",
+      )
+      .then((r) => r.data)
+    await searchAndAdd(page)
+    // select the line via its name cell so keyboard focus stays off inputs
+    await page.getByTestId("cart-row").getByText(productName).click()
+    // F2 shares the quick buttons' gate: wait until the sale is confirmable
+    // (cash session, customer and document type all resolved)
+    await expect(page.getByTestId("quick-pay-button").first()).toBeEnabled()
+    await page.keyboard.press("F2")
+
+    const numero = page.getByTestId("sale-success-numero")
+    await expect(numero).toBeVisible()
+    const numeroText = (await numero.textContent())?.trim() ?? ""
+    const docs = await readDocuments(request)
+    const sale = docs.find((d) => d.numero === numeroText)
+    expect(sale).toBeDefined()
+    expect(sale?.payments).toHaveLength(1)
+    expect(sale?.payments[0].payment_method_id).toBe(methods[0].id)
+  })
+
+  test("Enter reopens the quantity modal pre-filled on a selected decimal line", async ({
+    page,
+    request,
+  }) => {
+    const suffix = uid()
+    const uom = await api.post<{ id: string }>(request, "/uoms/", {
+      name: `kg E2E ${suffix}`,
+      abbreviation: "kg",
+      decimal_places: 3,
+    })
+    const name = `Producto E2E Granel Teclado ${suffix}`
+    const product = await createProduct(request, {
+      name,
+      sku: `GRT-${suffix.toUpperCase()}`,
+      uom_id: uom.id,
+      costo_actual: 200,
+      margen_pct: 50,
+    })
+    await adjustStock(request, product.id, 10)
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(name)
+    await page.getByRole("button", { name: new RegExp(name) }).click()
+    await page.getByTestId("qty-modal-input").fill("0.5")
+    await page.getByTestId("qty-modal-confirm").click()
+
+    const row = page.getByRole("row").filter({ hasText: name })
+    await expect(row).toBeVisible()
+    // select the line via its name cell so keyboard focus stays off inputs
+    await row.getByText(name).click()
+
+    await page.keyboard.press("Enter")
+    const modal = page.getByTestId("qty-modal")
+    await expect(modal).toBeVisible()
+    await expect(page.getByTestId("qty-modal-input")).toHaveValue("0.5")
+
+    await page.getByTestId("qty-modal-input").fill("1.25")
+    await page.getByTestId("qty-modal-confirm").click()
+    await expect(row.getByRole("spinbutton").nth(1)).toHaveValue("1.25")
+  })
+
+  test("Blocked price edit locks the price unless the product allows it", async ({
+    page,
+    request,
+  }) => {
+    // ensure the global block is ON (suite default); poll because other
+    // specs may be restoring the shared settings concurrently
+    await api.patch(request, "/business-settings/", {
+      sell_block_price_edit: true,
+    })
+    await expect
+      .poll(async () =>
+        api
+          .getOne<{ sell_block_price_edit: boolean }>(
+            request,
+            "/business-settings/",
+          )
+          .then((s) => s.sell_block_price_edit),
+      )
+      .toBe(true)
+
+    const suffix = uid()
+    const uoms = await getUoms(request)
+    const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
+    const allowedName = `Producto E2E Precio Libre ${suffix}`
+    const allowed = await createProduct(request, {
+      name: allowedName,
+      sku: `PPL-${suffix.toUpperCase()}`,
+      uom_id: uom.id,
+      costo_actual: 100,
+      margen_pct: 50,
+      allow_price_edit_in_sale: true,
+    })
+    await adjustStock(request, allowed.id, 100)
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(productName)
+    await page.getByRole("button", { name: new RegExp(productName) }).click()
+    await page.getByTestId("product-search").fill(allowedName)
+    await page.getByRole("button", { name: new RegExp(allowedName) }).click()
+    await expect(
+      page.getByRole("row").filter({ hasText: allowedName }),
+    ).toBeVisible()
+
+    const rows = page.getByTestId("cart-row")
+    // fixture product: flag defaults to False -> price locked
+    await expect(rows.nth(0).getByRole("spinbutton").nth(0)).toBeDisabled()
+    // flagged product: price stays editable
+    await expect(rows.nth(1).getByRole("spinbutton").nth(0)).toBeEnabled()
+    await expect(rows.nth(1).getByRole("spinbutton").nth(0)).toHaveValue("150")
+  })
 })

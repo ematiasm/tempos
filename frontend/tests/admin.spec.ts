@@ -287,3 +287,124 @@ test.describe("Admin Printing settings", () => {
     ).toHaveCount(0)
   })
 })
+
+test.describe("Admin Sell screen settings", () => {
+  // the singleton business-settings row is shared: these tests must not race
+  test.describe.configure({ mode: "default" })
+
+  const openSellScreenTab = async (page: Page) => {
+    await page.goto("/admin")
+    await page.getByRole("tab", { name: "Pantalla de venta" }).click()
+  }
+
+  test.afterEach(async ({ request }) => {
+    // leave the shared settings as the suite found them
+    await api.patch(request, "/business-settings/", {
+      sell_quick_method_ids: null,
+      sell_default_document_type_id: null,
+      sell_default_customer_id: null,
+      sell_block_price_edit: true,
+      sell_hide_date: false,
+    })
+  })
+
+  test("Administrator configures the sell screen and the values persist", async ({
+    page,
+    request,
+  }) => {
+    await openSellScreenTab(page)
+
+    // block price edit is ON by default; hide date is OFF by default
+    await expect(page.getByTestId("sellscreen-block-price")).toBeChecked()
+    await expect(page.getByTestId("sellscreen-hide-date")).not.toBeChecked()
+
+    await page.getByTestId("sellscreen-block-price").click()
+    await page.getByTestId("sellscreen-hide-date").click()
+    await page.getByTestId("sellscreen-doc-type").click()
+    await page.getByRole("option", { name: "Factura B (FB)" }).click()
+    await page.getByTestId("sellscreen-save").click()
+
+    await expect(
+      page.getByText("Configuración de venta guardada"),
+    ).toBeVisible()
+
+    // persisted through the business-settings PATCH
+    const settings = await api.getOne<{
+      sell_default_document_type_id: string | null
+      sell_block_price_edit: boolean
+      sell_hide_date: boolean
+    }>(request, "/business-settings/")
+    const facturasB = await api
+      .get<{ id: string; prefix: string }>(
+        request,
+        "/document-types/?skip=0&limit=100",
+      )
+      .then((r) => r.data.find((dt) => dt.prefix === "FB"))
+    expect(facturasB).toBeDefined()
+    expect(settings.sell_default_document_type_id).toBe(facturasB!.id)
+    expect(settings.sell_block_price_edit).toBe(false)
+    expect(settings.sell_hide_date).toBe(true)
+
+    // reopening the section shows the saved values
+    await page.reload()
+    await openSellScreenTab(page)
+    await expect(page.getByTestId("sellscreen-block-price")).not.toBeChecked()
+    await expect(page.getByTestId("sellscreen-hide-date")).toBeChecked()
+    await expect(page.getByTestId("sellscreen-doc-type")).toContainText(
+      "Factura B",
+    )
+  })
+
+  test("Quick payment shortcuts can be selected and reordered", async ({
+    page,
+    request,
+  }) => {
+    const methods = await api
+      .get<{ id: string; name: string }>(
+        request,
+        "/payment-methods/?skip=0&limit=100",
+      )
+      .then((r) => r.data)
+    expect(methods.length).toBeGreaterThanOrEqual(2)
+    const [first, second] = methods
+
+    await openSellScreenTab(page)
+
+    const chip = (method: { name: string }) =>
+      page
+        .getByTestId("sellscreen-method-chip")
+        .filter({ hasText: method.name })
+
+    // the clickable part of a chip is the button carrying the method name
+    await chip(first).getByRole("button", { name: first.name }).click()
+    await chip(second).getByRole("button", { name: second.name }).click()
+
+    // second was appended last; move it up so the order flips
+    const secondItem = page
+      .getByTestId("sellscreen-order-item")
+      .filter({ hasText: second.name })
+    await secondItem.getByTestId("sellscreen-move-up").click()
+
+    await page.getByTestId("sellscreen-save").click()
+    await expect(
+      page.getByText("Configuración de venta guardada"),
+    ).toBeVisible()
+
+    const settings = await api.getOne<{
+      sell_quick_method_ids: string[] | null
+    }>(request, "/business-settings/")
+    expect(settings.sell_quick_method_ids).toEqual([second.id, first.id])
+
+    // reopening the section shows the saved order
+    await page.reload()
+    await openSellScreenTab(page)
+    await expect(
+      page
+        .getByTestId("sellscreen-order-item")
+        .filter({ hasText: second.name }),
+    ).toContainText("1.")
+    await expect(
+      page.getByTestId("sellscreen-order-item").filter({ hasText: first.name }),
+    ).toContainText("2.")
+  })
+})
