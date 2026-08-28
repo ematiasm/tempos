@@ -177,6 +177,108 @@ def test_print_settings_length_limits(
     assert r.status_code == 200
 
 
+def test_fresh_settings_have_default_sell_config(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    r = client.get(
+        f"{settings.API_V1_STR}/business-settings/", headers=superuser_token_headers
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["sell_quick_method_ids"] is None
+    assert body["sell_default_document_type_id"] is None
+    assert body["sell_default_customer_id"] is None
+    # price editing is blocked by default; the date selector is shown
+    assert body["sell_block_price_edit"] is True
+    assert body["sell_hide_date"] is False
+
+
+def test_sell_config_round_trip(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    payment_methods = client.get(
+        f"{settings.API_V1_STR}/payment-methods/", headers=superuser_token_headers
+    ).json()["data"]
+    assert payment_methods
+    document_types = client.get(
+        f"{settings.API_V1_STR}/document-types/", headers=superuser_token_headers
+    ).json()["data"]
+    customers = client.get(
+        f"{settings.API_V1_STR}/customers/", headers=superuser_token_headers
+    ).json()["data"]
+    assert document_types
+    assert customers
+
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={
+            "sell_quick_method_ids": [payment_methods[0]["id"]],
+            "sell_default_document_type_id": document_types[0]["id"],
+            "sell_default_customer_id": customers[0]["id"],
+            "sell_block_price_edit": False,
+            "sell_hide_date": True,
+        },
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["sell_quick_method_ids"] == [payment_methods[0]["id"]]
+    assert body["sell_default_document_type_id"] == document_types[0]["id"]
+    assert body["sell_default_customer_id"] == customers[0]["id"]
+    assert body["sell_block_price_edit"] is False
+    assert body["sell_hide_date"] is True
+
+    # values persist on a fresh read
+    r = client.get(
+        f"{settings.API_V1_STR}/business-settings/", headers=superuser_token_headers
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["sell_block_price_edit"] is False
+    assert body["sell_hide_date"] is True
+
+    # restore defaults
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={
+            "sell_quick_method_ids": None,
+            "sell_default_document_type_id": None,
+            "sell_default_customer_id": None,
+            "sell_block_price_edit": True,
+            "sell_hide_date": False,
+        },
+    )
+    assert r.status_code == 200, r.text
+
+
+def test_sell_quick_method_ids_preserves_order(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    payment_methods = client.get(
+        f"{settings.API_V1_STR}/payment-methods/", headers=superuser_token_headers
+    ).json()["data"]
+    assert len(payment_methods) >= 2
+    ids = [m["id"] for m in payment_methods[:2]]
+    ordered = [ids[1], ids[0]]  # reversed on purpose
+
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={"sell_quick_method_ids": ordered},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["sell_quick_method_ids"] == ordered
+
+    # restore defaults
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={"sell_quick_method_ids": None},
+    )
+    assert r.status_code == 200, r.text
+
+
 def test_upload_and_delete_logo(
     client: TestClient, superuser_token_headers: dict[str, str], tmp_path, monkeypatch
 ) -> None:

@@ -115,6 +115,49 @@ def test_update_product_recomputes_precio_venta(
     assert r.json()["precio_venta"] == "300.00"
 
 
+def test_allow_price_edit_in_sale_flag(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    uom = _create_uom(client, superuser_token_headers)
+
+    # default is False
+    payload = _build_product_payload(uom["id"])
+    r = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json=payload,
+    )
+    assert r.status_code == 200, r.text
+    created = r.json()
+    assert created["allow_price_edit_in_sale"] is False
+
+    # explicit True on create
+    payload = _build_product_payload(uom["id"])
+    payload["allow_price_edit_in_sale"] = True
+    r = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json=payload,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["allow_price_edit_in_sale"] is True
+
+    # flip via PATCH
+    r = client.patch(
+        f"{settings.API_V1_STR}/products/{created['id']}",
+        headers=superuser_token_headers,
+        json={"allow_price_edit_in_sale": True},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["allow_price_edit_in_sale"] is True
+    r = client.get(
+        f"{settings.API_V1_STR}/products/{created['id']}",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+    assert r.json()["allow_price_edit_in_sale"] is True
+
+
 def test_delete_product_hard_deletes_when_unused(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
