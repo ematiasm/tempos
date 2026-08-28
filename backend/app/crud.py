@@ -381,11 +381,20 @@ def _create_document_in_tx(
             raise BusinessError(
                 "counterpart_required", "This document type requires a counterpart"
             )
+        # Lock the counterpart row for the whole transaction: concurrent
+        # documents/receipts for the same counterpart would otherwise read a
+        # stale saldo snapshot (double-consuming credit in favor) and race
+        # their outstanding-document allocations. Lock order is always
+        # counterpart -> DocumentSequence (no deadlock cycles).
         counterpart: Customer | Supplier | None
         if doc_type.tipo_contraparte == CounterpartType.CUSTOMER:
-            counterpart = session.get(Customer, document_in.contraparte_id)
+            counterpart = session.get(
+                Customer, document_in.contraparte_id, with_for_update=True
+            )
         else:
-            counterpart = session.get(Supplier, document_in.contraparte_id)
+            counterpart = session.get(
+                Supplier, document_in.contraparte_id, with_for_update=True
+            )
         if not counterpart:
             raise BusinessError("counterpart_not_found", "Counterpart not found")
         if not counterpart.is_active:
@@ -1558,12 +1567,17 @@ def create_receipt(
             f"No receipt document type seeded for {party} counterparts",
         )
 
+    # Lock the counterpart row so concurrent receipts/documents for the same
+    # counterpart serialize (stale outstanding snapshots would over-allocate
+    # the FIFO). Lock order: counterpart -> DocumentSequence.
     if party == CounterpartType.CUSTOMER:
         counterpart: Customer | Supplier | None = session.get(
-            Customer, receipt_in.contraparte_id
+            Customer, receipt_in.contraparte_id, with_for_update=True
         )
     else:
-        counterpart = session.get(Supplier, receipt_in.contraparte_id)
+        counterpart = session.get(
+            Supplier, receipt_in.contraparte_id, with_for_update=True
+        )
     if counterpart is None:
         raise BusinessError("counterpart_not_found", "Counterpart not found")
     if not counterpart.is_active:

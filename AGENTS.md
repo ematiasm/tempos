@@ -268,6 +268,14 @@ This dumps `openapi.json`, regenerates `frontend/src/client/*` and runs frontend
     convenience in this template, but never commit real credentials,
     `SECRET_KEY`s, or `POSTGRES_PASSWORD`s.
 
+15. **Counterpart rows are locked at document/receipt creation.** Both
+    `_create_document_in_tx` and `create_receipt` fetch the Customer/Supplier
+    row with `with_for_update=True` so concurrent documents or receipts for
+    the same counterpart serialize: without it they read a stale `saldo`
+    snapshot (double-consuming credit in favor) and race their outstanding
+    FIFO allocations. Keep the lock order counterpart → `DocumentSequence`
+    in every new path (no deadlock cycles).
+
 ## 6. Module map (compact schema reference)
 
 This is the high-level module map, complete for the current implementation.
