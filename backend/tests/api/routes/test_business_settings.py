@@ -92,6 +92,91 @@ def test_update_new_configuration_fields(
     assert r.status_code == 200, r.text
 
 
+def test_fresh_settings_have_empty_print_texts(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    r = client.get(
+        f"{settings.API_V1_STR}/business-settings/", headers=superuser_token_headers
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["default_print_format"] == "a4"
+    assert body["voucher_footer"] is None
+    assert body["voucher_legends"] is None
+
+
+def test_print_settings_round_trip(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={
+            "default_print_format": "ticket80",
+            "voucher_footer": "Thanks for your purchase",
+            "voucher_legends": "First line\nSecond line",
+        },
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["default_print_format"] == "ticket80"
+    assert body["voucher_footer"] == "Thanks for your purchase"
+    assert body["voucher_legends"] == "First line\nSecond line"
+
+    # values persist on a fresh read
+    r = client.get(
+        f"{settings.API_V1_STR}/business-settings/", headers=superuser_token_headers
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["default_print_format"] == "ticket80"
+    assert body["voucher_footer"] == "Thanks for your purchase"
+    assert body["voucher_legends"] == "First line\nSecond line"
+
+    # restore defaults
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={
+            "default_print_format": "a4",
+            "voucher_footer": None,
+            "voucher_legends": None,
+        },
+    )
+    assert r.status_code == 200, r.text
+
+
+def test_print_settings_length_limits(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={"voucher_footer": "x" * 256},
+    )
+    assert r.status_code == 422
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={"voucher_legends": "x" * 501},
+    )
+    assert r.status_code == 422
+    # boundary values are accepted
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={"voucher_footer": "x" * 255, "voucher_legends": "x" * 500},
+    )
+    assert r.status_code == 200, r.text
+    # restore defaults
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={"voucher_footer": None, "voucher_legends": None},
+    )
+    assert r.status_code == 200
+
+
 def test_upload_and_delete_logo(
     client: TestClient, superuser_token_headers: dict[str, str], tmp_path, monkeypatch
 ) -> None:

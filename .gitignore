@@ -5,10 +5,12 @@ node_modules/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
-.env
-AGENTS.md
+# The generic dev .env IS tracked (upstream template practice; CI compose reads it).
+# Production secrets live ONLY in the server's /opt/tempos/.env or in .env.production (never committed).
+.env.production
 plan.md
 
 # Local agent tooling caches (not project code)
 .atl/
 .pi/
+.codegraph/

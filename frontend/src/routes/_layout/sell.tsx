@@ -1,34 +1,31 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { CheckCircle2, Minus, Plus, Printer, Trash2 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { SplitSquareHorizontal } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
-import type { DocumentPublic } from "@/client"
-import {
-  CustomersService,
-  DocumentsService,
-  DocumentTypesService,
-  PaymentMethodsService,
+import type {
+  DocumentPaymentCreate,
+  DocumentPublic,
+  PaymentMethodPublic,
+  ProductPublic,
+  ProductVariantPublic,
 } from "@/client"
-import { PrintVoucherDialog } from "@/components/Documents/VoucherPrint"
+import { DocumentsService } from "@/client"
+import { CartTable } from "@/components/Sell/CartTable"
 import { CashRegisterBar } from "@/components/Sell/CashRegisterBar"
-import ProductSearch, { type CartLine } from "@/components/Sell/ProductSearch"
-import { Badge } from "@/components/ui/badge"
+import { PostSaleDialog } from "@/components/Sell/PostSaleDialog"
+import ProductSearch from "@/components/Sell/ProductSearch"
+import { round2 } from "@/components/Sell/paymentMath"
+import { QuantityModal } from "@/components/Sell/QuantityModal"
+import { QuickPaymentBar } from "@/components/Sell/QuickPaymentBar"
+import { SellSidebar } from "@/components/Sell/SellSidebar"
+import { SplitPaymentDialog } from "@/components/Sell/SplitPaymentDialog"
+import { useOpenCashSession } from "@/components/Sell/useOpenCashSession"
+import { useReferenceData } from "@/components/Sell/useReferenceData"
+import { computeTotals, useSellCart } from "@/components/Sell/useSellCart"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { LoadingButton } from "@/components/ui/loading-button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
-import { formatStatic, useLocale, useT } from "@/i18n"
-import type { NumberFormat } from "@/lib/format"
-import { formatMoney } from "@/lib/format"
-import { cn } from "@/lib/utils"
+import { formatStatic, useT } from "@/i18n"
 import { handleError } from "@/utils"
 
 export const Route = createFileRoute("/_layout/sell")({
@@ -38,94 +35,40 @@ export const Route = createFileRoute("/_layout/sell")({
   }),
 })
 
-const SALE_PREFIXES = ["FA", "FB", "FC", "TCK"]
-
-const round2 = (n: number) => Math.round(n * 100) / 100
-const money = (n: number, format: NumberFormat) => `$${formatMoney(n, format)}`
-
-function useReferenceData() {
-  const { data: customersData } = useQuery({
-    queryFn: () => CustomersService.readCustomers({ skip: 0, limit: 1000 }),
-    queryKey: ["customers"],
-  })
-  const { data: methodsData } = useQuery({
-    queryFn: () =>
-      PaymentMethodsService.readPaymentMethods({ skip: 0, limit: 100 }),
-    queryKey: ["payment-methods"],
-  })
-  const { data: typesData } = useQuery({
-    queryFn: () =>
-      DocumentTypesService.readDocumentTypes({ skip: 0, limit: 100 }),
-    queryKey: ["document-types"],
-  })
-  const customers = useMemo(
-    () => (customersData?.data ?? []).filter((c) => c.is_active !== false),
-    [customersData],
-  )
-  const consumidorFinal = useMemo(
-    () => customers.find((c) => c.razon_social === "Consumidor Final"),
-    [customers],
-  )
-  const methods = methodsData?.data ?? []
-  const saleTypes = useMemo(
-    () =>
-      (typesData?.data ?? []).filter(
-        (t) =>
-          t.is_active &&
-          t.operation === "venta" &&
-          SALE_PREFIXES.includes(t.prefix),
-      ),
-    [typesData],
-  )
-  return { customers, consumidorFinal, methods, saleTypes }
-}
-
-function computeTotals(cart: CartLine[], discountTotal: number) {
-  let subtotal = 0
-  const perceptionsBase: { rate: number; isPercent: boolean }[] = []
-  for (const line of cart) {
-    const lineSubtotal = round2(
-      line.qty * line.unitPrice * (1 - line.discountPct / 100),
-    )
-    subtotal = round2(subtotal + lineSubtotal)
-    for (const tax of line.product.taxes ?? []) {
-      if (tax.aplica_a === "documento") {
-        perceptionsBase.push({
-          rate: Number(tax.rate),
-          isPercent: tax.is_percent === true,
-        })
-      }
-    }
-  }
-  let perceptions = 0
-  for (const p of perceptionsBase) {
-    const monto = p.isPercent ? subtotal * (p.rate / 100) : p.rate
-    perceptions = round2(perceptions + monto)
-  }
-  const total = round2(subtotal - discountTotal + perceptions)
-  return { subtotal, perceptions, total }
-}
-
 function Sell() {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const t = useT()
-  const { numberFormat } = useLocale()
   const { customers, consumidorFinal, methods, saleTypes } = useReferenceData()
+  const { isOpen: sessionOpen } = useOpenCashSession()
 
-  const [cart, setCart] = useState<CartLine[]>([])
+  const {
+    cart,
+    addLine,
+    updateLine,
+    removeLine,
+    reset: resetCart,
+  } = useSellCart()
   const [customerId, setCustomerId] = useState<string | null>(null)
+  // once the operator explicitly picks (or clears) a customer, the
+  // Consumidor Final default must never re-apply
+  const [customerTouched, setCustomerTouched] = useState(false)
   const [docTypeId, setDocTypeId] = useState<string | null>(null)
   const [date, setDate] = useState<string>(() =>
     new Date().toISOString().slice(0, 10),
   )
   const [discountTotal, setDiscountTotal] = useState(0)
-  const [methodId, setMethodId] = useState<string | null>(null)
-  const [amount, setAmount] = useState<number>(0)
-  const [useCredit, setUseCredit] = useState(false)
-  const [printOpen, setPrintOpen] = useState(false)
-  const [autoAmount, setAutoAmount] = useState(true)
+  const [notes, setNotes] = useState("")
+  const [splitOpen, setSplitOpen] = useState(false)
+  const [creditWarning, setCreditWarning] = useState(false)
   const [created, setCreated] = useState<DocumentPublic | null>(null)
+  const [vuelto, setVuelto] = useState(0)
+  // decimal-UoM product waiting for a hand-typed quantity (see QuantityModal)
+  const [qtyTarget, setQtyTarget] = useState<{
+    product: ProductPublic
+    variant?: ProductVariantPublic
+  } | null>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const selectedCustomer = customers.find((c) => c.id === customerId) ?? null
   const creditInFavor =
@@ -133,15 +76,10 @@ function Sell() {
       ? -Number(selectedCustomer.saldo)
       : 0
 
-  const creditMethod = methods.find((m) => m.marks_paid === false) ?? null
-  const defaultMethod =
-    methods.find((m) => m.marks_paid !== false) ?? methods[0] ?? null
-  const onCredit = !!creditMethod && methodId === creditMethod.id
-
   useEffect(() => {
-    if (consumidorFinal && !customerId) setCustomerId(consumidorFinal.id)
-    if (defaultMethod && !methodId) setMethodId(defaultMethod.id)
-  }, [consumidorFinal, customerId, methodId, defaultMethod])
+    if (!customerTouched && consumidorFinal && !customerId)
+      setCustomerId(consumidorFinal.id)
+  }, [consumidorFinal, customerId, customerTouched])
 
   useEffect(() => {
     if (!customerId) return
@@ -162,74 +100,22 @@ function Sell() {
   }, [customerId, saleTypes])
 
   useEffect(() => {
-    if (selectedCustomer && Number(selectedCustomer.saldo) < 0)
-      setUseCredit(true)
-  }, [selectedCustomer])
+    if (customerId) setCreditWarning(false)
+  }, [customerId])
 
   const { subtotal, perceptions, total } = useMemo(
     () => computeTotals(cart, discountTotal),
     [cart, discountTotal],
   )
 
-  useEffect(() => {
-    if (!autoAmount) return
-    const base = useCredit ? Math.max(total - creditInFavor, 0) : total
-    setAmount(round2(base))
-  }, [total, useCredit, creditInFavor, autoAmount])
-
-  const cashChange = total > 0 && amount > total ? round2(amount - total) : 0
-
-  const appliedFavor =
-    creditInFavor > 0
-      ? round2(
-          Math.min(
-            creditInFavor,
-            onCredit ? total : Math.max(total - amount, 0),
-          ),
-        )
-      : 0
-
-  const addLine = (
-    product: CartLine["product"],
-    variant?: CartLine["variant"],
-  ) => {
-    const existing = cart.find(
-      (l) =>
-        l.product.id === product.id &&
-        (l.variant?.id ?? null) === (variant?.id ?? null),
-    )
-    if (existing) {
-      setCart((prev) =>
-        prev.map((l) =>
-          l === existing ? { ...l, qty: round2(l.qty + 1) } : l,
-        ),
-      )
-    } else {
-      setCart([
-        ...cart,
-        {
-          product,
-          variant,
-          qty: 1,
-          unitPrice: Number(product.precio_venta),
-          discountPct: 0,
-        },
-      ])
-    }
-  }
-
-  const updateLine = (index: number, patch: Partial<CartLine>) => {
-    setCart((prev) =>
-      prev.map((l, i) => (i === index ? { ...l, ...patch } : l)),
-    )
-  }
-
-  const removeLine = (index: number) => {
-    setCart((prev) => prev.filter((_, i) => i !== index))
-  }
-
   const createMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: ({
+      payments,
+      vuelto: saleVuelto,
+    }: {
+      payments: DocumentPaymentCreate[]
+      vuelto: number
+    }) => {
       if (!docTypeId || !customerId) throw new Error("Missing type or customer")
       return DocumentsService.createDocument({
         requestBody: {
@@ -237,6 +123,7 @@ function Sell() {
           contraparte_id: customerId,
           fecha: new Date(`${date}T12:00:00`).toISOString(),
           descuento_total: discountTotal,
+          notes: notes.trim() ? notes : null,
           lines: cart.map((l) => ({
             product_id: l.product.id,
             variant_id: l.variant?.id ?? null,
@@ -244,18 +131,17 @@ function Sell() {
             precio_unit: l.unitPrice,
             descuento_pct: l.discountPct,
           })),
-          payments:
-            amount > 0 ? [{ payment_method_id: methodId!, monto: amount }] : [],
+          payments,
         },
-      })
+      }).then((doc) => ({ doc, vuelto: saleVuelto }))
     },
-    onSuccess: (doc) => {
+    onSuccess: ({ doc, vuelto: saleVuelto }) => {
       showSuccessToast(t("sell.issued", { numero: doc.numero }))
       setCreated(doc)
-      setCart([])
+      setVuelto(saleVuelto)
+      resetCart()
       setDiscountTotal(0)
-      setUseCredit(false)
-      setAutoAmount(true)
+      setNotes("")
       queryClient.invalidateQueries({ queryKey: ["documents"] })
       queryClient.invalidateQueries({ queryKey: ["products"] })
       queryClient.invalidateQueries({ queryKey: ["products-search"] })
@@ -263,43 +149,57 @@ function Sell() {
     onError: handleError.bind(showErrorToast),
   })
 
-  const issueDisabled =
-    cart.length === 0 || !docTypeId || !customerId || createMutation.isPending
+  // Cash-session gate: without an open session no sale can be issued and the
+  // CashRegisterBar open prompt is the visible call to action. A
+  // cash_session_required slip-through is surfaced by handleError and the
+  // cart is preserved (the failed mutation never resets state).
+  const baseDisabled =
+    !sessionOpen ||
+    cart.length === 0 ||
+    !docTypeId ||
+    !customerId ||
+    createMutation.isPending
+  const quickCreditDisabled =
+    !sessionOpen || cart.length === 0 || !docTypeId || createMutation.isPending
+
+  const payWithMethod = (method: PaymentMethodPublic) => {
+    if (method.marks_paid === false && !customerId) {
+      setCreditWarning(true)
+      return
+    }
+    createMutation.mutate({
+      payments: [{ payment_method_id: method.id, monto: total }],
+      vuelto: 0,
+    })
+  }
+
+  // Products whose UoM allows decimals never auto-add 1: the operator hand-
+  // types the quantity in the modal. Integer UoMs keep the auto-add behavior.
+  const handleAdd = (
+    product: ProductPublic,
+    variant?: ProductVariantPublic,
+  ) => {
+    if ((product.uom?.decimal_places ?? 0) > 0) {
+      setQtyTarget({ product, variant })
+      return
+    }
+    addLine(product, variant)
+  }
+
+  const handleNewSale = () => {
+    setCreated(null)
+    setVuelto(0)
+    searchInputRef.current?.focus()
+  }
 
   if (created) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 rounded-lg border py-16 text-center">
-        <CheckCircle2 className="h-12 w-12 text-emerald-500" />
-        <div>
-          <h2
-            className="text-xl font-semibold"
-            data-testid="sale-success-numero"
-          >
-            {created.numero}
-          </h2>
-          <p className="text-muted-foreground">
-            {t("sell.totaling", {
-              total: money(Number(created.total), numberFormat),
-              customer: created.contraparte_name ?? "",
-            })}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <PrintVoucherDialog
-            document={created}
-            open={printOpen}
-            onOpenChange={setPrintOpen}
-          />
-          <Button onClick={() => setCreated(null)}>{t("sell.newSale")}</Button>
-          <Button variant="secondary" onClick={() => setCreated(null)}>
-            {t("sell.keepSelling")}
-          </Button>
-          <Button variant="outline" onClick={() => setPrintOpen(true)}>
-            <Printer className="mr-2 h-4 w-4" />
-            {t("sell.printVoucher")}
-          </Button>
-        </div>
-      </div>
+      <PostSaleDialog
+        document={created}
+        vuelto={vuelto}
+        onDocumentChange={setCreated}
+        onNewSale={handleNewSale}
+      />
     )
   }
 
@@ -314,396 +214,100 @@ function Sell() {
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="flex flex-1 flex-col gap-4">
-          <ProductSearch onAdd={addLine} />
+          <ProductSearch onAdd={handleAdd} inputRef={searchInputRef} />
 
           {cart.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               {t("sell.emptyCartHint")}
             </p>
           ) : (
-            <div className="overflow-hidden rounded-lg border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2">{t("sell.product")}</th>
-                    <th className="w-24 px-2 py-2 text-right">
-                      {t("sell.price")}
-                    </th>
-                    <th className="w-24 px-2 py-2 text-right">
-                      {t("sell.qty")}
-                    </th>
-                    <th className="w-24 px-2 py-2 text-right">
-                      {t("sell.discPct")}
-                    </th>
-                    <th className="w-24 px-3 py-2 text-right">
-                      {t("sell.lineTotal")}
-                    </th>
-                    <th className="w-10 px-2 py-2" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {cart.map((line, index) => {
-                    const stock = line.variant
-                      ? Number(line.variant.stock_current)
-                      : Number(line.product.stock_current)
-                    const lineTotal = round2(
-                      line.qty * line.unitPrice * (1 - line.discountPct / 100),
-                    )
-                    const lowStock = line.qty > stock
-                    return (
-                      <tr
-                        key={`${line.product.id}-${line.variant?.id ?? "base"}`}
-                      >
-                        <td className="px-3 py-2">
-                          <span className="font-medium">
-                            {line.product.name}
-                          </span>
-                          {line.variant && (
-                            <div className="flex gap-1">
-                              {line.variant.sku_suffix && (
-                                <Badge
-                                  variant="secondary"
-                                  className="font-mono text-[10px]"
-                                >
-                                  {line.variant.sku_suffix}
-                                </Badge>
-                              )}
-                              {(line.variant.attribute_values ?? []).map(
-                                (av) => (
-                                  <Badge
-                                    key={av.id}
-                                    variant="outline"
-                                    className="text-[10px]"
-                                  >
-                                    {av.value}
-                                  </Badge>
-                                ),
-                              )}
-                            </div>
-                          )}
-                          <span
-                            className={cn(
-                              "text-xs",
-                              lowStock
-                                ? "text-amber-600"
-                                : "text-muted-foreground",
-                            )}
-                          >
-                            {t("sell.stockHint", { stock })}
-                          </span>
-                        </td>
-                        <td className="px-2 py-2 text-right">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            className="ml-auto h-8 w-24 text-right"
-                            value={line.unitPrice}
-                            onChange={(e) =>
-                              updateLine(index, {
-                                unitPrice: Number(e.target.value) || 0,
-                              })
-                            }
-                          />
-                        </td>
-                        <td className="px-2 py-2">
-                          <div className="flex h-8 items-center justify-end gap-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() =>
-                                updateLine(index, {
-                                  qty: Math.max(0.001, round2(line.qty - 1)),
-                                })
-                              }
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <Input
-                              type="number"
-                              step="0.001"
-                              className="h-8 w-16 px-1 text-right"
-                              value={line.qty}
-                              onChange={(e) =>
-                                updateLine(index, {
-                                  qty: Number(e.target.value) || 0,
-                                })
-                              }
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() =>
-                                updateLine(index, { qty: round2(line.qty + 1) })
-                              }
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </td>
-                        <td className="px-2 py-2 text-right">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            className="ml-auto h-8 w-16 px-1 text-right"
-                            value={line.discountPct}
-                            onChange={(e) =>
-                              updateLine(index, {
-                                discountPct: Number(e.target.value) || 0,
-                              })
-                            }
-                          />
-                        </td>
-                        <td className="px-3 py-2 text-right font-medium">
-                          {money(lineTotal, numberFormat)}
-                        </td>
-                        <td className="px-2 py-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => removeLine(index)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <CartTable
+              cart={cart}
+              onUpdateLine={updateLine}
+              onRemoveLine={removeLine}
+            />
           )}
         </div>
 
-        <div className="flex w-full flex-col gap-4 rounded-lg border p-4 lg:w-[340px]">
-          <div className="grid gap-3">
-            <div>
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                {t("sell.customer")}
-              </span>
-              <Select
-                value={customerId ?? ""}
-                onValueChange={(v) => {
-                  setCustomerId(v)
-                  setAutoAmount(true)
-                }}
+        <SellSidebar
+          customers={customers}
+          saleTypes={saleTypes}
+          selectedCustomer={selectedCustomer}
+          customerId={customerId}
+          onCustomerChange={(v) => {
+            setCustomerTouched(true)
+            setCustomerId(v === "none" ? null : v)
+          }}
+          docTypeId={docTypeId}
+          onDocTypeChange={setDocTypeId}
+          date={date}
+          onDateChange={setDate}
+          discountTotal={discountTotal}
+          onDiscountChange={setDiscountTotal}
+          notes={notes}
+          onNotesChange={setNotes}
+          subtotal={subtotal}
+          perceptions={perceptions}
+          total={total}
+          appliedFavor={round2(Math.min(creditInFavor, total))}
+        >
+          <div className="flex flex-col gap-3">
+            <QuickPaymentBar
+              methods={methods}
+              disabledForPaid={baseDisabled}
+              disabledForCredit={quickCreditDisabled}
+              onPay={payWithMethod}
+            />
+            {creditWarning && (
+              <p
+                className="text-xs text-destructive"
+                role="alert"
+                data-testid="credit-customer-warning"
               >
-                <SelectTrigger data-testid="customer-select">
-                  <SelectValue placeholder={t("sell.selectCustomer")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.razon_social}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedCustomer && Number(selectedCustomer.saldo) !== 0 && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t("sell.balance", {
-                    balance: money(
-                      Number(selectedCustomer.saldo),
-                      numberFormat,
-                    ),
-                  })}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                {t("sell.documentType")}
-              </span>
-              <Select value={docTypeId ?? ""} onValueChange={setDocTypeId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t("sell.auto")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {saleTypes.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name} ({t.prefix})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                {t("sell.date")}
-              </span>
-              <Input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                {t("sell.documentDiscount")}
-              </span>
-              <Input
-                type="number"
-                step="0.01"
-                value={discountTotal}
-                onChange={(e) => setDiscountTotal(Number(e.target.value) || 0)}
-              />
-            </div>
+                {t("sell.quickPayment.customerRequired")}
+              </p>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              data-testid="split-payment-button"
+              disabled={baseDisabled}
+              title={!sessionOpen ? t("cash.registerClosedHint") : undefined}
+              onClick={() => setSplitOpen(true)}
+            >
+              <SplitSquareHorizontal className="mr-2 h-4 w-4" />
+              {t("sell.quickPayment.splitEntry")}
+            </Button>
           </div>
-
-          <div className="flex flex-col gap-1 rounded-md bg-muted/40 p-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">
-                {t("sell.subtotal")}
-              </span>
-              <span>{money(subtotal, numberFormat)}</span>
-            </div>
-            {discountTotal > 0 && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  {t("sell.discount")}
-                </span>
-                <span>-{money(discountTotal, numberFormat)}</span>
-              </div>
-            )}
-            {perceptions > 0 && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  {t("sell.perceptions")}
-                </span>
-                <span>{money(perceptions, numberFormat)}</span>
-              </div>
-            )}
-            <div className="flex justify-between border-t font-semibold">
-              <span>{t("sell.total")}</span>
-              <span>{money(total, numberFormat)}</span>
-            </div>
-            {appliedFavor > 0 && (
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">
-                  {t("sell.creditInFavor")}
-                </span>
-                <span>-{money(appliedFavor, numberFormat)}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="grid gap-3">
-            {creditMethod && (
-              <label className="flex cursor-pointer items-center gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  checked={onCredit}
-                  onChange={(e) => {
-                    setMethodId(
-                      e.target.checked
-                        ? creditMethod.id
-                        : (defaultMethod?.id ?? null),
-                    )
-                    setAutoAmount(true)
-                  }}
-                  className="h-3.5 w-3.5"
-                />
-                {t("sell.onCredit")}
-              </label>
-            )}
-            <div>
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                {t("sell.paymentMethod")}
-              </span>
-              <Select value={methodId ?? ""} onValueChange={setMethodId}>
-                <SelectTrigger data-testid="payment-method-select">
-                  <SelectValue placeholder={t("sell.selectMethod")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {methods.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {onCredit ? (
-              <div>
-                <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                  {t("sell.amountReceived")}
-                </span>
-                <p className="text-xs text-muted-foreground">
-                  {t("sell.onCreditHint", {
-                    amount: money(
-                      round2(Math.max(total - appliedFavor, 0)),
-                      numberFormat,
-                    ),
-                  })}
-                </p>
-              </div>
-            ) : (
-              <div>
-                <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                  {t("sell.amountReceived")}
-                </span>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={amount}
-                  onChange={(e) => {
-                    setAmount(Number(e.target.value) || 0)
-                    setAutoAmount(false)
-                  }}
-                />
-                {amount > 0 && amount < total && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t("sell.goOnBalance", {
-                      amount: money(round2(total - amount), numberFormat),
-                    })}
-                  </p>
-                )}
-                {cashChange > 0 && (
-                  <p className="mt-1 text-xs text-emerald-600">
-                    {t("sell.changeDue", {
-                      change: money(cashChange, numberFormat),
-                    })}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {creditInFavor > 0 && (
-              <label className="flex cursor-pointer items-center gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  checked={useCredit}
-                  onChange={(e) => {
-                    setUseCredit(e.target.checked)
-                    setAutoAmount(true)
-                  }}
-                  className="h-3.5 w-3.5"
-                />
-                {t("sell.useCredit", {
-                  credit: money(creditInFavor, numberFormat),
-                })}
-              </label>
-            )}
-          </div>
-          <LoadingButton
-            className="w-full"
-            data-testid="issue-sale-button"
-            loading={createMutation.isPending}
-            disabled={issueDisabled}
-            onClick={() => createMutation.mutate()}
-          >
-            {t("sell.issueSale", { total: money(total, numberFormat) })}
-          </LoadingButton>
-        </div>
+        </SellSidebar>
       </div>
+
+      <SplitPaymentDialog
+        open={splitOpen}
+        onOpenChange={setSplitOpen}
+        methods={methods}
+        total={total}
+        creditInFavor={creditInFavor}
+        pending={createMutation.isPending}
+        onConfirm={(payments, saleVuelto) => {
+          setSplitOpen(false)
+          createMutation.mutate({ payments, vuelto: saleVuelto })
+        }}
+      />
+
+      <QuantityModal
+        open={qtyTarget !== null}
+        product={qtyTarget?.product ?? null}
+        variant={qtyTarget?.variant}
+        onConfirm={(qty) => {
+          if (qtyTarget) addLine(qtyTarget.product, qtyTarget.variant, qty)
+          setQtyTarget(null)
+        }}
+        onOpenChange={(open) => {
+          if (!open) setQtyTarget(null)
+        }}
+      />
     </div>
   )
 }

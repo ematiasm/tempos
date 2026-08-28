@@ -149,6 +149,9 @@ export type BusinessSettingsPublic = {
     logo_path?: (string | null);
     stock_policy: StockPolicy;
     default_locale: LocalePreference;
+    default_print_format: PrintFormat;
+    voucher_footer?: (string | null);
+    voucher_legends?: (string | null);
 };
 
 export type BusinessSettingsUpdate = {
@@ -166,6 +169,9 @@ export type BusinessSettingsUpdate = {
     number_format?: (NumberFormat | null);
     stock_policy?: (StockPolicy | null);
     default_locale?: (LocalePreference | null);
+    default_print_format?: (PrintFormat | null);
+    voucher_footer?: (string | null);
+    voucher_legends?: (string | null);
 };
 
 /**
@@ -354,6 +360,23 @@ export type DocumentCreate = {
     descuento_total?: (number | string);
     lines: Array<DocumentLineCreate>;
     payments?: Array<DocumentPaymentCreate>;
+    notes?: (string | null);
+};
+
+/**
+ * Body of POST /documents/{id}/email (optional destination override).
+ *
+ * When ``email_to`` is omitted the document's counterpart email is used.
+ */
+export type DocumentEmailCreate = {
+    email_to?: (string | null);
+};
+
+/**
+ * Payload of GET /documents/email-status (fail-closed visibility).
+ */
+export type DocumentEmailStatus = {
+    emails_enabled: boolean;
 };
 
 export type DocumentLineCreate = {
@@ -391,6 +414,13 @@ export type DocumentLineTaxPublic = {
     aplicado: boolean;
 };
 
+/**
+ * Body of PATCH /documents/{id}/notes (post-sale note editing).
+ */
+export type DocumentNotesUpdate = {
+    notes?: (string | null);
+};
+
 export type DocumentOperation = 'venta' | 'compra' | 'cotizacion' | 'ajuste' | 'recibo';
 
 export type DocumentPaymentCreate = {
@@ -425,12 +455,14 @@ export type DocumentPublic = {
     favor_monto?: string;
     parent_document_id?: (string | null);
     cash_session_id?: (string | null);
+    notes?: (string | null);
     created_at?: (string | null);
     document_type: DocumentTypePublic;
     lines?: Array<DocumentLinePublic>;
     taxes?: Array<DocumentTaxPublic>;
     payments?: Array<DocumentPaymentPublic>;
     contraparte_name?: (string | null);
+    contraparte_email?: (string | null);
     child_document_id?: (string | null);
     child_document_numero?: (string | null);
     cost_change_suggestions?: Array<CostChangeSuggestion>;
@@ -741,6 +773,8 @@ export type PermissionPublic = {
     description?: (string | null);
 };
 
+export type PrintFormat = 'a4' | 'ticket80';
+
 export type PrivateUserCreate = {
     email: string;
     password: string;
@@ -806,6 +840,7 @@ export type ProductPublic = {
     sku?: (string | null);
     category_id?: (string | null);
     uom_id: string;
+    uom?: (UoMPublic | null);
     description?: (string | null);
     is_active: boolean;
     margen_pct: string;
@@ -1423,6 +1458,8 @@ export type DocumentsCreateDocumentData = {
 
 export type DocumentsCreateDocumentResponse = (DocumentPublic);
 
+export type DocumentsReadEmailStatusResponse = (DocumentEmailStatus);
+
 export type DocumentsReadDocumentData = {
     documentId: string;
 };
@@ -1434,6 +1471,20 @@ export type DocumentsReadDocumentAllocationsData = {
 };
 
 export type DocumentsReadDocumentAllocationsResponse = (Array<DocumentAllocationPublic>);
+
+export type DocumentsUpdateDocumentNotesData = {
+    documentId: string;
+    requestBody: DocumentNotesUpdate;
+};
+
+export type DocumentsUpdateDocumentNotesResponse = (DocumentPublic);
+
+export type DocumentsEmailDocumentData = {
+    documentId: string;
+    requestBody: DocumentEmailCreate;
+};
+
+export type DocumentsEmailDocumentResponse = (void);
 
 export type DocumentsVoidDocumentData = {
     documentId: string;

@@ -11,9 +11,7 @@ from tests.utils.ledger import load_stock
 from tests.utils.utils import random_lower_string
 
 
-def test_seeded_credit_method_and_account(
-    client: TestClient, superuser_token_headers: dict[str, str], db: Session
-) -> None:
+def test_seeded_credit_method_and_account(db: Session) -> None:
     method = db.exec(
         select(PaymentMethod).where(PaymentMethod.name == "Crédito")
     ).first()

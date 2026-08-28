@@ -16,3 +16,8 @@ export function formatMoney(value: number, format: NumberFormat): string {
     maximumFractionDigits: 2,
   })
 }
+
+/** Format an amount with the currency symbol, e.g. `$1234.56`. */
+export function money(value: number, format: NumberFormat): string {
+  return `$${formatMoney(value, format)}`
+}

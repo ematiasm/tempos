@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { getUoms } from "./utils/api"
+import { findRowInPages } from "./utils/table"
 
 const uid = () => Math.random().toString(36).substring(7)
 
@@ -19,7 +20,8 @@ test("Create a unit of measure from the admin panel", async ({ page }) => {
     page.getByText("Unidad de medida creada correctamente"),
   ).toBeVisible()
   await expect(page.getByRole("dialog")).not.toBeVisible()
-  await expect(page.getByText(name)).toBeVisible()
+  // accumulated dev-DB rows can push the new UoM past the first page
+  await expect(await findRowInPages(page, name)).toBeVisible()
 })
 
 test("Create a tax from the admin panel", async ({ page }) => {
@@ -37,7 +39,8 @@ test("Create a tax from the admin panel", async ({ page }) => {
 
   await expect(page.getByText("Impuesto creado correctamente")).toBeVisible()
   await expect(page.getByRole("dialog")).not.toBeVisible()
-  await expect(page.getByText(name)).toBeVisible()
+  // accumulated dev-DB rows can push the new tax past the first page
+  await expect(await findRowInPages(page, name)).toBeVisible()
 })
 
 test("Create a product and find it in the catalog", async ({ page }) => {

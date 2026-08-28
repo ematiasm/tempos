@@ -112,6 +112,11 @@ class LocalePreference(enum.StrEnum):
     EN = "en"
 
 
+class PrintFormat(enum.StrEnum):
+    A4 = "a4"
+    TICKET80 = "ticket80"
+
+
 # ---------------------------------------------------------------------------
 # User schemas (input)
 # ---------------------------------------------------------------------------
@@ -186,6 +191,9 @@ class BusinessSettingsUpdate(SQLModel):
     number_format: NumberFormat | None = None
     stock_policy: StockPolicy | None = None
     default_locale: LocalePreference | None = None
+    default_print_format: PrintFormat | None = None
+    voucher_footer: str | None = Field(default=None, max_length=255)
+    voucher_legends: str | None = Field(default=None, max_length=500)
 
     @field_validator("timezone")
     @classmethod
@@ -622,6 +630,28 @@ class DocumentCreate(SQLModel):
     )
     lines: list[DocumentLineCreate] = Field(min_length=1)
     payments: list[DocumentPaymentCreate] = Field(default_factory=list)
+    notes: str | None = Field(default=None, max_length=500)
+
+
+class DocumentNotesUpdate(SQLModel):
+    """Body of PATCH /documents/{id}/notes (post-sale note editing)."""
+
+    notes: str | None = Field(default=None, max_length=500)
+
+
+class DocumentEmailCreate(SQLModel):
+    """Body of POST /documents/{id}/email (optional destination override).
+
+    When ``email_to`` is omitted the document's counterpart email is used.
+    """
+
+    email_to: EmailStr | None = None
+
+
+class DocumentEmailStatus(SQLModel):
+    """Payload of GET /documents/email-status (fail-closed visibility)."""
+
+    emails_enabled: bool
 
 
 # ---------------------------------------------------------------------------
@@ -724,6 +754,13 @@ class BusinessSettings(SQLModel, table=True):
     logo_path: str | None = Field(default=None, max_length=255)
     stock_policy: StockPolicy = Field(default=StockPolicy.WARN, max_length=10)
     default_locale: LocalePreference = Field(default=LocalePreference.EN, max_length=5)
+    # Voucher print profile preselected by the print dialog (A4 or 80mm).
+    default_print_format: PrintFormat = Field(default=PrintFormat.A4, max_length=10)
+    # Footer text printed under the voucher totals; NULL renders nothing.
+    voucher_footer: str | None = Field(default=None, max_length=255)
+    # Extra legends (newline-separated) printed under the footer; NULL
+    # renders nothing.
+    voucher_legends: str | None = Field(default=None, max_length=500)
 
 
 # ---------------------------------------------------------------------------
@@ -1114,6 +1151,10 @@ class Document(SQLModel, table=True):
     cash_session_id: uuid.UUID | None = Field(
         default=None, foreign_key="cashregistersession.id", index=True
     )
+    # Free-text printable note (post-sale editable); printed on vouchers when
+    # present. Documents are not ledger tables: editing the note touches no
+    # movement rows.
+    notes: str | None = Field(default=None, max_length=500)
     # Reserved for the future AFIP/ARCA integration; unused until then.
     cae: str | None = Field(default=None, max_length=20)
     cae_vto: datetime | None = Field(
@@ -1366,6 +1407,9 @@ class BusinessSettingsPublic(SQLModel):
     logo_path: str | None = None
     stock_policy: StockPolicy
     default_locale: LocalePreference
+    default_print_format: PrintFormat
+    voucher_footer: str | None = None
+    voucher_legends: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -1418,6 +1462,9 @@ class ProductPublic(SQLModel):
     sku: str | None = None
     category_id: uuid.UUID | None = None
     uom_id: uuid.UUID
+    # Nested UoM (search results carry it so quantity precision and display
+    # abbreviations need no extra round-trip).
+    uom: UoMPublic | None = None
     description: str | None = None
     is_active: bool
     margen_pct: Decimal
@@ -1712,6 +1759,7 @@ class DocumentPublic(SQLModel):
     favor_monto: Decimal = Decimal("0")
     parent_document_id: uuid.UUID | None = None
     cash_session_id: uuid.UUID | None = None
+    notes: str | None = None
     created_at: datetime | None = None
     document_type: DocumentTypePublic
     lines: list[DocumentLinePublic] = []
@@ -1719,6 +1767,9 @@ class DocumentPublic(SQLModel):
     payments: list[DocumentPaymentPublic] = []
     # Resolved from the polymorphic counterpart (customer/supplier name).
     contraparte_name: str | None = None
+    # Resolved counterpart email; lets the post-sale dialog decide between
+    # auto-send and prompting for an address.
+    contraparte_email: str | None = None
     # Active document derived from this one (for quotes: its invoice).
     child_document_id: uuid.UUID | None = None
     child_document_numero: str | None = None

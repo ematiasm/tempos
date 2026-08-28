@@ -74,6 +74,7 @@ export interface ApiDocument {
   estado: string
   total: string
   favor_monto?: string
+  notes?: string | null
   parent_document_id: string | null
   contraparte_id: string | null
   lines: { id: string; cantidad: string; precio_unit: string }[]
@@ -213,6 +214,9 @@ export const createSale = async (
     paid?: boolean
   },
 ): Promise<ApiDocument> => {
+  // Sales (VENTA documents) are rejected with `cash_session_required` when no
+  // cash session is open (cold-start DBs); ensure one first. Idempotent.
+  await ensureOpenCashSession(request)
   const types = await getDocumentTypes(request)
   const fc = findDocumentType(types, "FC")
   const customerId = data.customerId ?? (await getConsumidorFinalId(request))
@@ -341,6 +345,68 @@ export const voidDocument = (request: APIRequestContext, documentId: string) =>
     lines: [],
     payments: [],
   })
+
+export const getCurrentCashSession = async (
+  request: APIRequestContext,
+): Promise<{ id: string; status: string } | null> =>
+  api.getOne(request, "/cash-sessions/current")
+
+/**
+ * The backend rejects VENTA documents without an open cash session
+ * (`cash_session_required`), so every spec that issues sales must ensure one.
+ * Tolerates races: if opening fails because another worker just opened one,
+ * re-reads the current session before giving up.
+ */
+export const ensureOpenCashSession = async (
+  request: APIRequestContext,
+): Promise<{ id: string; status: string }> => {
+  const current = await getCurrentCashSession(request)
+  if (current && current.status === "open") return current
+  try {
+    return await api.post(request, "/cash-sessions/open", {
+      opening_amount: 0,
+    })
+  } catch {
+    const retry = await getCurrentCashSession(request)
+    if (retry && retry.status === "open") return retry
+    throw new Error("Could not ensure an open cash session")
+  }
+}
+
+export const closeCashSession = (
+  request: APIRequestContext,
+  sessionId: string,
+): Promise<unknown> =>
+  api.post(request, `/cash-sessions/${sessionId}/close`, {
+    counted_amount: 0,
+  })
+
+/**
+ * A paid, non-cash payment method (e.g. debit card) for split-payment tests.
+ */
+export const createPaidPaymentMethod = async (
+  request: APIRequestContext,
+  name: string,
+): Promise<{ id: string; name: string; marks_paid: boolean }> => {
+  const accounts = await api
+    .get<{ id: string; name: string }>(
+      request,
+      "/financial-accounts/?skip=0&limit=100",
+    )
+    .then((r) => r.data)
+  const account = accounts[0]
+  if (!account) throw new Error("No financial accounts seeded")
+  return api.post<{ id: string; name: string; marks_paid: boolean }>(
+    request,
+    "/payment-methods/",
+    {
+      name,
+      financial_account_id: account.id,
+      marks_paid: true,
+      requiere_conciliacion: false,
+    },
+  )
+}
 
 export const getUoms = (request: APIRequestContext) =>
   api

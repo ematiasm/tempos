@@ -1,0 +1,81 @@
+<mjml>
+  <mj-body background-color="#fafbfc">
+    <mj-section background-color="#fff" padding="24px 20px">
+      <mj-column width="100%">
+        <mj-text align="center" font-size="20px" color="#333" font-family="Arial, Helvetica, sans-serif">{{ business_name }}</mj-text>
+        {% if business_address %}
+        <mj-text align="center" font-size="12px" color="#777" font-family="Arial, Helvetica, sans-serif">{{ business_address }}</mj-text>
+        {% endif %}
+        {% if business_phone %}
+        <mj-text align="center" font-size="12px" color="#777" font-family="Arial, Helvetica, sans-serif">{{ business_phone }}</mj-text>
+        {% endif %}
+        {% if business_cuit %}
+        <mj-text align="center" font-size="12px" color="#777" font-family="Arial, Helvetica, sans-serif">CUIT: {{ business_cuit }}</mj-text>
+        {% endif %}
+        <mj-divider border-color="#ccc" border-width="1px"></mj-divider>
+        <mj-text align="center" font-size="16px" color="#333" font-family="Arial, Helvetica, sans-serif">Voucher {{ numero }}</mj-text>
+        <mj-text align="center" font-size="12px" color="#777" font-family="Arial, Helvetica, sans-serif">{{ fecha }}</mj-text>
+        {% if customer_name %}
+        <mj-text align="center" font-size="14px" color="#555" font-family="Arial, Helvetica, sans-serif">{{ customer_name }}</mj-text>
+        {% endif %}
+        <mj-divider border-color="#eee" border-width="1px"></mj-divider>
+        <mj-table font-family="Arial, Helvetica, sans-serif" font-size="13px" color="#555">
+          <tr style="border-bottom:1px solid #eee">
+            <td style="padding:6px" width="50%">Item</td>
+            <td style="padding:6px" align="right">Qty</td>
+            <td style="padding:6px" align="right">Price</td>
+            <td style="padding:6px" align="right">Subtotal</td>
+          </tr>
+          {% for line in lines %}
+          <tr>
+            <td style="padding:6px">{{ line.name }}</td>
+            <td style="padding:6px" align="right">{{ line.cantidad }}</td>
+            <td style="padding:6px" align="right">{{ line.precio_unit }}</td>
+            <td style="padding:6px" align="right">{{ line.subtotal_line }}</td>
+          </tr>
+          {% endfor %}
+        </mj-table>
+        <mj-table font-family="Arial, Helvetica, sans-serif" font-size="13px" color="#555">
+          <tr>
+            <td style="padding:4px 6px" align="right">Subtotal</td>
+            <td style="padding:4px 6px" align="right" width="120">{{ subtotal }}</td>
+          </tr>
+          {% if descuento_total and descuento_total != "0.00" and descuento_total != "0" %}
+          <tr>
+            <td style="padding:4px 6px" align="right">Discount</td>
+            <td style="padding:4px 6px" align="right">-{{ descuento_total }}</td>
+          </tr>
+          {% endif %}
+          <tr>
+            <td style="padding:4px 6px" align="right"><strong>Total</strong></td>
+            <td style="padding:4px 6px" align="right"><strong>{{ total }}</strong></td>
+          </tr>
+        </mj-table>
+        {% if payments %}
+        <mj-divider border-color="#eee" border-width="1px"></mj-divider>
+        <mj-table font-family="Arial, Helvetica, sans-serif" font-size="13px" color="#555">
+          {% for payment in payments %}
+          <tr>
+            <td style="padding:4px 6px">{{ payment.method_name }}</td>
+            <td style="padding:4px 6px" align="right" width="120">{{ payment.monto }}</td>
+          </tr>
+          {% endfor %}
+        </mj-table>
+        {% endif %}
+        {% if notes %}
+        <mj-divider border-color="#eee" border-width="1px"></mj-divider>
+        <mj-text font-size="13px" color="#555" font-family="Arial, Helvetica, sans-serif">Note: {{ notes }}</mj-text>
+        {% endif %}
+        {% if voucher_footer %}
+        <mj-divider border-color="#eee" border-width="1px"></mj-divider>
+        <mj-text align="center" font-size="12px" color="#777" font-family="Arial, Helvetica, sans-serif">{{ voucher_footer }}</mj-text>
+        {% endif %}
+        {% if voucher_legends %}
+        {% for legend in voucher_legends %}
+        <mj-text align="center" font-size="11px" color="#999" font-family="Arial, Helvetica, sans-serif">{{ legend }}</mj-text>
+        {% endfor %}
+        {% endif %}
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

@@ -55,6 +55,7 @@ import {
   getColumns as getFinancialAccountColumns,
 } from "@/components/Admin/financialAccountColumns"
 import GeneralSettings from "@/components/Admin/GeneralSettings"
+import PrintingSettings from "@/components/Admin/PrintingSettings"
 import {
   getColumns as getPaymentMethodColumns,
   type PaymentMethodTableData,
@@ -617,6 +618,7 @@ function Admin() {
             {t("admin.tabDocumentTypes")}
           </TabsTrigger>
           <TabsTrigger value="finance">{t("admin.tabFinance")}</TabsTrigger>
+          <TabsTrigger value="printing">{t("admin.tabPrinting")}</TabsTrigger>
           <TabsTrigger value="backups">{t("admin.tabBackups")}</TabsTrigger>
         </TabsList>
         <TabsContent value="general">
@@ -642,6 +644,9 @@ function Admin() {
         </TabsContent>
         <TabsContent value="finance">
           <FinanceTab />
+        </TabsContent>
+        <TabsContent value="printing">
+          <PrintingSettings />
         </TabsContent>
         <TabsContent value="backups">
           <BackupsTab />

@@ -9,24 +9,31 @@ from sqlmodel import col, func, select
 
 from app import crud
 from app.api.deps import CurrentUser, PaginationDep, SessionDep, require_permissions
+from app.core.config import settings
 from app.models import (
+    BusinessSettings,
     CounterpartType,
     Customer,
     Document,
     DocumentAllocationPublic,
     DocumentCreate,
+    DocumentEmailCreate,
+    DocumentEmailStatus,
     DocumentLine,
+    DocumentNotesUpdate,
     DocumentPaymentAllocation,
     DocumentPublic,
     DocumentStatus,
     DocumentTypePublic,
     DocumentVoidCreate,
     Page,
+    PaymentMethod,
     Product,
     Supplier,
     User,
     UserPublic,
 )
+from app.utils import render_email_template, send_email
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -55,24 +62,19 @@ def _attach_counterpart_names(
         if d.contraparte_type == CounterpartType.SUPPLIER and d.contraparte_id
     }
     names: dict[uuid.UUID, str] = {}
+    emails: dict[uuid.UUID, str | None] = {}
     if customer_ids:
-        names.update(
-            {
-                c.id: c.razon_social
-                for c in session.exec(
-                    select(Customer).where(col(Customer.id).in_(customer_ids))
-                ).all()
-            }
-        )
+        customers = session.exec(
+            select(Customer).where(col(Customer.id).in_(customer_ids))
+        ).all()
+        names.update({c.id: c.razon_social for c in customers})
+        emails.update({c.id: c.email for c in customers})
     if supplier_ids:
-        names.update(
-            {
-                s.id: s.razon_social
-                for s in session.exec(
-                    select(Supplier).where(col(Supplier.id).in_(supplier_ids))
-                ).all()
-            }
-        )
+        suppliers = session.exec(
+            select(Supplier).where(col(Supplier.id).in_(supplier_ids))
+        ).all()
+        names.update({s.id: s.razon_social for s in suppliers})
+        emails.update({s.id: s.email for s in suppliers})
     # Active children (for quotes: the invoice they were converted into).
     parent_ids = [d.id for d in documents]
     children = (
@@ -91,6 +93,9 @@ def _attach_counterpart_names(
         public = DocumentPublic.model_validate(document)
         public.contraparte_name = (
             names.get(document.contraparte_id) if document.contraparte_id else None
+        )
+        public.contraparte_email = (
+            emails.get(document.contraparte_id) if document.contraparte_id else None
         )
         child = child_map.get(document.id)
         if child:
@@ -191,6 +196,24 @@ def read_documents(
 
 
 @router.get(
+    "/email-status",
+    response_model=DocumentEmailStatus,
+    dependencies=[require_permissions("document.email")],
+)
+def read_email_status() -> Any:
+    """Whether outbound email delivery is configured (fail-closed).
+
+    Guarded by ``document.email`` (not ``settings.read``) so it matches
+    exactly who sees the email action on the sell screen.
+    """
+    try:
+        enabled = bool(settings.emails_enabled)
+    except Exception:
+        enabled = False
+    return DocumentEmailStatus(emails_enabled=enabled)
+
+
+@router.get(
     "/{document_id}",
     response_model=DocumentPublic,
     dependencies=[require_permissions("document.read")],
@@ -272,6 +295,179 @@ def create_document(
     public.cost_change_suggestions = cost_suggestions
     public.stock_warnings = stock_warnings
     return public
+
+
+@router.patch(
+    "/{document_id}/notes",
+    response_model=DocumentPublic,
+    dependencies=[require_permissions("document.create")],
+)
+def update_document_notes(
+    *,
+    session: SessionDep,
+    document_id: uuid.UUID,
+    notes_in: DocumentNotesUpdate,
+) -> Any:
+    """Set or clear the printable note of an ACTIVE document."""
+    document = session.get(Document, document_id)
+    if not document:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "document_not_found", "message": "Document not found"},
+        )
+    try:
+        document = crud.update_document_notes(
+            session=session, document=document, notes=notes_in.notes
+        )
+    except crud.BusinessError as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=400, detail={"code": e.code, "message": e.message}
+        ) from e
+    public = _attach_counterpart_names(session, [document])[0]
+    _attach_line_product_names(session, [public])
+    return public
+
+
+def _counterpart_display_name(session: SessionDep, document: Document) -> str | None:
+    """Resolve the counterpart display name for a single document."""
+    if not document.contraparte_id:
+        return None
+    counterpart: Customer | Supplier | None = None
+    if document.contraparte_type == CounterpartType.CUSTOMER:
+        counterpart = session.get(Customer, document.contraparte_id)
+    elif document.contraparte_type == CounterpartType.SUPPLIER:
+        counterpart = session.get(Supplier, document.contraparte_id)
+    return counterpart.razon_social if counterpart else None
+
+
+def _document_email_context(session: SessionDep, document: Document) -> dict[str, Any]:
+    """Build the voucher-email template context (read-only; no DB write)."""
+    bs = session.exec(select(BusinessSettings)).first()
+    product_ids = {line.product_id for line in document.lines}
+    product_names = (
+        dict(
+            session.exec(
+                select(Product.id, Product.name).where(col(Product.id).in_(product_ids))
+            ).all()
+        )
+        if product_ids
+        else {}
+    )
+    method_ids = {p.payment_method_id for p in document.payments}
+    method_names = (
+        dict(
+            session.exec(
+                select(PaymentMethod.id, PaymentMethod.name).where(
+                    col(PaymentMethod.id).in_(method_ids)
+                )
+            ).all()
+        )
+        if method_ids
+        else {}
+    )
+    return {
+        "business_name": bs.business_name if bs else "",
+        "business_address": bs.address if bs else None,
+        "business_phone": bs.phone if bs else None,
+        "business_cuit": bs.cuit if bs else None,
+        "numero": document.numero,
+        "fecha": document.fecha.strftime("%Y-%m-%d %H:%M"),
+        "customer_name": _counterpart_display_name(session, document),
+        "lines": [
+            {
+                "name": product_names.get(line.product_id),
+                "cantidad": str(line.cantidad),
+                "precio_unit": str(line.precio_unit),
+                "subtotal_line": str(line.subtotal_line),
+            }
+            for line in sorted(document.lines, key=lambda x: x.orden)
+        ],
+        "subtotal": str(document.subtotal),
+        "descuento_total": str(document.descuento_total),
+        "total": str(document.total),
+        "payments": [
+            {
+                "method_name": method_names.get(p.payment_method_id),
+                "monto": str(p.monto),
+            }
+            for p in document.payments
+        ],
+        "notes": document.notes,
+        "voucher_footer": bs.voucher_footer if bs else None,
+        "voucher_legends": (
+            bs.voucher_legends.splitlines() if bs and bs.voucher_legends else []
+        ),
+    }
+
+
+@router.post(
+    "/{document_id}/email",
+    status_code=204,
+    dependencies=[require_permissions("document.email")],
+)
+def email_document(
+    *, session: SessionDep, document_id: uuid.UUID, email_in: DocumentEmailCreate
+) -> None:
+    """Email the document voucher to the counterpart (or an explicit address).
+
+    Read-only on the database: the document is never modified, so an SMTP
+    failure degrades to a business error with nothing to roll back.
+    """
+    document = session.exec(
+        select(Document)
+        .where(col(Document.id) == document_id)
+        .options(*_document_query_options())
+    ).first()
+    if not document:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "document_not_found", "message": "Document not found"},
+        )
+    if not settings.emails_enabled:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "email_not_enabled",
+                "message": "Outbound email is not configured",
+            },
+        )
+    email_to = email_in.email_to
+    if not email_to and document.contraparte_id:
+        counterpart: Customer | Supplier | None = None
+        if document.contraparte_type == CounterpartType.CUSTOMER:
+            counterpart = session.get(Customer, document.contraparte_id)
+        elif document.contraparte_type == CounterpartType.SUPPLIER:
+            counterpart = session.get(Supplier, document.contraparte_id)
+        email_to = counterpart.email if counterpart else None
+    if not email_to:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "document_email_missing_address",
+                "message": "No email address is available for this document",
+            },
+        )
+    context = _document_email_context(session, document)
+    try:
+        html_content = render_email_template(
+            template_name="document_voucher.html", context=context
+        )
+        send_email(
+            email_to=email_to,
+            subject=f"{context['business_name']} - Voucher {document.numero}",
+            html_content=html_content,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "document_email_failed",
+                "message": "The voucher email could not be sent",
+            },
+        ) from e
 
 
 @router.post(

@@ -170,6 +170,217 @@ def test_create_sale_document_computes_totals_and_taxes(
     assert doc["payments"][0]["monto"] == "297.80"
 
 
+def _create_debit_method(client: TestClient, headers: dict[str, str]) -> dict:
+    """A marks_paid method that is NOT the cash drawer (e.g. debit card)."""
+    r = client.post(
+        f"{settings.API_V1_STR}/financial-accounts/",
+        headers=headers,
+        json={"name": random_lower_string()[:12]},
+    )
+    assert r.status_code == 200, r.text
+    account_id = r.json()["id"]
+    r = client.post(
+        f"{settings.API_V1_STR}/payment-methods/",
+        headers=headers,
+        json={
+            "name": random_lower_string()[:12],
+            "financial_account_id": account_id,
+            "marks_paid": True,
+            "is_cash_drawer": False,
+        },
+    )
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _documents_count(client: TestClient, headers: dict[str, str]) -> int:
+    r = client.get(f"{settings.API_V1_STR}/documents/", headers=headers)
+    assert r.status_code == 200, r.text
+    return r.json()["count"]
+
+
+def _customer_saldo_str(
+    client: TestClient, headers: dict[str, str], customer_id: str
+) -> str:
+    r = client.get(f"{settings.API_V1_STR}/customers/{customer_id}", headers=headers)
+    assert r.status_code == 200, r.text
+    return r.json()["saldo"]
+
+
+def test_credit_exceeds_total_rejected(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Credit rows above the unpaid remainder are rejected (400), no document.
+
+    Today the balance math silently truncates the credit row (row says 900,
+    ledger books 800); the spec forbids the silent truncation.
+    """
+    customer = _create_customer(client, superuser_token_headers)
+    product = _create_product(client, superuser_token_headers)
+    credit_method = db.exec(
+        select(PaymentMethod).where(PaymentMethod.name == "Crédito")
+    ).first()
+    assert credit_method is not None, "Seeded credit payment method not found"
+    tck = _doc_type_id(client, superuser_token_headers, "TCK")
+    payload = {
+        "document_type_id": tck,
+        "contraparte_id": customer["id"],
+        "lines": [
+            {
+                "product_id": product["id"],
+                "cantidad": "1",
+                "precio_unit": "1000.00",
+                "tax_ids": [],
+            }
+        ],
+        "payments": [
+            {"payment_method_id": _cash_method_id(db), "monto": "200.00"},
+            {"payment_method_id": str(credit_method.id), "monto": "900.00"},
+        ],
+    }
+    count_before = _documents_count(client, superuser_token_headers)
+    r = client.post(
+        f"{settings.API_V1_STR}/documents/",
+        headers=superuser_token_headers,
+        json=payload,
+    )
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "credit_exceeds_total"
+    # no document may be created and no balance change may leak
+    assert _documents_count(client, superuser_token_headers) == count_before
+    assert _customer_saldo_str(client, superuser_token_headers, customer["id"]) in (
+        "0.00",
+        "0",
+    )
+
+
+def test_non_cash_payment_exceeds_total_rejected(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """A non-cash paid row above the total is rejected (400), no document.
+
+    Today the excess silently becomes credit in favor for the customer; the
+    spec forbids non-cash overpayment.
+    """
+    customer = _create_customer(client, superuser_token_headers)
+    product = _create_product(client, superuser_token_headers)
+    debit = _create_debit_method(client, superuser_token_headers)
+    tck = _doc_type_id(client, superuser_token_headers, "TCK")
+    payload = {
+        "document_type_id": tck,
+        "contraparte_id": customer["id"],
+        "lines": [
+            {
+                "product_id": product["id"],
+                "cantidad": "1",
+                "precio_unit": "1000.00",
+                "tax_ids": [],
+            }
+        ],
+        "payments": [{"payment_method_id": debit["id"], "monto": "1100.00"}],
+    }
+    count_before = _documents_count(client, superuser_token_headers)
+    r = client.post(
+        f"{settings.API_V1_STR}/documents/",
+        headers=superuser_token_headers,
+        json=payload,
+    )
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "payment_exceeds_total"
+    assert _documents_count(client, superuser_token_headers) == count_before
+    assert _customer_saldo_str(client, superuser_token_headers, customer["id"]) in (
+        "0.00",
+        "0",
+    )
+
+
+def test_full_cash_overpay_stays_permissive(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Regression guard: a full cash overpay keeps the on-account semantics."""
+    customer = _create_customer(client, superuser_token_headers)
+    product = _create_product(client, superuser_token_headers)
+    tck = _doc_type_id(client, superuser_token_headers, "TCK")
+    payload = {
+        "document_type_id": tck,
+        "contraparte_id": customer["id"],
+        "lines": [
+            {
+                "product_id": product["id"],
+                "cantidad": "1",
+                "precio_unit": "1000.00",
+                "tax_ids": [],
+            }
+        ],
+        "payments": [{"payment_method_id": _cash_method_id(db), "monto": "1200.00"}],
+    }
+    doc = _create_doc(client, superuser_token_headers, payload)
+    assert doc["total"] == "1000.00"
+    assert doc["payments"][0]["monto"] == "1200.00"
+    # excess 200 stays as the customer's credit in favor (negative saldo)
+    assert _customer_saldo_str(client, superuser_token_headers, customer["id"]) == (
+        "-200.00"
+    )
+
+
+def test_favor_auto_coverage_with_effective_cash_row(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Pinned contract (gate for the split-payment UX): total 1000, customer
+    saldo −200, cash row 800 (the effective amount after the frontend caps
+    the vuelto) → favor_monto 200 and the balance nets to zero; the vuelto
+    (100) never reaches the ledger.
+    """
+    customer = _create_customer(client, superuser_token_headers)
+    product = _create_product(client, superuser_token_headers)
+    tck = _doc_type_id(client, superuser_token_headers, "TCK")
+
+    # the customer ends with 200.00 credit in favor
+    seed = {
+        "document_type_id": tck,
+        "contraparte_id": customer["id"],
+        "lines": [
+            {
+                "product_id": product["id"],
+                "cantidad": "1",
+                "precio_unit": "1000.00",
+                "tax_ids": [],
+            }
+        ],
+        "payments": [{"payment_method_id": _cash_method_id(db), "monto": "1200.00"}],
+    }
+    _create_doc(client, superuser_token_headers, seed)
+    assert _customer_saldo_str(client, superuser_token_headers, customer["id"]) == (
+        "-200.00"
+    )
+
+    # sale of 1000 with the effective cash row 800: the unpaid 200 is covered
+    # by the credit in favor
+    doc = _create_doc(
+        client,
+        superuser_token_headers,
+        {
+            "document_type_id": tck,
+            "contraparte_id": customer["id"],
+            "lines": [
+                {
+                    "product_id": product["id"],
+                    "cantidad": "1",
+                    "precio_unit": "1000.00",
+                    "tax_ids": [],
+                }
+            ],
+            "payments": [{"payment_method_id": _cash_method_id(db), "monto": "800.00"}],
+        },
+    )
+    assert doc["favor_monto"] == "200.00"
+    assert doc["payments"][0]["monto"] == "800.00"
+    assert _customer_saldo_str(client, superuser_token_headers, customer["id"]) in (
+        "0.00",
+        "0",
+    )
+
+
 def test_document_numbering_sequential_per_type(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:

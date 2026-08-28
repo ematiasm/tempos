@@ -865,10 +865,35 @@ export const BusinessSettingsPublicSchema = {
         },
         default_locale: {
             '$ref': '#/components/schemas/LocalePreference'
+        },
+        default_print_format: {
+            '$ref': '#/components/schemas/PrintFormat'
+        },
+        voucher_footer: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Voucher Footer'
+        },
+        voucher_legends: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Voucher Legends'
         }
     },
     type: 'object',
-    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants', 'timezone', 'number_format', 'stock_policy', 'default_locale'],
+    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants', 'timezone', 'number_format', 'stock_policy', 'default_locale', 'default_print_format'],
     title: 'BusinessSettingsPublic'
 } as const;
 
@@ -1034,6 +1059,40 @@ export const BusinessSettingsUpdateSchema = {
                     type: 'null'
                 }
             ]
+        },
+        default_print_format: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PrintFormat'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        voucher_footer: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Voucher Footer'
+        },
+        voucher_legends: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 500
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Voucher Legends'
         }
     },
     type: 'object',
@@ -2066,11 +2125,58 @@ export const DocumentCreateSchema = {
             },
             type: 'array',
             title: 'Payments'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 500
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
         }
     },
     type: 'object',
     required: ['document_type_id', 'lines'],
     title: 'DocumentCreate'
+} as const;
+
+export const DocumentEmailCreateSchema = {
+    properties: {
+        email_to: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'email'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Email To'
+        }
+    },
+    type: 'object',
+    title: 'DocumentEmailCreate',
+    description: `Body of POST /documents/{id}/email (optional destination override).
+
+When \`\`email_to\`\` is omitted the document's counterpart email is used.`
+} as const;
+
+export const DocumentEmailStatusSchema = {
+    properties: {
+        emails_enabled: {
+            type: 'boolean',
+            title: 'Emails Enabled'
+        }
+    },
+    type: 'object',
+    required: ['emails_enabled'],
+    title: 'DocumentEmailStatus',
+    description: 'Payload of GET /documents/email-status (fail-closed visibility).'
 } as const;
 
 export const DocumentLineCreateSchema = {
@@ -2313,6 +2419,26 @@ export const DocumentLineTaxPublicSchema = {
     title: 'DocumentLineTaxPublic'
 } as const;
 
+export const DocumentNotesUpdateSchema = {
+    properties: {
+        notes: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 500
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        }
+    },
+    type: 'object',
+    title: 'DocumentNotesUpdate',
+    description: 'Body of PATCH /documents/{id}/notes (post-sale note editing).'
+} as const;
+
 export const DocumentOperationSchema = {
     type: 'string',
     enum: ['venta', 'compra', 'cotizacion', 'ajuste', 'recibo'],
@@ -2523,6 +2649,17 @@ export const DocumentPublicSchema = {
             ],
             title: 'Cash Session Id'
         },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
         created_at: {
             anyOf: [
                 {
@@ -2572,6 +2709,17 @@ export const DocumentPublicSchema = {
                 }
             ],
             title: 'Contraparte Name'
+        },
+        contraparte_email: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contraparte Email'
         },
         child_document_id: {
             anyOf: [
@@ -3906,6 +4054,12 @@ export const PermissionPublicSchema = {
     title: 'PermissionPublic'
 } as const;
 
+export const PrintFormatSchema = {
+    type: 'string',
+    enum: ['a4', 'ticket80'],
+    title: 'PrintFormat'
+} as const;
+
 export const PrivateUserCreateSchema = {
     properties: {
         email: {
@@ -4232,6 +4386,16 @@ export const ProductPublicSchema = {
             type: 'string',
             format: 'uuid',
             title: 'Uom Id'
+        },
+        uom: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/UoMPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         },
         description: {
             anyOf: [

@@ -1,0 +1,45 @@
+# Typos hook configuration.
+#
+# This repository intentionally contains Spanish domain vocabulary (see
+# AGENTS.md, "Language rule" -> "Domain vocabulary exception"): DB column
+# names, persisted enum values, seed labels and Spanish UI copy (the default
+# locale is `es`). The words below are correct Spanish, not typos, so they are
+# whitelisted via identity mappings. Only words actually flagged by the
+# `typos` hook are listed here; do not extend it with unrelated words.
+[default.extend-words]
+# Domain columns and enum values (comision_pct, limite_credito,
+# requiere_conciliacion, saldo_inicial, ...).
+comision = "comision"
+inicial = "inicial"
+limite = "limite"
+requiere = "requiere"
+# Spanish seed labels and UI copy (default locale is `es`).
+Calle = "Calle"
+caracteres = "caracteres"
+cliente = "cliente"
+clientes = "clientes"
+descripcion = "descripcion"
+historial = "historial"
+importes = "importes"
+informe = "informe"
+inmutable = "inmutable"
+inventario = "inventario"
+producto = "producto"
+productos = "productos"
+Registrate = "Registrate"
+Reportes = "Reportes"
+Responsable = "Responsable"
+ser = "ser"
+Sur = "Sur"
+tema = "tema"
+variante = "variante"
+variantes = "variantes"
+varios = "varios"
+vas = "vas"
+# Document-type prefixes (Remito) and credit/debit note abbreviations.
+ND = "ND"
+RTO = "RTO"
+
+[default.extend-identifiers]
+# Upstream template's GitHub Actions job naming pattern (re-actors/alls-green).
+alls = "alls"

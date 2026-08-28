@@ -2,6 +2,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy import case
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, func, or_, select
@@ -118,10 +119,24 @@ def search_products(
 ) -> Any:
     """Search active products by name, SKU or barcode (case-insensitive).
 
-    Returns the top matches ordered by name; meant for the point-of-sale
+    Results are ranked in three tiers: exact barcode match first (product- or
+    variant-level codes), then exact name match, then partial matches; within
+    each tier products are ordered by name. Meant for the point-of-sale
     lookup where the typing is live and the result set is small.
     """
     term = f"%{q.strip()}%"
+    exact = q.strip()
+    # SQL CASE tiering (not post-LIMIT Python re-ranking): an exact match
+    # buried beyond the limit window must still win. Barcode rows carry
+    # product_id for variant barcodes too, so one subquery covers both.
+    barcode_tier = col(Product.id).in_(
+        select(col(Barcode.product_id)).where(col(Barcode.code).ilike(exact))
+    )
+    match_tier = case(
+        (barcode_tier, 0),
+        (col(Product.name).ilike(exact), 1),
+        else_=2,
+    )
     products = session.exec(
         select(Product)
         .where(Product.is_active)
@@ -137,6 +152,7 @@ def search_products(
         .options(
             selectinload(Product.taxes),  # type: ignore
             selectinload(Product.barcodes),  # type: ignore
+            selectinload(Product.uom),  # type: ignore
             selectinload(Product.variants).selectinload(  # type: ignore
                 ProductVariant.barcodes  # type: ignore
             ),
@@ -144,7 +160,7 @@ def search_products(
                 ProductVariant.attribute_values  # type: ignore
             ),
         )
-        .order_by(Product.name)
+        .order_by(match_tier, col(Product.name))
         .limit(limit)
     ).all()
     return Page[ProductPublic](
