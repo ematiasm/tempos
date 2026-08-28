@@ -35,6 +35,7 @@ export function useSellCart() {
   const addLine = (
     product: CartLine["product"],
     variant?: CartLine["variant"],
+    qty = 1,
   ) => {
     const existing = cart.find(
       (l) =>
@@ -44,7 +45,7 @@ export function useSellCart() {
     if (existing) {
       setCart((prev) =>
         prev.map((l) =>
-          l === existing ? { ...l, qty: round2(l.qty + 1) } : l,
+          l === existing ? { ...l, qty: round2(l.qty + qty) } : l,
         ),
       )
     } else {
@@ -53,7 +54,7 @@ export function useSellCart() {
         {
           product,
           variant,
-          qty: 1,
+          qty,
           unitPrice: Number(product.precio_venta),
           discountPct: 0,
         },

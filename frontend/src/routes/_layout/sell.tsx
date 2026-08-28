@@ -7,6 +7,8 @@ import type {
   DocumentPaymentCreate,
   DocumentPublic,
   PaymentMethodPublic,
+  ProductPublic,
+  ProductVariantPublic,
 } from "@/client"
 import {
   CustomersService,
@@ -19,6 +21,7 @@ import { CartTable } from "@/components/Sell/CartTable"
 import { CashRegisterBar } from "@/components/Sell/CashRegisterBar"
 import ProductSearch from "@/components/Sell/ProductSearch"
 import { round2 } from "@/components/Sell/paymentMath"
+import { QuantityModal } from "@/components/Sell/QuantityModal"
 import { QuickPaymentBar } from "@/components/Sell/QuickPaymentBar"
 import { SellSidebar } from "@/components/Sell/SellSidebar"
 import { SplitPaymentDialog } from "@/components/Sell/SplitPaymentDialog"
@@ -105,6 +108,11 @@ function Sell() {
   const [printOpen, setPrintOpen] = useState(false)
   const [created, setCreated] = useState<DocumentPublic | null>(null)
   const [vuelto, setVuelto] = useState(0)
+  // decimal-UoM product waiting for a hand-typed quantity (see QuantityModal)
+  const [qtyTarget, setQtyTarget] = useState<{
+    product: ProductPublic
+    variant?: ProductVariantPublic
+  } | null>(null)
 
   const selectedCustomer = customers.find((c) => c.id === customerId) ?? null
   const creditInFavor =
@@ -212,6 +220,19 @@ function Sell() {
     setVuelto(0)
   }
 
+  // Products whose UoM allows decimals never auto-add 1: the operator hand-
+  // types the quantity in the modal. Integer UoMs keep the auto-add behavior.
+  const handleAdd = (
+    product: ProductPublic,
+    variant?: ProductVariantPublic,
+  ) => {
+    if ((product.uom?.decimal_places ?? 0) > 0) {
+      setQtyTarget({ product, variant })
+      return
+    }
+    addLine(product, variant)
+  }
+
   if (created) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 rounded-lg border py-16 text-center">
@@ -270,7 +291,7 @@ function Sell() {
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="flex flex-1 flex-col gap-4">
-          <ProductSearch onAdd={addLine} />
+          <ProductSearch onAdd={handleAdd} />
 
           {cart.length === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -347,6 +368,19 @@ function Sell() {
         onConfirm={(payments, saleVuelto) => {
           setSplitOpen(false)
           createMutation.mutate({ payments, vuelto: saleVuelto })
+        }}
+      />
+
+      <QuantityModal
+        open={qtyTarget !== null}
+        product={qtyTarget?.product ?? null}
+        variant={qtyTarget?.variant}
+        onConfirm={(qty) => {
+          if (qtyTarget) addLine(qtyTarget.product, qtyTarget.variant, qty)
+          setQtyTarget(null)
+        }}
+        onOpenChange={(open) => {
+          if (!open) setQtyTarget(null)
         }}
       />
     </div>

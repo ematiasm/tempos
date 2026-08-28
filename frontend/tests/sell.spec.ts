@@ -714,6 +714,293 @@ test.describe("Sell flow", () => {
     expect(after?.saldo).toBe("50.00")
   })
 
+  test("Search keyboard navigation moves the highlight without wrapping", async ({
+    page,
+    request,
+  }) => {
+    const suffix = uid()
+    const names = ["Alfa", "Beta", "Gamma"].map(
+      (greek) => `NavProducto ${suffix} ${greek}`,
+    )
+    const uoms = await getUoms(request)
+    const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
+    for (const [i, name] of names.entries()) {
+      await createProduct(request, {
+        name,
+        sku: `NAV-${suffix}-${i}`,
+        uom_id: uom.id,
+        costo_actual: 100,
+        margen_pct: 50,
+      })
+    }
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(`NavProducto ${suffix}`)
+    const options = page.getByTestId("search-option")
+    await expect(options).toHaveCount(3)
+
+    // the first suggestion starts highlighted; two ArrowDowns reach the third
+    await expect(options.nth(0)).toHaveAttribute("data-highlighted", "true")
+    await page.getByTestId("product-search").press("ArrowDown")
+    await expect(options.nth(1)).toHaveAttribute("data-highlighted", "true")
+    await page.getByTestId("product-search").press("ArrowDown")
+    await expect(options.nth(2)).toHaveAttribute("data-highlighted", "true")
+
+    // no wrap past the ends
+    await page.getByTestId("product-search").press("ArrowDown")
+    await expect(options.nth(2)).toHaveAttribute("data-highlighted", "true")
+    await page.getByTestId("product-search").press("ArrowUp")
+    await expect(options.nth(1)).toHaveAttribute("data-highlighted", "true")
+    await page
+      .getByTestId("product-search")
+      .press("ArrowUp")
+      .then(() => page.getByTestId("product-search").press("ArrowUp"))
+    await expect(options.nth(0)).toHaveAttribute("data-highlighted", "true")
+    await page.getByTestId("product-search").press("ArrowUp")
+    await expect(options.nth(0)).toHaveAttribute("data-highlighted", "true")
+  })
+
+  test("Enter adds the highlighted suggestion exactly once and clears the input", async ({
+    page,
+    request,
+  }) => {
+    const suffix = uid()
+    const names = ["Alfa", "Beta", "Gamma"].map(
+      (greek) => `NavProducto ${suffix} ${greek}`,
+    )
+    const uoms = await getUoms(request)
+    const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
+    for (const [i, name] of names.entries()) {
+      await createProduct(request, {
+        name,
+        sku: `NVE-${suffix}-${i}`,
+        uom_id: uom.id,
+        costo_actual: 100,
+        margen_pct: 50,
+      })
+    }
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(`NavProducto ${suffix}`)
+    const options = page.getByTestId("search-option")
+    await expect(options).toHaveCount(3)
+
+    // highlight the second suggestion and confirm with Enter
+    await page.getByTestId("product-search").press("ArrowDown")
+    await page.getByTestId("product-search").press("Enter")
+
+    await expect(page.getByTestId("product-search")).toHaveValue("")
+    const rows = page.getByRole("row").filter({ hasText: names[1] })
+    await expect(rows).toHaveCount(1)
+    await expect(
+      page.getByRole("row").filter({ hasText: names[0] }),
+    ).toHaveCount(0)
+    await expect(
+      page.getByRole("row").filter({ hasText: names[2] }),
+    ).toHaveCount(0)
+  })
+
+  test("Escape dismisses the suggestion list without adding anything", async ({
+    page,
+  }) => {
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(productName)
+    await expect(page.getByTestId("search-option").first()).toBeVisible()
+
+    await page.getByTestId("product-search").press("Escape")
+
+    await expect(page.getByTestId("search-option")).toHaveCount(0)
+    await expect(page.getByTestId("sale-success-numero")).toHaveCount(0)
+  })
+
+  test("A variant barcode scan adds that variant, not the base product", async ({
+    page,
+  }) => {
+    // backend resolution is covered by backend tests; the UI contract here is
+    // that a query exactly matching a variant barcode resolves the variant
+    // (codes are UNIQUE) and adds it straight to the cart
+    const variantBarcode = `888${uid()}2`
+    const variantSuffix = `ROJO-${uid()}`
+    await page.route("**/api/v1/products/search*", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          count: 1,
+          data: [
+            {
+              id: "11111111-1111-1111-1111-111111111111",
+              name: "Producto E2E Con Variantes",
+              sku: "VAR-BASE",
+              uom_id: "22222222-2222-2222-2222-222222222222",
+              is_active: true,
+              margen_pct: "50",
+              costo_actual: "100",
+              precio_venta: "150",
+              stock_current: "10",
+              barcodes: [],
+              taxes: [],
+              uom: {
+                id: "22222222-2222-2222-2222-222222222222",
+                name: "unidad",
+                abbreviation: "u",
+                decimal_places: 0,
+              },
+              variants: [
+                {
+                  id: "33333333-3333-3333-3333-333333333333",
+                  product_id: "11111111-1111-1111-1111-111111111111",
+                  is_active: true,
+                  sku_suffix: "AZUL",
+                  stock_current: "5",
+                  attribute_values: [],
+                  barcodes: [],
+                },
+                {
+                  id: "44444444-4444-4444-4444-444444444444",
+                  product_id: "11111111-1111-1111-1111-111111111111",
+                  is_active: true,
+                  sku_suffix: variantSuffix,
+                  stock_current: "5",
+                  attribute_values: [],
+                  barcodes: [
+                    {
+                      code: variantBarcode,
+                      product_id: "11111111-1111-1111-1111-111111111111",
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+      }),
+    )
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(variantBarcode)
+    await page.getByTestId("product-search").press("Enter")
+
+    // the resolved variant lands in the cart; the variant picker never opens
+    const row = page.getByRole("row").filter({ hasText: variantSuffix })
+    await expect(row).toBeVisible()
+    await expect(page.getByTestId("sale-success-numero")).toHaveCount(0)
+  })
+
+  test("Decimal-UoM product opens the quantity modal and accepts 0.25 at dp=3", async ({
+    page,
+    request,
+  }) => {
+    const suffix = uid()
+    const uom = await api.post<{ id: string }>(request, "/uoms/", {
+      name: `kg E2E ${suffix}`,
+      abbreviation: "kg",
+      decimal_places: 3,
+    })
+    const name = `Producto E2E Granel ${suffix}`
+    const product = await createProduct(request, {
+      name,
+      sku: `GRV-${suffix.toUpperCase()}`,
+      uom_id: uom.id,
+      costo_actual: 200,
+      margen_pct: 50,
+    })
+    await adjustStock(request, product.id, 10)
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(name)
+    await page.getByRole("button", { name: new RegExp(name) }).click()
+
+    // no auto-add: the modal asks for the hand-typed quantity
+    const modal = page.getByTestId("qty-modal")
+    await expect(modal).toBeVisible()
+    await expect(page.getByRole("row").filter({ hasText: name })).toHaveCount(0)
+
+    await page.getByTestId("qty-modal-input").fill("0.25")
+    await page.getByTestId("qty-modal-confirm").click()
+
+    await expect(modal).toBeHidden()
+    const row = page.getByRole("row").filter({ hasText: name })
+    await expect(row).toBeVisible()
+    // columns: price, qty, discount — the qty spinbutton is the second
+    await expect(row.getByRole("spinbutton").nth(1)).toHaveValue("0.25")
+
+    // the fractional quantity reaches the document line
+    await payQuick(page, "Efectivo")
+    const numero = page.getByTestId("sale-success-numero")
+    await expect(numero).toBeVisible()
+    const numeroText = (await numero.textContent())?.trim() ?? ""
+    const docs = await readDocuments(request)
+    const sale = docs.find((d) => d.numero === numeroText)
+    expect(sale).toBeDefined()
+    expect(Number(sale?.lines[0].cantidad)).toBe(0.25)
+  })
+
+  test("Over-precision quantity is rejected at the UoM decimal places", async ({
+    page,
+    request,
+  }) => {
+    const suffix = uid()
+    const uom = await api.post<{ id: string }>(request, "/uoms/", {
+      name: `metro E2E ${suffix}`,
+      abbreviation: "m",
+      decimal_places: 2,
+    })
+    const name = `Producto E2E Metro ${suffix}`
+    const product = await createProduct(request, {
+      name,
+      sku: `MTR-${suffix.toUpperCase()}`,
+      uom_id: uom.id,
+      costo_actual: 100,
+      margen_pct: 50,
+    })
+    await adjustStock(request, product.id, 10)
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(name)
+    await page.getByRole("button", { name: new RegExp(name) }).click()
+
+    await expect(page.getByTestId("qty-modal")).toBeVisible()
+    await page.getByTestId("qty-modal-input").fill("0.125")
+    await page.getByTestId("qty-modal-confirm").click()
+
+    // validation error, no cart line
+    await expect(page.getByTestId("qty-modal-error")).toBeVisible()
+    await expect(page.getByRole("row").filter({ hasText: name })).toHaveCount(0)
+
+    // a valid quantity still works afterwards
+    await page.getByTestId("qty-modal-input").fill("1.5")
+    await page.getByTestId("qty-modal-confirm").click()
+    await expect(page.getByTestId("qty-modal")).toBeHidden()
+    await expect(page.getByRole("row").filter({ hasText: name })).toBeVisible()
+  })
+
+  test("Integer-UoM product keeps the auto-add 1 behavior", async ({
+    page,
+  }) => {
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(productName)
+    await page.getByRole("button", { name: new RegExp(productName) }).click()
+
+    await expect(page.getByTestId("qty-modal")).toHaveCount(0)
+    const row = page.getByRole("row").filter({ hasText: productName })
+    await expect(row).toBeVisible()
+    await expect(row.getByRole("spinbutton").nth(1)).toHaveValue("1")
+  })
+
+  test("An unknown scan keeps the no-match empty state and the input", async ({
+    page,
+  }) => {
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill("ZZZZNO SCAN MATCH")
+
+    await expect(page.getByText("Sin productos que coincidan")).toBeVisible()
+    await expect(page.getByTestId("product-search")).toHaveValue(
+      "ZZZZNO SCAN MATCH",
+    )
+    await expect(page.getByTestId("sale-success-numero")).toHaveCount(0)
+  })
+
   test("A receipt issued before a sale is imputed to the sale", async ({
     page,
     request,

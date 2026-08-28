@@ -28,6 +28,8 @@ const ProductSearch = ({ onAdd }: ProductSearchProps) => {
   const { numberFormat } = useLocale()
   const [query, setQuery] = useState("")
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [highlight, setHighlight] = useState(0)
+  const [dismissed, setDismissed] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const { data, isFetching, isError } = useQuery({
@@ -36,12 +38,40 @@ const ProductSearch = ({ onAdd }: ProductSearchProps) => {
     enabled: query.trim().length >= 2,
   })
   const results = data?.data ?? []
+  const listOpen = query.trim().length >= 2 && !dismissed
 
   useEffect(() => {
-    if (!query) setExpanded(null)
+    if (!query) {
+      setExpanded(null)
+      setDismissed(false)
+    }
+    setHighlight(0)
   }, [query])
 
+  useEffect(() => {
+    setHighlight(0)
+  }, [])
+
+  /** Barcode codes are UNIQUE, so an exact hit resolves one variant. */
+  const resolveVariantBarcode = (
+    product: ProductPublic,
+  ): ProductVariantPublic | undefined => {
+    const term = query.trim()
+    if (!term) return undefined
+    return (product.variants ?? []).find((variant) =>
+      (variant.barcodes ?? []).some((barcode) => barcode.code === term),
+    )
+  }
+
   const addMain = (product: ProductPublic) => {
+    const variant = resolveVariantBarcode(product)
+    if (variant) {
+      onAdd(product, variant)
+      setExpanded(null)
+      setQuery("")
+      inputRef.current?.focus()
+      return
+    }
     if ((product.variants ?? []).length > 0) {
       setExpanded((prev) => (prev === product.id ? null : product.id))
       return
@@ -61,6 +91,38 @@ const ProductSearch = ({ onAdd }: ProductSearchProps) => {
     inputRef.current?.focus()
   }
 
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      if (listOpen) {
+        e.preventDefault()
+        setDismissed(true)
+      }
+      return
+    }
+    if (e.key === "ArrowDown" && listOpen && results.length > 0) {
+      e.preventDefault()
+      setHighlight((prev) => Math.min(prev + 1, results.length - 1))
+      return
+    }
+    if (e.key === "ArrowUp" && listOpen && results.length > 0) {
+      e.preventDefault()
+      setHighlight((prev) => Math.max(prev - 1, 0))
+      return
+    }
+    if (e.key === "Enter" && listOpen && results.length > 0) {
+      const selected = results[Math.min(highlight, results.length - 1)]
+      if (!selected) return
+      if (
+        (selected.variants ?? []).length > 0 &&
+        !resolveVariantBarcode(selected)
+      ) {
+        setExpanded(selected.id)
+        return
+      }
+      addMain(selected)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <div className="relative">
@@ -71,18 +133,11 @@ const ProductSearch = ({ onAdd }: ProductSearchProps) => {
           data-testid="product-search"
           placeholder={t("search.placeholder")}
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && results.length > 0) {
-              const first = results[0]
-              if ((first.variants ?? []).length > 0) {
-                setExpanded(first.id)
-              } else {
-                onAdd(first)
-                setQuery("")
-              }
-            }
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setDismissed(false)
           }}
+          onKeyDown={onKeyDown}
           className="h-12 pl-9 text-base"
         />
         {isFetching && (
@@ -90,17 +145,24 @@ const ProductSearch = ({ onAdd }: ProductSearchProps) => {
         )}
       </div>
 
-      {query.trim().length >= 2 && results.length > 0 && (
+      {listOpen && results.length > 0 && (
         <div className="overflow-hidden rounded-lg border">
-          {results.map((product) => {
+          {results.map((product, index) => {
             const hasVariants = (product.variants ?? []).length > 0
             const isExpanded = expanded === product.id
+            const isHighlighted = index === highlight
             return (
               <div key={product.id} className="border-b last:border-b-0">
                 <button
                   type="button"
+                  data-testid="search-option"
+                  data-highlighted={isHighlighted ? "true" : "false"}
                   onClick={() => addMain(product)}
-                  className="flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/60"
+                  onMouseEnter={() => setHighlight(index)}
+                  className={cn(
+                    "flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/60",
+                    isHighlighted && "bg-muted/60",
+                  )}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">

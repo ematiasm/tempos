@@ -133,6 +133,13 @@ export const es = {
   "sell.split.amount": "Monto",
   "sell.split.confirm": "Confirmar pago",
   "sell.useCredit": "Usar {credit} de crédito a favor",
+  "sell.qtyModal.title": "Cantidad de {product}",
+  "sell.qtyModal.hint": "Precio unitario: {price} por {uom}",
+  "sell.qtyModal.label": "Cantidad ({uom})",
+  "sell.qtyModal.invalid": "Ingresá una cantidad mayor a cero",
+  "sell.qtyModal.precisionError": "{uom} admite hasta {places} decimales",
+  "sell.qtyModal.cancel": "Cancelar",
+  "sell.qtyModal.confirm": "Agregar",
   "sell.onCredit": "Venta a crédito",
   "sell.onCreditHint":
     "El monto ({amount}) se registra en la cuenta corriente del cliente. No se cobra dinero.",

@@ -134,6 +134,13 @@ export const en: Messages = {
   "sell.split.amount": "Amount",
   "sell.split.confirm": "Confirm payment",
   "sell.useCredit": "Use {credit} credit in favor",
+  "sell.qtyModal.title": "Quantity for {product}",
+  "sell.qtyModal.hint": "Unit price: {price} per {uom}",
+  "sell.qtyModal.label": "Quantity ({uom})",
+  "sell.qtyModal.invalid": "Enter a quantity greater than zero",
+  "sell.qtyModal.precisionError": "{uom} allows up to {places} decimals",
+  "sell.qtyModal.cancel": "Cancel",
+  "sell.qtyModal.confirm": "Add",
   "sell.onCredit": "Sell on credit",
   "sell.onCreditHint":
     "The amount ({amount}) is registered on the customer's current account. No money is collected.",
