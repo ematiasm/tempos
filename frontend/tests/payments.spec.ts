@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test"
+import { type APIRequestContext, expect, test } from "@playwright/test"
 import {
   adjustStock,
   createCustomer,
@@ -18,6 +18,16 @@ test.describe
     let customerId: string
     let productId: string
 
+    // the request fixture must flow through: createSale issues the API call
+    const issueUnpaidSale = (request: APIRequestContext) => {
+      return createSale(request, {
+        productId,
+        customerId,
+        price: 150,
+        paid: false,
+      })
+    }
+
     test.beforeAll(async ({ request }) => {
       const uoms = await getUoms(request)
       const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
@@ -36,27 +46,27 @@ test.describe
       customerId = customer.id
     })
 
-    const issueUnpaidSale = async () => {
-      return createSale({
-        productId,
-        customerId,
-        price: 150,
-        paid: false,
-      })
-    }
-
     test("Collect an unpaid sale from the counterpart sheet", async ({
       page,
       request,
     }) => {
-      const sale = await issueUnpaidSale()
+      const sale = await issueUnpaidSale(request)
 
       await page.goto("/customers")
+      // the dev DB accumulates customers across runs: filter instead of
+      // assuming the new customer is on the table's first page
+      await page
+        .getByPlaceholder("Buscar por nombre, documento o teléfono...")
+        .fill(customerName)
       await page.getByRole("row").filter({ hasText: customerName }).click()
+      // the sheet opens from the customer-name button inside the row
+      await page.getByRole("button", { name: customerName }).click()
       await expect(page.getByTestId("receipt-open")).toBeVisible()
 
       await page.getByTestId("receipt-open").click()
-      await expect(page.getByText("Documentos pendientes")).toBeVisible()
+      await expect(
+        page.getByText("Documentos pendientes", { exact: true }),
+      ).toBeVisible()
       await expect(
         page.locator("li").filter({ hasText: sale.numero }),
       ).toBeVisible()
@@ -76,8 +86,11 @@ test.describe
       expect(outstanding).toHaveLength(0)
     })
 
-    test("Issue a receipt from the Payments section", async ({ page }) => {
-      await issueUnpaidSale()
+    test("Issue a receipt from the Payments section", async ({
+      page,
+      request,
+    }) => {
+      await issueUnpaidSale(request)
 
       await page.goto("/payments")
       await page.getByRole("button", { name: "Nuevo recibo" }).click()
@@ -90,7 +103,12 @@ test.describe
       await expect(page.getByText(/Recibo \d{4}-RC-/)).toBeVisible()
 
       await expect(
-        page.getByRole("row").filter({ hasText: customerName }),
+        page
+          .getByRole("row")
+          .filter({ hasText: customerName })
+          // earlier tests in this serial group already issued receipts for
+          // the same customer: any receipt row listing them proves visibility
+          .first(),
       ).toBeVisible()
     })
 
@@ -98,7 +116,7 @@ test.describe
       page,
       request,
     }) => {
-      const _sale = await issueUnpaidSale()
+      const _sale = await issueUnpaidSale(request)
 
       await page.goto("/payments")
       await page.getByRole("button", { name: "Nuevo recibo" }).click()
