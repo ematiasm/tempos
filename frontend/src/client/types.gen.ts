@@ -360,6 +360,7 @@ export type DocumentCreate = {
     descuento_total?: (number | string);
     lines: Array<DocumentLineCreate>;
     payments?: Array<DocumentPaymentCreate>;
+    notes?: (string | null);
 };
 
 export type DocumentLineCreate = {
@@ -397,6 +398,13 @@ export type DocumentLineTaxPublic = {
     aplicado: boolean;
 };
 
+/**
+ * Body of PATCH /documents/{id}/notes (post-sale note editing).
+ */
+export type DocumentNotesUpdate = {
+    notes?: (string | null);
+};
+
 export type DocumentOperation = 'venta' | 'compra' | 'cotizacion' | 'ajuste' | 'recibo';
 
 export type DocumentPaymentCreate = {
@@ -431,6 +439,7 @@ export type DocumentPublic = {
     favor_monto?: string;
     parent_document_id?: (string | null);
     cash_session_id?: (string | null);
+    notes?: (string | null);
     created_at?: (string | null);
     document_type: DocumentTypePublic;
     lines?: Array<DocumentLinePublic>;
@@ -1443,6 +1452,13 @@ export type DocumentsReadDocumentAllocationsData = {
 };
 
 export type DocumentsReadDocumentAllocationsResponse = (Array<DocumentAllocationPublic>);
+
+export type DocumentsUpdateDocumentNotesData = {
+    documentId: string;
+    requestBody: DocumentNotesUpdate;
+};
+
+export type DocumentsUpdateDocumentNotesResponse = (DocumentPublic);
 
 export type DocumentsVoidDocumentData = {
     documentId: string;

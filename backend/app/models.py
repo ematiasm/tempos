@@ -630,6 +630,13 @@ class DocumentCreate(SQLModel):
     )
     lines: list[DocumentLineCreate] = Field(min_length=1)
     payments: list[DocumentPaymentCreate] = Field(default_factory=list)
+    notes: str | None = Field(default=None, max_length=500)
+
+
+class DocumentNotesUpdate(SQLModel):
+    """Body of PATCH /documents/{id}/notes (post-sale note editing)."""
+
+    notes: str | None = Field(default=None, max_length=500)
 
 
 # ---------------------------------------------------------------------------
@@ -1129,6 +1136,10 @@ class Document(SQLModel, table=True):
     cash_session_id: uuid.UUID | None = Field(
         default=None, foreign_key="cashregistersession.id", index=True
     )
+    # Free-text printable note (post-sale editable); printed on vouchers when
+    # present. Documents are not ledger tables: editing the note touches no
+    # movement rows.
+    notes: str | None = Field(default=None, max_length=500)
     # Reserved for the future AFIP/ARCA integration; unused until then.
     cae: str | None = Field(default=None, max_length=20)
     cae_vto: datetime | None = Field(
@@ -1733,6 +1744,7 @@ class DocumentPublic(SQLModel):
     favor_monto: Decimal = Decimal("0")
     parent_document_id: uuid.UUID | None = None
     cash_session_id: uuid.UUID | None = None
+    notes: str | None = None
     created_at: datetime | None = None
     document_type: DocumentTypePublic
     lines: list[DocumentLinePublic] = []

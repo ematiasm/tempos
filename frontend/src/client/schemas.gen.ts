@@ -2125,6 +2125,18 @@ export const DocumentCreateSchema = {
             },
             type: 'array',
             title: 'Payments'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 500
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
         }
     },
     type: 'object',
@@ -2372,6 +2384,26 @@ export const DocumentLineTaxPublicSchema = {
     title: 'DocumentLineTaxPublic'
 } as const;
 
+export const DocumentNotesUpdateSchema = {
+    properties: {
+        notes: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 500
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        }
+    },
+    type: 'object',
+    title: 'DocumentNotesUpdate',
+    description: 'Body of PATCH /documents/{id}/notes (post-sale note editing).'
+} as const;
+
 export const DocumentOperationSchema = {
     type: 'string',
     enum: ['venta', 'compra', 'cotizacion', 'ajuste', 'recibo'],
@@ -2581,6 +2613,17 @@ export const DocumentPublicSchema = {
                 }
             ],
             title: 'Cash Session Id'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
         },
         created_at: {
             anyOf: [

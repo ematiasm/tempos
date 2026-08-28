@@ -16,6 +16,7 @@ from app.models import (
     DocumentAllocationPublic,
     DocumentCreate,
     DocumentLine,
+    DocumentNotesUpdate,
     DocumentPaymentAllocation,
     DocumentPublic,
     DocumentStatus,
@@ -271,6 +272,38 @@ def create_document(
     _attach_line_product_names(session, [public])
     public.cost_change_suggestions = cost_suggestions
     public.stock_warnings = stock_warnings
+    return public
+
+
+@router.patch(
+    "/{document_id}/notes",
+    response_model=DocumentPublic,
+    dependencies=[require_permissions("document.create")],
+)
+def update_document_notes(
+    *,
+    session: SessionDep,
+    document_id: uuid.UUID,
+    notes_in: DocumentNotesUpdate,
+) -> Any:
+    """Set or clear the printable note of an ACTIVE document."""
+    document = session.get(Document, document_id)
+    if not document:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "document_not_found", "message": "Document not found"},
+        )
+    try:
+        document = crud.update_document_notes(
+            session=session, document=document, notes=notes_in.notes
+        )
+    except crud.BusinessError as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=400, detail={"code": e.code, "message": e.message}
+        ) from e
+    public = _attach_counterpart_names(session, [document])[0]
+    _attach_line_product_names(session, [public])
     return public
 
 

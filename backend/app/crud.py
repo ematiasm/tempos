@@ -593,7 +593,9 @@ def _create_document_in_tx(
             "credit_exceeds_total",
             "The credit portion exceeds the total minus the paid portions",
         )
-    if non_cash_paid_total > total:
+    # (negative totals only occur on stock adjustments, which take no
+    # payments and never touch money)
+    if total > 0 and non_cash_paid_total > total:
         raise BusinessError(
             "payment_exceeds_total",
             "Non-cash paid portions exceed the document total",
@@ -653,6 +655,7 @@ def _create_document_in_tx(
         favor_monto=_money(favor_monto),
         parent_document_id=parent_document_id,
         cash_session_id=cash_session.id if cash_session else None,
+        notes=document_in.notes,
     )
     session.add(document)
     session.flush()
@@ -729,6 +732,26 @@ def _create_document_in_tx(
     _financial_movements_hook(session=session, document=document)  # Phase 7
 
     return document, cost_suggestions, stock_warnings
+
+
+def update_document_notes(
+    *, session: Session, document: Document, notes: str | None
+) -> Document:
+    """Set or clear the printable note of an ACTIVE document.
+
+    Voided documents are frozen: the note is part of what the NC reversed,
+    so editing it is rejected (document_not_editable).
+    """
+    if document.estado != DocumentStatus.ACTIVE:
+        raise BusinessError(
+            "document_not_editable",
+            "Only active documents can have their notes edited",
+        )
+    document.notes = notes
+    session.add(document)
+    session.commit()
+    session.refresh(document)
+    return document
 
 
 def get_line_voided_quantities(
