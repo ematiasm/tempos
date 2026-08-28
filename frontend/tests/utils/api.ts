@@ -342,6 +342,23 @@ export const voidDocument = (request: APIRequestContext, documentId: string) =>
     payments: [],
   })
 
+export const getCurrentCashSession = async (
+  request: APIRequestContext,
+): Promise<{ id: string; status: string } | null> =>
+  api.getOne(request, "/cash-sessions/current")
+
+/**
+ * The backend rejects VENTA documents without an open cash session
+ * (`cash_session_required`), so every spec that issues sales must ensure one.
+ */
+export const ensureOpenCashSession = async (
+  request: APIRequestContext,
+): Promise<{ id: string; status: string }> => {
+  const current = await getCurrentCashSession(request)
+  if (current && current.status === "open") return current
+  return api.post(request, "/cash-sessions/open", { opening_amount: 0 })
+}
+
 export const getUoms = (request: APIRequestContext) =>
   api
     .get<{ id: string; name: string; abbreviation: string }>(

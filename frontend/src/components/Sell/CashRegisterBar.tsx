@@ -1,13 +1,12 @@
-import { useQuery } from "@tanstack/react-query"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 
-import { CashSessionsService } from "@/client"
 import { Button } from "@/components/ui/button"
 import { useLocale, useT } from "@/i18n"
 import { formatMoney } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import CloseCashDialog from "./CloseCashDialog"
 import OpenCashDialog from "./OpenCashDialog"
+import { useOpenCashSession } from "./useOpenCashSession"
 
 const money = (
   value: number | string | null | undefined,
@@ -21,15 +20,7 @@ export function CashRegisterBar() {
   const [openOpen, setOpenOpen] = useState(false)
   const [openClose, setOpenClose] = useState(false)
 
-  const { data: session } = useQuery({
-    queryFn: () => CashSessionsService.readCurrentCashSession(),
-    queryKey: ["cash-sessions-current"],
-  })
-
-  const isOpen = useMemo(
-    () => session != null && session.status === "open",
-    [session],
-  )
+  const { session, isOpen } = useOpenCashSession()
 
   return (
     <div

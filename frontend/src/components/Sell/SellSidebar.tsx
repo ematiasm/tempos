@@ -1,0 +1,165 @@
+import type { ReactNode } from "react"
+import type { CustomerPublic, DocumentTypePublic } from "@/client"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { useLocale, useT } from "@/i18n"
+import { money } from "@/lib/format"
+
+interface SellSidebarProps {
+  customers: CustomerPublic[]
+  saleTypes: DocumentTypePublic[]
+  selectedCustomer: CustomerPublic | null
+  customerId: string | null
+  onCustomerChange: (customerId: string) => void
+  docTypeId: string | null
+  onDocTypeChange: (docTypeId: string) => void
+  date: string
+  onDateChange: (date: string) => void
+  discountTotal: number
+  onDiscountChange: (discount: number) => void
+  subtotal: number
+  perceptions: number
+  total: number
+  appliedFavor: number
+  children?: ReactNode
+}
+
+export function SellSidebar({
+  customers,
+  saleTypes,
+  selectedCustomer,
+  customerId,
+  onCustomerChange,
+  docTypeId,
+  onDocTypeChange,
+  date,
+  onDateChange,
+  discountTotal,
+  onDiscountChange,
+  subtotal,
+  perceptions,
+  total,
+  appliedFavor,
+  children,
+}: SellSidebarProps) {
+  const t = useT()
+  const { numberFormat } = useLocale()
+
+  return (
+    <div className="flex w-full flex-col gap-4 rounded-lg border p-4 lg:w-[340px]">
+      <div className="grid gap-3">
+        <div>
+          <span className="mb-1 block text-xs font-medium text-muted-foreground">
+            {t("sell.customer")}
+          </span>
+          <Select
+            value={customerId ?? ""}
+            onValueChange={(v) => {
+              onCustomerChange(v)
+            }}
+          >
+            <SelectTrigger data-testid="customer-select">
+              <SelectValue placeholder={t("sell.selectCustomer")} />
+            </SelectTrigger>
+            <SelectContent>
+              {customers.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.razon_social}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedCustomer && Number(selectedCustomer.saldo) !== 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("sell.balance", {
+                balance: money(Number(selectedCustomer.saldo), numberFormat),
+              })}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <span className="mb-1 block text-xs font-medium text-muted-foreground">
+            {t("sell.documentType")}
+          </span>
+          <Select value={docTypeId ?? ""} onValueChange={onDocTypeChange}>
+            <SelectTrigger>
+              <SelectValue placeholder={t("sell.auto")} />
+            </SelectTrigger>
+            <SelectContent>
+              {saleTypes.map((saleType) => (
+                <SelectItem key={saleType.id} value={saleType.id}>
+                  {saleType.name} ({saleType.prefix})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <span className="mb-1 block text-xs font-medium text-muted-foreground">
+            {t("sell.date")}
+          </span>
+          <Input
+            type="date"
+            value={date}
+            onChange={(e) => onDateChange(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <span className="mb-1 block text-xs font-medium text-muted-foreground">
+            {t("sell.documentDiscount")}
+          </span>
+          <Input
+            type="number"
+            step="0.01"
+            value={discountTotal}
+            onChange={(e) => onDiscountChange(Number(e.target.value) || 0)}
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1 rounded-md bg-muted/40 p-3 text-sm">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">{t("sell.subtotal")}</span>
+          <span>{money(subtotal, numberFormat)}</span>
+        </div>
+        {discountTotal > 0 && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">{t("sell.discount")}</span>
+            <span>-{money(discountTotal, numberFormat)}</span>
+          </div>
+        )}
+        {perceptions > 0 && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">
+              {t("sell.perceptions")}
+            </span>
+            <span>{money(perceptions, numberFormat)}</span>
+          </div>
+        )}
+        <div className="flex justify-between border-t font-semibold">
+          <span>{t("sell.total")}</span>
+          <span>{money(total, numberFormat)}</span>
+        </div>
+        {appliedFavor > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">
+              {t("sell.creditInFavor")}
+            </span>
+            <span>-{money(appliedFavor, numberFormat)}</span>
+          </div>
+        )}
+      </div>
+
+      {children}
+    </div>
+  )
+}

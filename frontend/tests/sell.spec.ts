@@ -6,6 +6,7 @@ import {
   createCustomer,
   createProduct,
   createReceipt,
+  ensureOpenCashSession,
   findDocumentType,
   getDocumentTypes,
   getPaymentMethods,
@@ -24,6 +25,7 @@ test.describe("Sell flow", () => {
   const _price = 150
 
   test.beforeAll(async ({ request }) => {
+    await ensureOpenCashSession(request)
     const uoms = await getUoms(request)
     const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
     productName = `Producto E2E Venta ${uid()}`
@@ -110,6 +112,9 @@ test.describe("Sell flow", () => {
   })
 
   test("Cannot sell more stock than available", async ({ page, request }) => {
+    // the oversell block only applies when the stock policy is "block";
+    // pin the precondition instead of trusting ambient environment data
+    await api.patch(request, "/business-settings/", { stock_policy: "block" })
     const uoms = await getUoms(request)
     const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
     const name = `Producto E2E Sin Stock ${uid()}`
