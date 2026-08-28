@@ -2,11 +2,13 @@
 
 from decimal import Decimal
 
+import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.core.config import settings
-from app.models import PaymentMethod, User
+from app.models import CashRegisterSession, FinancialAccount, PaymentMethod, User
 from tests.utils.ledger import load_stock
 from tests.utils.utils import random_lower_string
 
@@ -526,3 +528,23 @@ def test_closing_user_recorded(
     )
     assert r.status_code == 200, r.text
     assert r.json()["closed_by_name"] == opener.full_name or opener.email
+
+
+def test_partial_unique_index_blocks_second_open_session(db: Session) -> None:
+    """The DB-level partial unique index makes a double open impossible.
+
+    The autouse ``open_cash_session`` fixture already committed one OPEN
+    session; inserting another OPEN row must violate
+    ``uq_cashregistersession_single_open`` at flush time.
+    """
+    user = db.exec(select(User).where(User.email == settings.FIRST_SUPERUSER)).one()
+    drawer = db.exec(select(FinancialAccount)).first()
+    assert drawer is not None
+    second = CashRegisterSession(
+        opened_by_user_id=user.id,
+        cash_account_id=drawer.id,
+    )
+    db.add(second)
+    with pytest.raises(IntegrityError):
+        db.flush()
+    db.rollback()

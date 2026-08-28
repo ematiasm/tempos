@@ -1793,7 +1793,17 @@ def open_cash_session(
         opening_source_account_id=source_id,
     )
     session.add(cash_session)
-    session.flush()
+    try:
+        session.flush()
+    except IntegrityError:
+        # The partial unique index on (status) WHERE status = 'OPEN' rejected
+        # a concurrent open that committed first. Roll back (never leave an
+        # aborted transaction behind) and surface the friendly error instead
+        # of an IntegrityError 500.
+        session.rollback()
+        raise BusinessError(
+            "cash_session_already_open", "A cash session is already open"
+        ) from None
     if source_id != drawer.id and opening_amount > 0:
         for account_id, delta in (
             (source_id, -opening_amount),
