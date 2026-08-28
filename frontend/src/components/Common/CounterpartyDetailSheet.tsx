@@ -1,3 +1,4 @@
+import { FileText } from "lucide-react"
 import { useState } from "react"
 import type { CustomerPublic, SupplierPublic } from "@/client"
 import {
@@ -5,6 +6,7 @@ import {
   useAccountMovements,
   useMovementRows,
 } from "@/components/Common/accountMovements"
+import { CounterpartyStatementDialog } from "@/components/Common/CounterpartyStatementDialog"
 import { CONSUMIDOR_FINAL_NAME } from "@/components/Common/conditionOptions"
 import { DataTable } from "@/components/Common/DataTable"
 import { ReceiptDialog } from "@/components/Payments/ReceiptDialog"
@@ -61,6 +63,7 @@ export function CounterpartyDetailSheet({
   )
   const rows = useMovementRows(data)
   const [receiptOpen, setReceiptOpen] = useState(false)
+  const [statementOpen, setStatementOpen] = useState(false)
 
   if (!counterpart) return null
 
@@ -172,6 +175,17 @@ export function CounterpartyDetailSheet({
               </span>
             )}
           </CardContent>
+          <CardContent className="pt-0">
+            <Button
+              variant="outline"
+              className="w-full"
+              data-testid="statement-open"
+              onClick={() => setStatementOpen(true)}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              {t("counterparty.statement.open")}
+            </Button>
+          </CardContent>
           {isCustomer && Number(saldo) > 0 && (
             <CardContent className="pt-0">
               <Button
@@ -219,6 +233,13 @@ export function CounterpartyDetailSheet({
           counterpartType={type}
           counterpartId={counterpart.id}
           onCreated={() => {}}
+        />
+
+        <CounterpartyStatementDialog
+          counterpart={counterpart}
+          type={type}
+          open={statementOpen}
+          onOpenChange={setStatementOpen}
         />
       </SheetContent>
     </Sheet>
