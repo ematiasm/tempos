@@ -6,9 +6,9 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 .env
-AGENTS.md
 plan.md
 
 # Local agent tooling caches (not project code)
 .atl/
 .pi/
+.codegraph/
