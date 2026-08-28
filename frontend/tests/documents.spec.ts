@@ -4,6 +4,7 @@ import {
   api,
   createProduct,
   createSale,
+  ensureOpenCashSession,
   getDocumentTypes,
   getUoms,
   readDocument,
@@ -11,6 +12,12 @@ import {
 } from "./utils/api"
 
 const uid = () => Math.random().toString(36).substring(7)
+
+// Sales are also created through the UI here, which hits the same
+// `cash_session_required` backend gate as the API helper.
+test.beforeAll(async ({ request }) => {
+  await ensureOpenCashSession(request)
+})
 
 test("Void a sale issuing its credit note", async ({ page, request }) => {
   const uoms = await getUoms(request)

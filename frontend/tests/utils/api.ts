@@ -214,6 +214,9 @@ export const createSale = async (
     paid?: boolean
   },
 ): Promise<ApiDocument> => {
+  // Sales (VENTA documents) are rejected with `cash_session_required` when no
+  // cash session is open (cold-start DBs); ensure one first. Idempotent.
+  await ensureOpenCashSession(request)
   const types = await getDocumentTypes(request)
   const fc = findDocumentType(types, "FC")
   const customerId = data.customerId ?? (await getConsumidorFinalId(request))
