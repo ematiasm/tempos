@@ -117,6 +117,19 @@ class PrintFormat(enum.StrEnum):
     TICKET80 = "ticket80"
 
 
+class StatementDocumentKind(enum.StrEnum):
+    """Bucket a statement document belongs to (balance-direction based).
+
+    Values reuse the domain vocabulary: ``venta``/``compra`` for the
+    debt-increasing direction of each counterpart type, ``nota`` for credit
+    notes (the debt-reducing direction).
+    """
+
+    SALE = "venta"
+    PURCHASE = "compra"
+    NOTE = "nota"
+
+
 # ---------------------------------------------------------------------------
 # User schemas (input)
 # ---------------------------------------------------------------------------
@@ -1807,6 +1820,85 @@ class DocumentPublic(SQLModel):
     cost_change_suggestions: list[CostChangeSuggestion] = []
     # Warnings surfaced when the stock policy is WARN and a line went negative.
     stock_warnings: list[str] = []
+
+
+# ---------------------------------------------------------------------------
+# Counterpart statement (estado de cuenta) schemas
+# ---------------------------------------------------------------------------
+class StatementEmailCreate(SQLModel):
+    """Body of the statement-email endpoints (optional destination override).
+
+    When ``email_to`` is omitted the counterpart's own email is used.
+    """
+
+    email_to: EmailStr | None = None
+
+
+class StatementLinePublic(SQLModel):
+    product_id: uuid.UUID
+    product_name: str | None = None
+    cantidad: Decimal
+    precio_unit: Decimal
+    subtotal_line: Decimal
+
+
+class StatementDocumentPublic(SQLModel):
+    id: uuid.UUID
+    numero: str
+    fecha: datetime
+    type_name: str
+    kind: StatementDocumentKind
+    total: Decimal
+    lines: list[StatementLinePublic] = []
+
+
+class StatementReceiptPublic(SQLModel):
+    id: uuid.UUID
+    numero: str
+    fecha: datetime
+    total: Decimal
+    payment_method_names: list[str] = []
+
+
+class StatementTotals(SQLModel):
+    """Period-scoped statement totals plus the live balance.
+
+    Exactly one of ``total_ventas``/``total_compras`` is meaningful (decided
+    by the statement's counterpart type: customer → ventas, supplier →
+    compras); the other stays zero.
+    """
+
+    total_ventas: Decimal
+    total_compras: Decimal
+    total_notas: Decimal
+    total_pagos: Decimal
+    # Current counterpart ``saldo`` cache, always live regardless of period.
+    saldo_actual: Decimal
+
+
+class CounterpartStatementPublic(SQLModel):
+    """Full account statement (estado de cuenta) for a customer or supplier.
+
+    Read-only point-in-time snapshot: documents and receipts cover the
+    resolved period, ``saldo_actual`` is the live balance cache.
+    """
+
+    contraparte_id: uuid.UUID
+    contraparte_type: CounterpartType
+    razon_social: str
+    documento: str | None = None
+    condicion_fiscal: TaxCondition
+    email: str | None = None
+    address: str | None = None
+    # Resolved period (None on a bound = full history towards that end).
+    date_from: date | None = None
+    date_to: date | None = None
+    generated_at: datetime
+    # Outbound-email visibility for the frontend (fail-closed).
+    emails_enabled: bool
+    totals: StatementTotals
+    documents: list[StatementDocumentPublic] = []
+    receipts: list[StatementReceiptPublic] = []
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,92 @@
+<mjml>
+  <mj-body background-color="#fafbfc">
+    <mj-section background-color="#fff" padding="24px 20px">
+      <mj-column width="100%">
+        <mj-text align="center" font-size="20px" color="#333" font-family="Arial, Helvetica, sans-serif">{{ business_name }}</mj-text>
+        {% if business_address %}
+        <mj-text align="center" font-size="12px" color="#777" font-family="Arial, Helvetica, sans-serif">{{ business_address }}</mj-text>
+        {% endif %}
+        {% if business_phone %}
+        <mj-text align="center" font-size="12px" color="#777" font-family="Arial, Helvetica, sans-serif">{{ business_phone }}</mj-text>
+        {% endif %}
+        {% if business_cuit %}
+        <mj-text align="center" font-size="12px" color="#777" font-family="Arial, Helvetica, sans-serif">CUIT: {{ business_cuit }}</mj-text>
+        {% endif %}
+        <mj-divider border-color="#ccc" border-width="1px"></mj-divider>
+        <mj-text align="center" font-size="16px" color="#333" font-family="Arial, Helvetica, sans-serif">Account statement</mj-text>
+        <mj-text align="center" font-size="14px" color="#555" font-family="Arial, Helvetica, sans-serif">{{ razon_social }}</mj-text>
+        {% if documento %}
+        <mj-text align="center" font-size="12px" color="#777" font-family="Arial, Helvetica, sans-serif">CUIT/DNI: {{ documento }}</mj-text>
+        {% endif %}
+        <mj-text align="center" font-size="12px" color="#777" font-family="Arial, Helvetica, sans-serif">{{ condicion_fiscal }}</mj-text>
+        <mj-text align="center" font-size="12px" color="#777" font-family="Arial, Helvetica, sans-serif">Period: {{ period }} (issued {{ generated_at }})</mj-text>
+        <mj-divider border-color="#eee" border-width="1px"></mj-divider>
+        {% if documents %}
+        <mj-table font-family="Arial, Helvetica, sans-serif" font-size="13px" color="#555">
+          <tr style="border-bottom:1px solid #eee">
+            <td style="padding:6px">Document</td>
+            <td style="padding:6px">Date</td>
+            <td style="padding:6px">Type</td>
+            <td style="padding:6px" align="right">Total</td>
+          </tr>
+          {% for document in documents %}
+          <tr style="border-top:1px solid #f2f2f2">
+            <td style="padding:6px">{{ document.numero }}</td>
+            <td style="padding:6px">{{ document.fecha }}</td>
+            <td style="padding:6px">{{ document.type_name }}</td>
+            <td style="padding:6px" align="right">{{ document.total }}</td>
+          </tr>
+          {% for line in document.lines %}
+          <tr>
+            <td style="padding:2px 6px 2px 24px;color:#888">{{ line.name }}</td>
+            <td style="padding:2px 6px;color:#888" align="right">x {{ line.cantidad }}</td>
+            <td style="padding:2px 6px;color:#888" align="right">{{ line.precio_unit }}</td>
+            <td style="padding:2px 6px;color:#888" align="right">{{ line.subtotal_line }}</td>
+          </tr>
+          {% endfor %}
+          {% endfor %}
+        </mj-table>
+        {% endif %}
+        {% if receipts %}
+        <mj-table font-family="Arial, Helvetica, sans-serif" font-size="13px" color="#555">
+          <tr style="border-bottom:1px solid #eee">
+            <td style="padding:6px">Receipt</td>
+            <td style="padding:6px">Date</td>
+            <td style="padding:6px">Methods</td>
+            <td style="padding:6px" align="right">Total</td>
+          </tr>
+          {% for receipt in receipts %}
+          <tr>
+            <td style="padding:6px">{{ receipt.numero }}</td>
+            <td style="padding:6px">{{ receipt.fecha }}</td>
+            <td style="padding:6px">{{ receipt.methods }}</td>
+            <td style="padding:6px" align="right">{{ receipt.total }}</td>
+          </tr>
+          {% endfor %}
+        </mj-table>
+        {% endif %}
+        <mj-table font-family="Arial, Helvetica, sans-serif" font-size="13px" color="#555">
+          {% for row in totals_rows %}
+          <tr>
+            <td style="padding:4px 6px" align="right">{{ row.label }}</td>
+            <td style="padding:4px 6px" align="right" width="120">{{ row.value }}</td>
+          </tr>
+          {% endfor %}
+          <tr>
+            <td style="padding:4px 6px" align="right"><strong>Balance</strong></td>
+            <td style="padding:4px 6px" align="right"><strong>{{ saldo_actual }}</strong></td>
+          </tr>
+        </mj-table>
+        {% if voucher_footer %}
+        <mj-divider border-color="#eee" border-width="1px"></mj-divider>
+        <mj-text align="center" font-size="12px" color="#777" font-family="Arial, Helvetica, sans-serif">{{ voucher_footer }}</mj-text>
+        {% endif %}
+        {% if voucher_legends %}
+        {% for legend in voucher_legends %}
+        <mj-text align="center" font-size="11px" color="#999" font-family="Arial, Helvetica, sans-serif">{{ legend }}</mj-text>
+        {% endfor %}
+        {% endif %}
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

@@ -1784,6 +1784,118 @@ export const CostChangeSuggestionSchema = {
     description: 'Cost update proposal surfaced by a purchase, decided by the user.'
 } as const;
 
+export const CounterpartStatementPublicSchema = {
+    properties: {
+        contraparte_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Contraparte Id'
+        },
+        contraparte_type: {
+            '$ref': '#/components/schemas/CounterpartType'
+        },
+        razon_social: {
+            type: 'string',
+            title: 'Razon Social'
+        },
+        documento: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Documento'
+        },
+        condicion_fiscal: {
+            '$ref': '#/components/schemas/TaxCondition'
+        },
+        email: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Email'
+        },
+        address: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Address'
+        },
+        date_from: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Date From'
+        },
+        date_to: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Date To'
+        },
+        generated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Generated At'
+        },
+        emails_enabled: {
+            type: 'boolean',
+            title: 'Emails Enabled'
+        },
+        totals: {
+            '$ref': '#/components/schemas/StatementTotals'
+        },
+        documents: {
+            items: {
+                '$ref': '#/components/schemas/StatementDocumentPublic'
+            },
+            type: 'array',
+            title: 'Documents',
+            default: []
+        },
+        receipts: {
+            items: {
+                '$ref': '#/components/schemas/StatementReceiptPublic'
+            },
+            type: 'array',
+            title: 'Receipts',
+            default: []
+        }
+    },
+    type: 'object',
+    required: ['contraparte_id', 'contraparte_type', 'razon_social', 'condicion_fiscal', 'generated_at', 'emails_enabled', 'totals'],
+    title: 'CounterpartStatementPublic',
+    description: `Full account statement (estado de cuenta) for a customer or supplier.
+
+Read-only point-in-time snapshot: documents and receipts cover the
+resolved period, \`\`saldo_actual\`\` is the live balance cache.`
+} as const;
+
 export const CounterpartTypeSchema = {
     type: 'string',
     enum: ['customer', 'supplier'],
@@ -5236,6 +5348,193 @@ export const SalesPerDayRowSchema = {
     type: 'object',
     required: ['fecha', 'count', 'subtotal', 'descuento_total', 'total'],
     title: 'SalesPerDayRow'
+} as const;
+
+export const StatementDocumentKindSchema = {
+    type: 'string',
+    enum: ['venta', 'compra', 'nota'],
+    title: 'StatementDocumentKind',
+    description: `Bucket a statement document belongs to (balance-direction based).
+
+Values reuse the domain vocabulary: \`\`venta\`\`/\`\`compra\`\` for the
+debt-increasing direction of each counterpart type, \`\`nota\`\` for credit
+notes (the debt-reducing direction).`
+} as const;
+
+export const StatementDocumentPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        numero: {
+            type: 'string',
+            title: 'Numero'
+        },
+        fecha: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Fecha'
+        },
+        type_name: {
+            type: 'string',
+            title: 'Type Name'
+        },
+        kind: {
+            '$ref': '#/components/schemas/StatementDocumentKind'
+        },
+        total: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Total'
+        },
+        lines: {
+            items: {
+                '$ref': '#/components/schemas/StatementLinePublic'
+            },
+            type: 'array',
+            title: 'Lines',
+            default: []
+        }
+    },
+    type: 'object',
+    required: ['id', 'numero', 'fecha', 'type_name', 'kind', 'total'],
+    title: 'StatementDocumentPublic'
+} as const;
+
+export const StatementEmailCreateSchema = {
+    properties: {
+        email_to: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'email'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Email To'
+        }
+    },
+    type: 'object',
+    title: 'StatementEmailCreate',
+    description: `Body of the statement-email endpoints (optional destination override).
+
+When \`\`email_to\`\` is omitted the counterpart's own email is used.`
+} as const;
+
+export const StatementLinePublicSchema = {
+    properties: {
+        product_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Product Id'
+        },
+        product_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Product Name'
+        },
+        cantidad: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Cantidad'
+        },
+        precio_unit: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Precio Unit'
+        },
+        subtotal_line: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Subtotal Line'
+        }
+    },
+    type: 'object',
+    required: ['product_id', 'cantidad', 'precio_unit', 'subtotal_line'],
+    title: 'StatementLinePublic'
+} as const;
+
+export const StatementReceiptPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        numero: {
+            type: 'string',
+            title: 'Numero'
+        },
+        fecha: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Fecha'
+        },
+        total: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Total'
+        },
+        payment_method_names: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Payment Method Names',
+            default: []
+        }
+    },
+    type: 'object',
+    required: ['id', 'numero', 'fecha', 'total'],
+    title: 'StatementReceiptPublic'
+} as const;
+
+export const StatementTotalsSchema = {
+    properties: {
+        total_ventas: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Total Ventas'
+        },
+        total_compras: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Total Compras'
+        },
+        total_notas: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Total Notas'
+        },
+        total_pagos: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Total Pagos'
+        },
+        saldo_actual: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Saldo Actual'
+        }
+    },
+    type: 'object',
+    required: ['total_ventas', 'total_compras', 'total_notas', 'total_pagos', 'saldo_actual'],
+    title: 'StatementTotals',
+    description: `Period-scoped statement totals plus the live balance.
+
+Exactly one of \`\`total_ventas\`\`/\`\`total_compras\`\` is meaningful (decided
+by the statement's counterpart type: customer → ventas, supplier →
+compras); the other stays zero.`
 } as const;
 
 export const StockMovementPublicSchema = {
