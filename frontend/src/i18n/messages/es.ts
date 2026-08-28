@@ -122,6 +122,8 @@ export const es = {
   "sell.quickPayment.customerRequired":
     "Seleccioná un cliente para vender a cuenta corriente",
   "sell.quickPayment.splitEntry": "Pago dividido",
+  "sell.quickPayment.f2Hint": "F2: confirmar la venta con este atajo",
+  "sell.quickPayment.f2HintPay": "F2: confirmar la venta",
   "sell.split.title": "Pago dividido",
   "sell.split.addRow": "Agregar medio de pago",
   "sell.split.covered": "Cubierto: {amount}",
@@ -797,7 +799,7 @@ export const es = {
     "Atajos de pago, valores por defecto y políticas de la pantalla de venta",
   "admin.sellScreen.quickMethods": "Atajos de pago rápido",
   "admin.sellScreen.quickMethodsHint":
-    "Define qué métodos se muestran como atajos y en qué orden; sin selección se muestran todos.",
+    "Define qué métodos se muestran como atajos y en qué orden; sin selección se muestran todos. El primer atajo también se confirma con la tecla F2.",
   "admin.sellScreen.noMethods": "No hay métodos de pago configurados",
   "admin.sellScreen.selectedOrder": "Orden de los atajos",
   "admin.sellScreen.moveUp": "Subir",

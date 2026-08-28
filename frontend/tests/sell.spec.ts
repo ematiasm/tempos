@@ -1571,6 +1571,10 @@ test.describe("Sell flow", () => {
     // F2 shares the quick buttons' gate: wait until the sale is confirmable
     // (cash session, customer and document type all resolved)
     await expect(page.getByTestId("quick-pay-button").first()).toBeEnabled()
+    await expect(page.getByTestId("quick-pay-button").first()).toHaveAttribute(
+      "title",
+      /F2/,
+    )
     await page.keyboard.press("F2")
 
     const numero = page.getByTestId("sale-success-numero")
