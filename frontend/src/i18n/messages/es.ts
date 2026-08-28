@@ -140,6 +140,16 @@ export const es = {
   "sell.qtyModal.precisionError": "{uom} admite hasta {places} decimales",
   "sell.qtyModal.cancel": "Cancelar",
   "sell.qtyModal.confirm": "Agregar",
+  "sell.postSale.email": "Enviar por email",
+  "sell.postSale.emailDisabledHint": "El envío de emails está deshabilitado",
+  "sell.postSale.emailSend": "Enviar",
+  "sell.postSale.emailSent": "Comprobante enviado a {to}",
+  "sell.postSale.savePdf": "Guardar PDF",
+  "sell.postSale.notes": "Nota del comprobante",
+  "sell.postSale.notesPlaceholder": "Nota impresa en el comprobante (opcional)",
+  "sell.postSale.saveNote": "Guardar nota",
+  "sell.postSale.noteSaved": "Nota guardada",
+  "sell.notesLabel": "Nota (opcional)",
   "sell.onCredit": "Venta a crédito",
   "sell.onCreditHint":
     "El monto ({amount}) se registra en la cuenta corriente del cliente. No se cobra dinero.",
@@ -391,6 +401,11 @@ export const es = {
   "voucher.totals": "Totales",
   "voucher.preview": "Vista previa del comprobante",
   "voucher.nonElectronic": "Documento no electrónico",
+  "voucher.pdfHint":
+    "Elegí «Guardar como PDF» como destino en el diálogo de impresión",
+  "voucher.formatTicket": "Ticket 80mm",
+  "voucher.formatA4": "A4",
+  "voucher.notes": "Nota",
   "documents.title": "Documentos",
   "products.title": "Productos",
   "customers.title": "Clientes",
@@ -713,6 +728,12 @@ export const es = {
   "errors.credit_exceeds_total":
     "El crédito supera el total restante de la venta",
   "errors.payment_exceeds_total": "El pago supera el total de la venta",
+  "errors.document_email_failed": "No se pudo enviar el email del comprobante",
+  "errors.email_not_enabled": "El envío de emails está deshabilitado",
+  "errors.document_email_missing_address":
+    "El documento no tiene una dirección de email",
+  "errors.document_not_editable":
+    "El documento está anulado y no se puede editar",
   "settings.title": "Ajustes de usuario",
   "settings.subtitle": "Administrá los ajustes y preferencias de tu cuenta",
   "settings.tabProfile": "Mi perfil",
@@ -747,7 +768,24 @@ export const es = {
   "admin.tabAttributes": "Atributos",
   "admin.tabDocumentTypes": "Tipos de documento",
   "admin.tabFinance": "Finanzas",
+  "admin.tabPrinting": "Impresión",
   "admin.tabBackups": "Backups",
+  "admin.printing.title": "Impresión",
+  "admin.printing.subtitle":
+    "Formato de comprobantes por defecto y textos imprimibles",
+  "admin.printing.format": "Formato por defecto",
+  "admin.printing.formatA4": "A4",
+  "admin.printing.formatTicket": "Ticket 80mm",
+  "admin.printing.footer": "Pie de comprobante",
+  "admin.printing.footerHint":
+    "Texto al pie del comprobante (máx. 255 caracteres)",
+  "admin.printing.footerTooLong": "El pie no puede superar 255 caracteres",
+  "admin.printing.legends": "Leyendas",
+  "admin.printing.legendsHint": "Una por línea (máx. 500 caracteres)",
+  "admin.printing.legendsTooLong":
+    "Las leyendas no pueden superar 500 caracteres",
+  "admin.printing.saved": "Configuración de impresión guardada",
+  "admin.printing.save": "Guardar",
   "admin.backups.title": "Backups",
   "admin.backups.subtitle":
     "Creá, programá y restaurá copias de seguridad de la base de datos",

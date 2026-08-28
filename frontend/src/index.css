@@ -150,3 +150,25 @@
     max-width: none;
   }
 }
+
+/* Print profiles (design D8): scoped by [data-print-format] on the print
+   overlay root. Other voucher overlays (e.g. the cash-session report) carry
+   no attribute and keep the default A4-like behavior. Placed after the
+   generic print rules so the 80mm overrides win. */
+[data-print-format="ticket80"] #voucher-print {
+  max-width: 72mm;
+  font-size: 12px;
+}
+[data-print-format="ticket80"] #voucher-print table {
+  font-size: 11px;
+}
+[data-print-format="ticket80"] #voucher-print .voucher-totals {
+  width: 100%;
+  margin-left: 0;
+}
+@media print {
+  [data-print-format="ticket80"] #voucher-print {
+    width: 72mm;
+    font-size: 12px;
+  }
+}

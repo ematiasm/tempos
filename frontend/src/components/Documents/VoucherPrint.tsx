@@ -1,12 +1,15 @@
 import { useQuery } from "@tanstack/react-query"
+import { useEffect, useState } from "react"
 import {
   BusinessSettingsService,
   type DocumentPublic,
   OpenAPI,
   PaymentMethodsService,
   PaymentsService,
+  type PrintFormat,
   TaxesService,
 } from "@/client"
+import { useBusinessSettings } from "@/components/Sell/useBusinessSettings"
 import { useLocale, useT } from "@/i18n"
 import { formatMoney } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -288,7 +291,7 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
         </div>
       )}
 
-      <div className="ml-auto flex w-64 flex-col gap-1 py-4 text-sm">
+      <div className="voucher-totals ml-auto flex w-64 flex-col gap-1 py-4 text-sm">
         <div className="flex justify-between">
           <span>{t("voucher.subtotal")}</span>
           <span>{money(document.subtotal, numberFormat)}</span>
@@ -327,6 +330,33 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
         </div>
       )}
 
+      {document.notes && (
+        <div className="border-t border-black py-3 text-sm">
+          <p className="mb-1 font-semibold">{t("voucher.notes")}</p>
+          <p data-testid="voucher-notes" className="whitespace-pre-line">
+            {document.notes}
+          </p>
+        </div>
+      )}
+
+      {(settings?.voucher_footer || settings?.voucher_legends) && (
+        <div className="border-t border-black pt-3 text-center text-xs">
+          {settings?.voucher_footer && (
+            <p data-testid="voucher-footer" className="whitespace-pre-line">
+              {settings.voucher_footer}
+            </p>
+          )}
+          {settings?.voucher_legends && (
+            <div
+              data-testid="voucher-legends"
+              className="whitespace-pre-line text-black/60"
+            >
+              {settings.voucher_legends}
+            </div>
+          )}
+        </div>
+      )}
+
       <p className="pt-8 text-center text-xs text-black/50">
         {t("voucher.nonElectronic")} — tempos
       </p>
@@ -338,21 +368,72 @@ interface PrintVoucherDialogProps {
   document: DocumentPublic
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Opens with the save-as-PDF destination hint (same print flow). */
+  savePdf?: boolean
 }
 
 export function PrintVoucherDialog({
   document,
   open,
   onOpenChange,
+  savePdf = false,
 }: PrintVoucherDialogProps) {
   const t = useT()
+  const { settings } = useBusinessSettings()
+  const [format, setFormat] = useState<PrintFormat>("a4")
+  const [pdfMode, setPdfMode] = useState(savePdf)
+
+  // every open re-preselects the configured default format
+  useEffect(() => {
+    if (open) {
+      setFormat(settings?.default_print_format ?? "a4")
+      setPdfMode(savePdf)
+    }
+  }, [open, settings?.default_print_format, savePdf])
+
   if (!open) return null
 
+  const atPage =
+    format === "ticket80"
+      ? "size: 80mm auto; margin: 4mm 3mm"
+      : "size: A4; margin: 12mm"
+
   return (
-    <div className="voucher-overlay fixed inset-0 z-50 flex flex-col bg-background">
-      <div className="no-print flex items-center justify-between gap-3 border-b p-4">
+    <div
+      className="voucher-overlay fixed inset-0 z-50 flex flex-col bg-background"
+      data-print-format={format}
+    >
+      {/* active print profile: @page must live in the printed document */}
+      <style>{`@media print { @page { ${atPage}; } }`}</style>
+      <div className="no-print flex flex-wrap items-center justify-between gap-3 border-b p-4">
         <h2 className="text-lg font-semibold">{t("voucher.preview")}</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex overflow-hidden rounded-md border">
+            <button
+              type="button"
+              data-testid="print-format-ticket80"
+              onClick={() => setFormat("ticket80")}
+              className={cn(
+                "px-3 py-1.5 text-sm",
+                format === "ticket80"
+                  ? "bg-black text-white"
+                  : "hover:bg-muted",
+              )}
+            >
+              {t("voucher.formatTicket")}
+            </button>
+            <button
+              type="button"
+              data-testid="print-format-a4"
+              onClick={() => setFormat("a4")}
+              className={cn(
+                "px-3 py-1.5 text-sm",
+                format === "a4" ? "bg-black text-white" : "hover:bg-muted",
+              )}
+            >
+              {t("voucher.formatA4")}
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => onOpenChange(false)}
@@ -372,6 +453,14 @@ export function PrintVoucherDialog({
           </button>
         </div>
       </div>
+      {pdfMode && (
+        <p
+          data-testid="print-pdf-hint"
+          className="no-print border-b bg-muted/40 px-4 py-2 text-sm text-muted-foreground"
+        >
+          {t("voucher.pdfHint")}
+        </p>
+      )}
       <div className="voucher-scroll flex-1 overflow-y-auto bg-muted/40 p-4 sm:p-8">
         <VoucherPrint document={document} />
       </div>

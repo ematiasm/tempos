@@ -66,7 +66,9 @@ test.describe("Sell flow", () => {
       margen_pct: 50,
     })
     productId = product.id
-    await adjustStock(request, productId, 5)
+    // every test in this file sells the shared fixture: stock it generously
+    // so per-test assertions (like the oversell block) stay isolated
+    await adjustStock(request, productId, 500)
   })
 
   test.afterEach(async ({ request }) => {
@@ -111,7 +113,8 @@ test.describe("Sell flow", () => {
     expect(sale?.document_type.prefix).toBe("FC")
 
     const product = await readProduct(request, productId)
-    expect(Number(product.stock_current)).toBe(4)
+    // shared fixture is stocked with 500 (see beforeAll): one sale consumed
+    expect(Number(product.stock_current)).toBe(499)
   })
 
   test("Print the voucher of a sale", async ({ page }) => {
@@ -1097,5 +1100,354 @@ test.describe("Sell flow", () => {
       .then((r) => r.data)
     const after = customersAfter.find((c) => c.id === customer.id)
     expect(after?.saldo).toBe("0.00")
+  })
+
+  test("The post-sale dialog shows the summary and the vuelto", async ({
+    page,
+    request,
+  }) => {
+    const suffix = uid()
+    const name = `Producto E2E Post Vuelto ${suffix}`
+    const uoms = await getUoms(request)
+    const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
+    const product = await createProduct(request, {
+      name,
+      sku: `PSV-${suffix.toUpperCase()}`,
+      uom_id: uom.id,
+      costo_actual: 100,
+      margen_pct: 900,
+    })
+    await adjustStock(request, product.id, 5)
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(name)
+    await page.getByRole("button", { name: new RegExp(name) }).click()
+    await expect(page.getByRole("row").filter({ hasText: name })).toBeVisible()
+
+    // cash 1500 on a total of 1000 -> vuelto 500 in the dialog
+    await page.getByTestId("split-payment-button").click()
+    await page.getByTestId("split-row-0-amount").fill("1500")
+    await page.getByTestId("split-confirm").click()
+
+    const dialog = page.getByTestId("post-sale-dialog")
+    await expect(dialog).toBeVisible()
+    const numeroText = (
+      await page.getByTestId("sale-success-numero").textContent()
+    )?.trim()
+    expect(numeroText).toMatch(/^\d{4}-F[ABC]-/)
+    await expect(page.getByTestId("sale-vuelto")).toHaveText("Vuelto: $500.00")
+    await expect(dialog.getByText(new RegExp(numeroText!))).toBeVisible()
+  })
+
+  test("The post-sale dialog omits the vuelto section for an exact payment", async ({
+    page,
+  }) => {
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(productName)
+    await page.getByRole("button", { name: new RegExp(productName) }).click()
+    await expect(
+      page.getByRole("row").filter({ hasText: productName }),
+    ).toBeVisible()
+
+    await payQuick(page, "Efectivo")
+
+    await expect(page.getByTestId("post-sale-dialog")).toBeVisible()
+    await expect(page.getByTestId("sale-vuelto")).toHaveCount(0)
+  })
+
+  test("The note action PATCHes the document and prints on the voucher", async ({
+    page,
+    request,
+  }) => {
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(productName)
+    await page.getByRole("button", { name: new RegExp(productName) }).click()
+    await payQuick(page, "Efectivo")
+
+    await expect(page.getByTestId("post-sale-dialog")).toBeVisible()
+    const numeroText = (
+      await page.getByTestId("sale-success-numero").textContent()
+    )?.trim()
+    const note = `Entrega en sucursal centro ${uid()}`
+
+    await page.getByTestId("post-sale-note").fill(note)
+    await page.getByTestId("post-sale-save-note").click()
+    await expect(page.getByText("Nota guardada")).toBeVisible()
+
+    // persisted through the PATCH endpoint
+    const docs = await readDocuments(request)
+    const sale = docs.find((d) => d.numero === numeroText)
+    expect(sale).toBeDefined()
+    expect(sale?.notes).toBe(note)
+
+    // the voucher re-renders with the note (local state update)
+    await page.getByRole("button", { name: "Imprimir comprobante" }).click()
+    await expect(page.getByTestId("voucher-notes")).toHaveText(note)
+  })
+
+  test("New sale resets the cart and refocuses the search input", async ({
+    page,
+    request,
+  }) => {
+    // own product: the shared fixture's stock is consumed by earlier tests
+    const suffix = uid()
+    const name = `Producto E2E Reset Venta ${suffix}`
+    const uoms = await getUoms(request)
+    const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
+    const product = await createProduct(request, {
+      name,
+      sku: `RSV-${suffix.toUpperCase()}`,
+      uom_id: uom.id,
+      costo_actual: 100,
+      margen_pct: 50,
+    })
+    await adjustStock(request, product.id, 5)
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(name)
+    await page.getByRole("button", { name: new RegExp(name) }).click()
+    await payQuick(page, "Efectivo")
+
+    await expect(page.getByTestId("post-sale-dialog")).toBeVisible()
+    await page.getByTestId("post-sale-new-sale").click()
+
+    await expect(page.getByTestId("post-sale-dialog")).toHaveCount(0)
+    await expect(page.getByRole("row").filter({ hasText: name })).toHaveCount(0)
+    await expect(page.getByTestId("product-search")).toBeFocused()
+  })
+
+  test("Print opens with the configured default format and toggles profiles", async ({
+    page,
+    request,
+  }) => {
+    await api.patch(request, "/business-settings/", {
+      default_print_format: "ticket80",
+    })
+    // wait for the setting to be visible to a fresh page load
+    await expect
+      .poll(() =>
+        api
+          .getOne<{ default_print_format: string }>(
+            request,
+            "/business-settings/",
+          )
+          .then((s) => s.default_print_format),
+      )
+      .toBe("ticket80")
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(productName)
+    await page.getByRole("button", { name: new RegExp(productName) }).click()
+    await payQuick(page, "Efectivo")
+
+    await expect(page.getByTestId("post-sale-dialog")).toBeVisible()
+    await page.getByRole("button", { name: "Imprimir comprobante" }).click()
+
+    // the settings default is the preselected profile
+    const overlay = page.locator("[data-print-format]")
+    await expect(overlay).toHaveAttribute("data-print-format", "ticket80")
+
+    // switch to A4 for the same document
+    await page.getByTestId("print-format-a4").click()
+    await expect(overlay).toHaveAttribute("data-print-format", "a4")
+    await page.getByTestId("print-format-ticket80").click()
+    await expect(overlay).toHaveAttribute("data-print-format", "ticket80")
+
+    await api.patch(request, "/business-settings/", {
+      default_print_format: "a4",
+    })
+  })
+
+  test("The save-PDF action opens the print flow with a hint", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      window.print = () => {
+        ;(window as unknown as { __printed?: boolean }).__printed = true
+      }
+    })
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(productName)
+    await page.getByRole("button", { name: new RegExp(productName) }).click()
+    await payQuick(page, "Efectivo")
+
+    await expect(page.getByTestId("post-sale-dialog")).toBeVisible()
+    await page.getByTestId("post-sale-save-pdf").click()
+
+    // same print dialog, with the save-as-PDF destination hint
+    await expect(page.getByTestId("print-pdf-hint")).toBeVisible()
+    await page.getByRole("button", { name: "Imprimir", exact: true }).click()
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => (window as unknown as { __printed?: boolean }).__printed,
+        ),
+      )
+      .toBe(true)
+  })
+
+  test("The voucher honors footer and legends settings in both profiles", async ({
+    page,
+    request,
+  }) => {
+    const footer = `Gracias por su compra ${uid()}`
+    const legends = `Leyenda uno ${uid()}\nLeyenda dos ${uid()}`
+
+    // NULL settings render nothing (fresh dev DB default)
+    const patchPrintTexts = async (
+      footerValue: string | null,
+      legendsValue: string | null,
+    ) => {
+      await api.patch(request, "/business-settings/", {
+        voucher_footer: footerValue,
+        voucher_legends: legendsValue,
+      })
+    }
+    await patchPrintTexts(null, null)
+    await expect
+      .poll(() =>
+        api
+          .getOne<{ voucher_footer: string | null }>(
+            request,
+            "/business-settings/",
+          )
+          .then((s) => s.voucher_footer),
+      )
+      .toBeNull()
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(productName)
+    await page.getByRole("button", { name: new RegExp(productName) }).click()
+    await payQuick(page, "Efectivo")
+
+    await expect(page.getByTestId("post-sale-dialog")).toBeVisible()
+    await page.getByRole("button", { name: "Imprimir comprobante" }).click()
+    await expect(page.getByTestId("voucher-footer")).toHaveCount(0)
+
+    // configure footer + legends; both profiles must render them
+    await page.getByRole("button", { name: "Cerrar", exact: true }).click()
+    await patchPrintTexts(footer, legends)
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(productName)
+    await page.getByRole("button", { name: new RegExp(productName) }).click()
+    await payQuick(page, "Efectivo")
+    await page.getByRole("button", { name: "Imprimir comprobante" }).click()
+
+    await expect(page.getByTestId("voucher-footer")).toHaveText(footer)
+    await expect(page.getByTestId("voucher-legends")).toContainText(
+      legends.split("\n")[0],
+    )
+    await expect(page.getByTestId("voucher-legends")).toContainText(
+      legends.split("\n")[1],
+    )
+
+    await page.getByTestId("print-format-ticket80").click()
+    await expect(page.getByTestId("voucher-footer")).toHaveText(footer)
+
+    await patchPrintTexts(null, null)
+  })
+
+  test("The email action is hidden without the document.email permission", async ({
+    page,
+  }) => {
+    // a role without document.email: the action must not render at all
+    await page.route("**/api/v1/users/me", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "00000000-0000-0000-0000-00000000dead",
+          email: "cashier@example.com",
+          is_active: true,
+          is_superuser: false,
+          full_name: "Cajador Sin Permiso",
+          roles: [],
+        }),
+      }),
+    )
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(productName)
+    await page.getByRole("button", { name: new RegExp(productName) }).click()
+    await payQuick(page, "Efectivo")
+
+    await expect(page.getByTestId("post-sale-dialog")).toBeVisible()
+    await expect(page.getByTestId("post-sale-email")).toHaveCount(0)
+  })
+
+  test("The email action is disabled with a tooltip when SMTP is off", async ({
+    page,
+    request,
+  }) => {
+    // own product: the shared fixture's stock is consumed by earlier tests
+    const suffix = uid()
+    const name = `Producto E2E Email Off ${suffix}`
+    const uoms = await getUoms(request)
+    const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
+    const product = await createProduct(request, {
+      name,
+      sku: `EML-${suffix.toUpperCase()}`,
+      uom_id: uom.id,
+      costo_actual: 100,
+      margen_pct: 50,
+    })
+    await adjustStock(request, product.id, 5)
+
+    await page.route("**/api/v1/documents/email-status", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ emails_enabled: false }),
+      }),
+    )
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(name)
+    await page.getByRole("button", { name: new RegExp(name) }).click()
+    await payQuick(page, "Efectivo")
+
+    await expect(page.getByTestId("post-sale-dialog")).toBeVisible()
+    const email = page.getByTestId("post-sale-email")
+    await expect(email).toBeDisabled()
+    await expect(email).toHaveAttribute(
+      "title",
+      "El envío de emails está deshabilitado",
+    )
+  })
+
+  test("The email action auto-sends to the customer's address", async ({
+    page,
+    request,
+  }) => {
+    const suffix = uid()
+    const email = `cliente-${suffix}@example.com`
+    const _customer = await api.post<{ id: string }>(request, "/customers/", {
+      razon_social: `Cliente Email ${suffix}`,
+      email,
+    })
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(productName)
+    await page.getByRole("button", { name: new RegExp(productName) }).click()
+    await page.getByTestId("customer-select").click()
+    await page
+      .getByRole("option", { name: new RegExp(`Cliente Email ${suffix}`) })
+      .click()
+    await payQuick(page, "Efectivo")
+
+    await expect(page.getByTestId("post-sale-dialog")).toBeVisible()
+    await page.getByTestId("post-sale-email").click()
+
+    // contraparte_email is on the document: no prompt, straight send
+    await expect(page.getByText(`Comprobante enviado a ${email}`)).toBeVisible()
+
+    // MailCatcher actually received it
+    await expect
+      .poll(async () => {
+        const res = await request.get("http://localhost:1080/messages")
+        const text = await res.text()
+        return text.includes(email)
+      })
+      .toBe(true)
   })
 })

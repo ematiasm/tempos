@@ -21,16 +21,22 @@ export interface CartLine {
 
 interface ProductSearchProps {
   onAdd: (product: ProductPublic, variant?: ProductVariantPublic) => void
+  /** Optional external ref so the parent can refocus the input (new sale). */
+  inputRef?: React.RefObject<HTMLInputElement | null>
 }
 
-const ProductSearch = ({ onAdd }: ProductSearchProps) => {
+const ProductSearch = ({
+  onAdd,
+  inputRef: externalInputRef,
+}: ProductSearchProps) => {
   const t = useT()
   const { numberFormat } = useLocale()
   const [query, setQuery] = useState("")
   const [expanded, setExpanded] = useState<string | null>(null)
   const [highlight, setHighlight] = useState(0)
   const [dismissed, setDismissed] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const internalInputRef = useRef<HTMLInputElement>(null)
+  const inputRef = externalInputRef ?? internalInputRef
 
   const { data, isFetching, isError } = useQuery({
     queryFn: () => ProductsService.searchProducts({ q: query.trim() }),

@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import { useLocale, useT } from "@/i18n"
 import { money } from "@/lib/format"
 
@@ -23,6 +24,8 @@ interface SellSidebarProps {
   onDateChange: (date: string) => void
   discountTotal: number
   onDiscountChange: (discount: number) => void
+  notes: string
+  onNotesChange: (notes: string) => void
   subtotal: number
   perceptions: number
   total: number
@@ -42,6 +45,8 @@ export function SellSidebar({
   onDateChange,
   discountTotal,
   onDiscountChange,
+  notes,
+  onNotesChange,
   subtotal,
   perceptions,
   total,
@@ -158,6 +163,20 @@ export function SellSidebar({
             <span>-{money(appliedFavor, numberFormat)}</span>
           </div>
         )}
+      </div>
+
+      <div>
+        <span className="mb-1 block text-xs font-medium text-muted-foreground">
+          {t("sell.notesLabel")}
+        </span>
+        <Textarea
+          data-testid="sell-notes"
+          rows={2}
+          maxLength={500}
+          placeholder={t("sell.postSale.notesPlaceholder")}
+          value={notes}
+          onChange={(e) => onNotesChange(e.target.value)}
+        />
       </div>
 
       {children}

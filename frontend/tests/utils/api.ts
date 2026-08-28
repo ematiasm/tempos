@@ -74,6 +74,7 @@ export interface ApiDocument {
   estado: string
   total: string
   favor_monto?: string
+  notes?: string | null
   parent_document_id: string | null
   contraparte_id: string | null
   lines: { id: string; cantidad: string; precio_unit: string }[]

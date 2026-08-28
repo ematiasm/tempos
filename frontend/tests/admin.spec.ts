@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test"
 import { firstSuperuser, firstSuperuserPassword } from "./config.ts"
+import { api } from "./utils/api"
 import { createUser } from "./utils/privateApi"
 import { randomEmail, randomPassword } from "./utils/random"
 import { logInUser } from "./utils/user"
@@ -216,5 +217,73 @@ test.describe("Admin page access control", () => {
     await gotoAdminUsers(page)
 
     await expect(page.getByRole("heading", { name: "Usuarios" })).toBeVisible()
+  })
+})
+
+test.describe("Admin Printing settings", () => {
+  const suffix = () => Math.random().toString(36).substring(7)
+
+  test.afterEach(async ({ request }) => {
+    // leave the shared settings as the suite found them
+    await api.patch(request, "/business-settings/", {
+      default_print_format: "a4",
+      voucher_footer: null,
+      voucher_legends: null,
+    })
+  })
+
+  test("Administrator configures printing and the values persist", async ({
+    page,
+    request,
+  }) => {
+    await page.goto("/admin")
+    await page.getByRole("tab", { name: "Impresión" }).click()
+
+    const footer = `Comprobante E2E ${suffix()}`
+    const legends = `Leyenda E2E ${suffix()}`
+
+    await page.getByTestId("printing-format").click()
+    await page.getByRole("option", { name: "Ticket 80mm" }).click()
+    await page.getByTestId("printing-footer").fill(footer)
+    await page.getByTestId("printing-legends").fill(legends)
+    await page.getByTestId("printing-save").click()
+
+    await expect(
+      page.getByText("Configuración de impresión guardada"),
+    ).toBeVisible()
+
+    // persisted through the business-settings PATCH
+    const settings = await api.getOne<{
+      default_print_format: string
+      voucher_footer: string | null
+      voucher_legends: string | null
+    }>(request, "/business-settings/")
+    expect(settings.default_print_format).toBe("ticket80")
+    expect(settings.voucher_footer).toBe(footer)
+    expect(settings.voucher_legends).toBe(legends)
+
+    // reopening the section shows the saved values
+    await page.reload()
+    await page.getByRole("tab", { name: "Impresión" }).click()
+    await expect(page.getByTestId("printing-format")).toContainText(
+      "Ticket 80mm",
+    )
+    await expect(page.getByTestId("printing-footer")).toHaveValue(footer)
+    await expect(page.getByTestId("printing-legends")).toHaveValue(legends)
+  })
+
+  test("A footer over the maximum length shows a validation error", async ({
+    page,
+  }) => {
+    await page.goto("/admin")
+    await page.getByRole("tab", { name: "Impresión" }).click()
+
+    await page.getByTestId("printing-footer").fill("x".repeat(256))
+    await page.getByTestId("printing-save").click()
+
+    await expect(page.getByTestId("printing-footer-error")).toBeVisible()
+    await expect(
+      page.getByText("Configuración de impresión guardada"),
+    ).toHaveCount(0)
   })
 })
