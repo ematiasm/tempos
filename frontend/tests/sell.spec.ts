@@ -1444,7 +1444,9 @@ test.describe("Sell flow", () => {
     // MailCatcher actually received it
     await expect
       .poll(async () => {
-        const res = await request.get(`${process.env.MAILCATCHER_HOST ?? "http://localhost:1080"}/messages`)
+        const res = await request.get(
+          `${process.env.MAILCATCHER_HOST ?? "http://localhost:1080"}/messages`,
+        )
         const text = await res.text()
         return text.includes(email)
       })
