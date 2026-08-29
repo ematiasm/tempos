@@ -741,6 +741,7 @@ export const es = {
     "El documento no tiene una dirección de email",
   "errors.document_not_editable":
     "El documento está anulado y no se puede editar",
+  "errors.not_enough_privileges": "No tenés permisos para realizar esta acción",
   "settings.title": "Ajustes de usuario",
   "settings.subtitle": "Administrá los ajustes y preferencias de tu cuenta",
   "settings.tabProfile": "Mi perfil",

@@ -22,29 +22,88 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar"
 import useAuth from "@/hooks/useAuth"
+import { hasPermission } from "@/lib/permissions"
 import { type Item, Main } from "./Main"
 import { User } from "./User"
 
 const baseItems: Item[] = [
   { icon: Home, titleKey: "nav.dashboard", path: "/" },
-  { icon: ShoppingCart, titleKey: "nav.sell", path: "/sell" },
-  { icon: ShoppingBasket, titleKey: "nav.buy", path: "/buy" },
-  { icon: Boxes, titleKey: "nav.stock", path: "/stock" },
-  { icon: Package, titleKey: "nav.products", path: "/catalog/products" },
-  { icon: UserRound, titleKey: "nav.customers", path: "/customers" },
-  { icon: Truck, titleKey: "nav.suppliers", path: "/suppliers" },
-  { icon: FileText, titleKey: "nav.documents", path: "/documents" },
-  { icon: HandCoins, titleKey: "nav.payments", path: "/payments" },
-  { icon: Wallet, titleKey: "nav.finance", path: "/finance" },
-  { icon: BarChart3, titleKey: "nav.reports", path: "/reports" },
+  {
+    icon: ShoppingCart,
+    titleKey: "nav.sell",
+    path: "/sell",
+    permission: "document.create",
+  },
+  {
+    icon: ShoppingBasket,
+    titleKey: "nav.buy",
+    path: "/buy",
+    permission: "document.create",
+  },
+  {
+    icon: Boxes,
+    titleKey: "nav.stock",
+    path: "/stock",
+    permission: "stock.read",
+  },
+  {
+    icon: Package,
+    titleKey: "nav.products",
+    path: "/catalog/products",
+    permission: "product.read",
+  },
+  {
+    icon: UserRound,
+    titleKey: "nav.customers",
+    path: "/customers",
+    permission: "customer.read",
+  },
+  {
+    icon: Truck,
+    titleKey: "nav.suppliers",
+    path: "/suppliers",
+    permission: "supplier.read",
+  },
+  {
+    icon: FileText,
+    titleKey: "nav.documents",
+    path: "/documents",
+    permission: "document.read",
+  },
+  {
+    icon: HandCoins,
+    titleKey: "nav.payments",
+    path: "/payments",
+    permission: "payment.read",
+  },
+  {
+    icon: Wallet,
+    titleKey: "nav.finance",
+    path: "/finance",
+    permission: "finance.read",
+  },
+  {
+    icon: BarChart3,
+    titleKey: "nav.reports",
+    path: "/reports",
+    permission: "report.view",
+  },
 ]
 
 export function AppSidebar() {
   const { user: currentUser } = useAuth()
 
-  const items: Item[] = currentUser?.is_superuser
-    ? [...baseItems, { icon: Users, titleKey: "nav.admin", path: "/admin" }]
-    : baseItems
+  // Items without a permission are always visible; the rest are filtered by
+  // the current user's permissions (superusers pass every check). While the
+  // me-query resolves currentUser is undefined, so the sidebar starts empty.
+  const items: Item[] = [
+    ...baseItems.filter(
+      (item) => !item.permission || hasPermission(currentUser, item.permission),
+    ),
+  ]
+  if (currentUser?.is_superuser) {
+    items.push({ icon: Users, titleKey: "nav.admin", path: "/admin" })
+  }
 
   return (
     <Sidebar collapsible="icon">

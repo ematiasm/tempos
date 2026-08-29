@@ -14,6 +14,8 @@ export type Item = {
   icon: LucideIcon
   titleKey: MessageId
   path: string
+  /** Permission code required to see this item; omit for always-visible. */
+  permission?: string
 }
 
 interface MainProps {

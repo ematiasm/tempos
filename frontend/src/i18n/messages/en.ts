@@ -720,6 +720,8 @@ export const en: Messages = {
   "errors.email_not_enabled": "Email sending is disabled",
   "errors.document_email_missing_address": "The document has no email address",
   "errors.document_not_editable": "The document is voided and cannot be edited",
+  "errors.not_enough_privileges":
+    "You don't have permission to perform this action",
   "settings.title": "User Settings",
   "settings.subtitle": "Manage your account settings and preferences",
   "settings.tabProfile": "My profile",
