@@ -306,6 +306,29 @@ export type CostChangeSuggestion = {
     is_reference: boolean;
 };
 
+/**
+ * Full account statement (estado de cuenta) for a customer or supplier.
+ *
+ * Read-only point-in-time snapshot: documents and receipts cover the
+ * resolved period, ``saldo_actual`` is the live balance cache.
+ */
+export type CounterpartStatementPublic = {
+    contraparte_id: string;
+    contraparte_type: CounterpartType;
+    razon_social: string;
+    documento?: (string | null);
+    condicion_fiscal: TaxCondition;
+    email?: (string | null);
+    address?: (string | null);
+    date_from?: (string | null);
+    date_to?: (string | null);
+    generated_at: string;
+    emails_enabled: boolean;
+    totals: StatementTotals;
+    documents?: Array<StatementDocumentPublic>;
+    receipts?: Array<StatementReceiptPublic>;
+};
+
 export type CounterpartType = 'customer' | 'supplier';
 
 export type CustomerAccountMovementPublic = {
@@ -963,6 +986,65 @@ export type SalesPerDayRow = {
     total: string;
 };
 
+/**
+ * Bucket a statement document belongs to (balance-direction based).
+ *
+ * Values reuse the domain vocabulary: ``venta``/``compra`` for the
+ * debt-increasing direction of each counterpart type, ``nota`` for credit
+ * notes (the debt-reducing direction).
+ */
+export type StatementDocumentKind = 'venta' | 'compra' | 'nota';
+
+export type StatementDocumentPublic = {
+    id: string;
+    numero: string;
+    fecha: string;
+    type_name: string;
+    kind: StatementDocumentKind;
+    total: string;
+    lines?: Array<StatementLinePublic>;
+};
+
+/**
+ * Body of the statement-email endpoints (optional destination override).
+ *
+ * When ``email_to`` is omitted the counterpart's own email is used.
+ */
+export type StatementEmailCreate = {
+    email_to?: (string | null);
+};
+
+export type StatementLinePublic = {
+    product_id: string;
+    product_name?: (string | null);
+    cantidad: string;
+    precio_unit: string;
+    subtotal_line: string;
+};
+
+export type StatementReceiptPublic = {
+    id: string;
+    numero: string;
+    fecha: string;
+    total: string;
+    payment_method_names?: Array<(string)>;
+};
+
+/**
+ * Period-scoped statement totals plus the live balance.
+ *
+ * Exactly one of ``total_ventas``/``total_compras`` is meaningful (decided
+ * by the statement's counterpart type: customer → ventas, supplier →
+ * compras); the other stays zero.
+ */
+export type StatementTotals = {
+    total_ventas: string;
+    total_compras: string;
+    total_notas: string;
+    total_pagos: string;
+    saldo_actual: string;
+};
+
 export type StockMovementPublic = {
     id: string;
     product_id: string;
@@ -1439,6 +1521,21 @@ export type CustomersReadCustomerAccountMovementsData = {
 };
 
 export type CustomersReadCustomerAccountMovementsResponse = (Page_CustomerAccountMovementPublic_);
+
+export type CustomersReadCustomerStatementData = {
+    customerId: string;
+    dateFrom?: (string | null);
+    dateTo?: (string | null);
+};
+
+export type CustomersReadCustomerStatementResponse = (CounterpartStatementPublic);
+
+export type CustomersEmailCustomerStatementData = {
+    customerId: string;
+    requestBody: StatementEmailCreate;
+};
+
+export type CustomersEmailCustomerStatementResponse = (void);
 
 export type DocumentsSuggestFiscalSaleTypeData = {
     customerId: string;
@@ -1957,6 +2054,21 @@ export type SuppliersReadSupplierAccountMovementsData = {
 };
 
 export type SuppliersReadSupplierAccountMovementsResponse = (Page_SupplierAccountMovementPublic_);
+
+export type SuppliersReadSupplierStatementData = {
+    dateFrom?: (string | null);
+    dateTo?: (string | null);
+    supplierId: string;
+};
+
+export type SuppliersReadSupplierStatementResponse = (CounterpartStatementPublic);
+
+export type SuppliersEmailSupplierStatementData = {
+    requestBody: StatementEmailCreate;
+    supplierId: string;
+};
+
+export type SuppliersEmailSupplierStatementResponse = (void);
 
 export type TaxesReadTaxesData = {
     /**

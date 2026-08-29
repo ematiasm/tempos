@@ -1,7 +1,8 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time, tzinfo
 from decimal import Decimal
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
@@ -27,6 +28,7 @@ from app.models import (
     CashSessionReport,
     CashSessionStatus,
     CostChangeSuggestion,
+    CounterpartStatementPublic,
     CounterpartType,
     Customer,
     CustomerAccountMovement,
@@ -56,6 +58,11 @@ from app.models import (
     ProductVariant,
     ProductVariantAttribute,
     Role,
+    StatementDocumentKind,
+    StatementDocumentPublic,
+    StatementLinePublic,
+    StatementReceiptPublic,
+    StatementTotals,
     StockMovement,
     StockPolicy,
     Supplier,
@@ -1735,6 +1742,300 @@ def create_receipt(
     session.commit()
     session.refresh(document)
     return document
+
+
+# ---------------------------------------------------------------------------
+# Counterpart statement (estado de cuenta)
+# ---------------------------------------------------------------------------
+def _statement_period_bounds(
+    session: Session, date_from: date | None, date_to: date | None
+) -> tuple[datetime | None, datetime | None]:
+    """Inclusive UTC bounds for the requested period on ``Document.fecha``.
+
+    Day boundaries resolve in the business timezone (``BusinessSettings
+    .timezone``) so a period picked in local terms covers every document of
+    those days (documents store UTC timestamps).
+    """
+    if date_from is None and date_to is None:
+        return None, None
+    settings_row = session.exec(select(BusinessSettings)).first()
+    tz: tzinfo = UTC
+    if settings_row and settings_row.timezone:
+        try:
+            tz = ZoneInfo(settings_row.timezone)
+        except Exception:  # noqa: BLE001 - invalid stored tz falls back to UTC
+            tz = UTC
+    dt_from = (
+        datetime.combine(date_from, time.min, tzinfo=tz).astimezone(UTC)
+        if date_from is not None
+        else None
+    )
+    dt_to = (
+        datetime.combine(date_to, time.max, tzinfo=tz).astimezone(UTC)
+        if date_to is not None
+        else None
+    )
+    return dt_from, dt_to
+
+
+def get_counterpart_statement(
+    *,
+    session: Session,
+    contraparte_type: CounterpartType,
+    contraparte_id: uuid.UUID,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> CounterpartStatementPublic:
+    """Build the account statement (estado de cuenta) for a counterpart.
+
+    Read-only point-in-time read: nothing is written anywhere (the shown
+    ``saldo`` is the live balance cache, never mutated here).
+
+    Document buckets follow the ledger conventions used across the system
+    (``outstanding_documents`` and the cash-session report): within the
+    counterpart's base operation (``venta`` for customers, ``compra`` for
+    suppliers) documents whose ``DocumentType.signo_caja`` increases the
+    balance are the sales/purchases, the opposite direction are the credit
+    notes (NC), and ``recibo`` documents are the payments. Debit notes (ND)
+    increase the balance exactly like invoices - the current-account ledger
+    books them identically - so they stay in the sales/purchases bucket.
+    Name/prefix matching is deliberately avoided: both are user-editable.
+    """
+    if contraparte_type == CounterpartType.CUSTOMER:
+        counterpart: Customer | Supplier | None = session.get(Customer, contraparte_id)
+        base_operation = DocumentOperation.VENTA
+    else:
+        counterpart = session.get(Supplier, contraparte_id)
+        base_operation = DocumentOperation.COMPRA
+    if counterpart is None:
+        raise BusinessError("counterpart_not_found", "Counterpart not found")
+
+    def _increases_balance(signo_caja: int) -> bool:
+        return (
+            signo_caja > 0
+            if contraparte_type == CounterpartType.CUSTOMER
+            else signo_caja < 0
+        )
+
+    base_ids: set[uuid.UUID] = set()
+    note_ids: set[uuid.UUID] = set()
+    receipt_ids: set[uuid.UUID] = set()
+    type_names: dict[uuid.UUID, str] = {}
+    for doc_type in session.exec(select(DocumentType)).all():
+        type_names[doc_type.id] = doc_type.name
+        if doc_type.tipo_contraparte != contraparte_type:
+            continue
+        if doc_type.operation == DocumentOperation.RECIBO:
+            receipt_ids.add(doc_type.id)
+        elif doc_type.operation == base_operation:
+            bucket = base_ids if _increases_balance(doc_type.signo_caja) else note_ids
+            bucket.add(doc_type.id)
+
+    dt_from, dt_to = _statement_period_bounds(session, date_from, date_to)
+    conditions: list[Any] = [
+        col(Document.contraparte_type) == contraparte_type,
+        col(Document.contraparte_id) == contraparte_id,
+        col(Document.estado) == DocumentStatus.ACTIVE,
+        col(Document.document_type_id).in_(base_ids | note_ids | receipt_ids),
+    ]
+    if dt_from is not None:
+        conditions.append(col(Document.fecha) >= dt_from)
+    if dt_to is not None:
+        conditions.append(col(Document.fecha) <= dt_to)
+    documents = list(
+        session.exec(
+            select(Document)
+            .where(*conditions)
+            .order_by(
+                col(Document.fecha).asc(),
+                col(Document.created_at).asc(),
+                col(Document.numero).asc(),
+            )
+        ).all()
+    )
+
+    base_docs = [d for d in documents if d.document_type_id in base_ids]
+    note_docs = [d for d in documents if d.document_type_id in note_ids]
+    receipt_docs = [d for d in documents if d.document_type_id in receipt_ids]
+
+    # Lines (documents only: receipts carry no lines) with bulk product names.
+    document_ids = [d.id for d in base_docs + note_docs]
+    lines_by_doc: dict[uuid.UUID, list[DocumentLine]] = {}
+    product_names: dict[uuid.UUID, str] = {}
+    if document_ids:
+        lines = session.exec(
+            select(DocumentLine)
+            .where(col(DocumentLine.document_id).in_(document_ids))
+            .order_by(col(DocumentLine.orden).asc())
+        ).all()
+        for line in lines:
+            lines_by_doc.setdefault(line.document_id, []).append(line)
+        product_ids = {line.product_id for line in lines}
+        product_names = dict(
+            session.exec(
+                select(Product.id, Product.name).where(col(Product.id).in_(product_ids))
+            ).all()
+        )
+
+    # Receipt payment methods (bulk).
+    methods_by_receipt: dict[uuid.UUID, list[str]] = {}
+    if receipt_docs:
+        payment_rows = session.exec(
+            select(DocumentPayment.document_id, PaymentMethod.name)
+            .join(
+                PaymentMethod,
+                col(PaymentMethod.id) == col(DocumentPayment.payment_method_id),
+            )
+            .where(col(DocumentPayment.document_id).in_([d.id for d in receipt_docs]))
+            .order_by(col(DocumentPayment.id).asc())
+        ).all()
+        for document_id, method_name in payment_rows:
+            methods_by_receipt.setdefault(document_id, []).append(method_name)
+
+    base_kind = (
+        StatementDocumentKind.SALE
+        if contraparte_type == CounterpartType.CUSTOMER
+        else StatementDocumentKind.PURCHASE
+    )
+    statement_documents: list[StatementDocumentPublic] = []
+    for document in documents:
+        if document.document_type_id in receipt_ids:
+            continue
+        kind = (
+            base_kind
+            if document.document_type_id in base_ids
+            else StatementDocumentKind.NOTE
+        )
+        statement_documents.append(
+            StatementDocumentPublic(
+                id=document.id,
+                numero=document.numero,
+                fecha=document.fecha,
+                type_name=type_names.get(document.document_type_id, ""),
+                kind=kind,
+                total=document.total,
+                lines=[
+                    StatementLinePublic(
+                        product_id=line.product_id,
+                        product_name=product_names.get(line.product_id),
+                        cantidad=line.cantidad,
+                        precio_unit=line.precio_unit,
+                        subtotal_line=line.subtotal_line,
+                    )
+                    for line in lines_by_doc.get(document.id, [])
+                ],
+            )
+        )
+    receipts = [
+        StatementReceiptPublic(
+            id=receipt.id,
+            numero=receipt.numero,
+            fecha=receipt.fecha,
+            total=receipt.total,
+            payment_method_names=methods_by_receipt.get(receipt.id, []),
+        )
+        for receipt in receipt_docs
+    ]
+
+    total_base = _money(sum((d.total for d in base_docs), Decimal("0")))
+    total_notes = _money(sum((d.total for d in note_docs), Decimal("0")))
+    total_receipts = _money(sum((d.total for d in receipt_docs), Decimal("0")))
+    is_customer = contraparte_type == CounterpartType.CUSTOMER
+    totals = StatementTotals(
+        total_ventas=total_base if is_customer else _money(Decimal("0")),
+        total_compras=_money(Decimal("0")) if is_customer else total_base,
+        total_notas=total_notes,
+        total_pagos=total_receipts,
+        saldo_actual=counterpart.saldo,
+    )
+
+    return CounterpartStatementPublic(
+        contraparte_id=counterpart.id,
+        contraparte_type=contraparte_type,
+        razon_social=counterpart.razon_social,
+        documento=counterpart.documento,
+        condicion_fiscal=counterpart.condicion_fiscal,
+        email=counterpart.email,
+        address=counterpart.address,
+        date_from=date_from,
+        date_to=date_to,
+        generated_at=datetime.now(UTC),
+        # The route fills this from settings (crud stays config-free).
+        emails_enabled=False,
+        totals=totals,
+        documents=statement_documents,
+        receipts=receipts,
+    )
+
+
+def statement_email_context(
+    *, session: Session, statement: CounterpartStatementPublic
+) -> dict[str, Any]:
+    """Build the statement-email template context (read-only; no DB write)."""
+    bs = session.exec(select(BusinessSettings)).first()
+    if statement.date_from is not None and statement.date_to is not None:
+        period = f"{statement.date_from.isoformat()} - {statement.date_to.isoformat()}"
+    elif statement.date_from is not None:
+        period = f"from {statement.date_from.isoformat()}"
+    elif statement.date_to is not None:
+        period = f"until {statement.date_to.isoformat()}"
+    else:
+        period = "Full history"
+    is_customer = statement.contraparte_type == CounterpartType.CUSTOMER
+    base_total = (
+        statement.totals.total_ventas if is_customer else statement.totals.total_compras
+    )
+    return {
+        "business_name": bs.business_name if bs else "",
+        "business_address": bs.address if bs else None,
+        "business_phone": bs.phone if bs else None,
+        "business_cuit": bs.cuit if bs else None,
+        "razon_social": statement.razon_social,
+        "documento": statement.documento,
+        "condicion_fiscal": statement.condicion_fiscal.value,
+        "period": period,
+        "generated_at": statement.generated_at.strftime("%Y-%m-%d"),
+        "totals_rows": [
+            {
+                "label": "Total sales" if is_customer else "Total purchases",
+                "value": str(base_total),
+            },
+            {"label": "Credit notes", "value": str(statement.totals.total_notas)},
+            {"label": "Payments", "value": str(statement.totals.total_pagos)},
+        ],
+        "saldo_actual": str(statement.totals.saldo_actual),
+        "documents": [
+            {
+                "numero": document.numero,
+                "fecha": document.fecha.strftime("%Y-%m-%d"),
+                "type_name": document.type_name,
+                "total": str(document.total),
+                "lines": [
+                    {
+                        "name": line.product_name,
+                        "cantidad": str(line.cantidad),
+                        "precio_unit": str(line.precio_unit),
+                        "subtotal_line": str(line.subtotal_line),
+                    }
+                    for line in document.lines
+                ],
+            }
+            for document in statement.documents
+        ],
+        "receipts": [
+            {
+                "numero": receipt.numero,
+                "fecha": receipt.fecha.strftime("%Y-%m-%d"),
+                "methods": ", ".join(receipt.payment_method_names),
+                "total": str(receipt.total),
+            }
+            for receipt in statement.receipts
+        ],
+        "voucher_footer": bs.voucher_footer if bs else None,
+        "voucher_legends": (
+            bs.voucher_legends.splitlines() if bs and bs.voucher_legends else []
+        ),
+    }
 
 
 def create_transfer(

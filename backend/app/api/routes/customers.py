@@ -1,14 +1,17 @@
 import uuid
+from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, func, select
 
 from app import crud
 from app.api.deps import PaginationDep, SessionDep, require_permissions
+from app.core.config import settings
 from app.models import (
     CONSUMIDOR_FINAL_NAME,
+    CounterpartStatementPublic,
     CounterpartType,
     Customer,
     CustomerAccountMovement,
@@ -19,7 +22,9 @@ from app.models import (
     Document,
     Message,
     Page,
+    StatementEmailCreate,
 )
+from app.utils import render_email_template, send_email
 
 router = APIRouter(prefix="/customers", tags=["customers"])
 
@@ -217,3 +222,104 @@ def read_customer_account_movements(
         )
         publics.append(public)
     return Page[CustomerAccountMovementPublic](data=publics, count=count)
+
+
+@router.get(
+    "/{customer_id}/statement",
+    response_model=CounterpartStatementPublic,
+    dependencies=[require_permissions("customer.read")],
+)
+def read_customer_statement(
+    session: SessionDep,
+    customer_id: uuid.UUID,
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+) -> Any:
+    """Account statement (estado de cuenta) for the customer, period-filterable.
+
+    Read-only: totals cover the resolved period; ``saldo_actual`` is the
+    live balance cache.
+    """
+    try:
+        statement = crud.get_counterpart_statement(
+            session=session,
+            contraparte_type=CounterpartType.CUSTOMER,
+            contraparte_id=customer_id,
+            date_from=date_from,
+            date_to=date_to,
+        )
+    except crud.BusinessError as e:
+        raise HTTPException(
+            status_code=404, detail={"code": e.code, "message": e.message}
+        ) from e
+    statement.emails_enabled = bool(settings.emails_enabled)
+    return statement
+
+
+@router.post(
+    "/{customer_id}/statement/email",
+    status_code=204,
+    dependencies=[require_permissions("customer.read")],
+)
+def email_customer_statement(
+    *, session: SessionDep, customer_id: uuid.UUID, email_in: StatementEmailCreate
+) -> None:
+    """Email the customer's account statement (or an explicit address).
+
+    Read-only on the database: nothing is written, so an SMTP failure
+    degrades to a business error with nothing to roll back.
+    """
+    if not settings.emails_enabled:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "email_not_enabled",
+                "message": "Outbound email is not configured",
+            },
+        )
+    customer = session.get(Customer, customer_id)
+    if not customer:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "counterpart_not_found",
+                "message": "Customer not found",
+            },
+        )
+    email_to = email_in.email_to or customer.email
+    if not email_to:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "statement_email_missing_address",
+                "message": "No email address is available for this customer",
+            },
+        )
+    statement = crud.get_counterpart_statement(
+        session=session,
+        contraparte_type=CounterpartType.CUSTOMER,
+        contraparte_id=customer_id,
+    )
+    context = crud.statement_email_context(session=session, statement=statement)
+    try:
+        html_content = render_email_template(
+            template_name="customer_statement.html", context=context
+        )
+        send_email(
+            email_to=email_to,
+            subject=(
+                f"{context['business_name']} - Account statement "
+                f"{statement.razon_social}"
+            ),
+            html_content=html_content,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "statement_email_failed",
+                "message": "The statement email could not be sent",
+            },
+        ) from e
