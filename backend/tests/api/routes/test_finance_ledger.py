@@ -832,9 +832,7 @@ def test_account_movement_display_names(
         json={
             "contraparte_type": "customer",
             "contraparte_id": customer["id"],
-            "payments": [
-                {"payment_method_id": _cash_method_id(db), "monto": "121.00"}
-            ],
+            "payments": [{"payment_method_id": _cash_method_id(db), "monto": "121.00"}],
         },
     )
     assert r.status_code == 200, r.text
@@ -860,9 +858,7 @@ def test_account_movement_display_names(
     assert receipt_mov["payment_method_name"] == "Efectivo"
     assert receipt_mov["counterpart_name"] == customer["razon_social"]
 
-    transfer_mov = next(
-        m for m in page["data"] if m["tipo"] == "transferencia"
-    )
+    transfer_mov = next(m for m in page["data"] if m["tipo"] == "transferencia")
     assert transfer_mov["payment_method_name"] is None
     assert transfer_mov["counterpart_name"] is None
 
