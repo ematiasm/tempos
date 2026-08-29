@@ -79,10 +79,19 @@ export function SplitPaymentDialog({
     if (!open) return
     // Prefill the first row with the full remaining total (favor-aware) so
     // the operator only edits amounts when splitting across methods.
-    const initialFavor = computeFavorApplied(creditInFavor, creditInFavor > 0, total)
+    const initialFavor = computeFavorApplied(
+      creditInFavor,
+      creditInFavor > 0,
+      total,
+    )
     setRows(
       defaultMethodId
-        ? [{ methodId: defaultMethodId, amount: Math.max(round2(total - initialFavor), 0) }]
+        ? [
+            {
+              methodId: defaultMethodId,
+              amount: Math.max(round2(total - initialFavor), 0),
+            },
+          ]
         : [],
     )
     setUseCredit(creditInFavor > 0)
