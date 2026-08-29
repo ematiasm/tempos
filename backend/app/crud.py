@@ -1892,6 +1892,45 @@ def get_counterpart_statement(
         for document_id, method_name in payment_rows:
             methods_by_receipt.setdefault(document_id, []).append(method_name)
 
+    # Paid/pending split for debt-direction documents, computed in bulk with
+    # exactly the same formula as ``outstanding_documents``: payments via
+    # methods that mark as paid plus amounts settled by active receipts.
+    paid_by_doc: dict[uuid.UUID, Decimal] = {}
+    allocated_by_doc: dict[uuid.UUID, Decimal] = {}
+    if base_docs:
+        base_doc_ids = [d.id for d in base_docs]
+        paid_rows = session.exec(
+            select(DocumentPayment)
+            .join(
+                PaymentMethod,
+                col(DocumentPayment.payment_method_id) == col(PaymentMethod.id),
+            )
+            .where(
+                col(DocumentPayment.document_id).in_(base_doc_ids),
+                col(PaymentMethod.marks_paid).is_(True),
+            )
+        ).all()
+        for payment in paid_rows:
+            paid_by_doc[payment.document_id] = (
+                paid_by_doc.get(payment.document_id, Decimal("0")) + payment.monto
+            )
+        allocation_rows = session.exec(
+            select(DocumentPaymentAllocation)
+            .join(
+                Document,
+                col(Document.id) == col(DocumentPaymentAllocation.receipt_document_id),
+            )
+            .where(
+                col(DocumentPaymentAllocation.document_id).in_(base_doc_ids),
+                col(Document.estado) == DocumentStatus.ACTIVE,
+            )
+        ).all()
+        for allocation in allocation_rows:
+            allocated_by_doc[allocation.document_id] = (
+                allocated_by_doc.get(allocation.document_id, Decimal("0"))
+                + allocation.monto
+            )
+
     base_kind = (
         StatementDocumentKind.SALE
         if contraparte_type == CounterpartType.CUSTOMER
@@ -1906,6 +1945,17 @@ def get_counterpart_statement(
             if document.document_type_id in base_ids
             else StatementDocumentKind.NOTE
         )
+        pagado = Decimal("0")
+        pendiente: Decimal | None = None
+        if document.document_type_id in base_ids:
+            # Everything already settled: credit in favor + payments via
+            # marks_paid methods + amounts allocated by active receipts.
+            pagado = _money(
+                document.favor_monto
+                + paid_by_doc.get(document.id, Decimal("0"))
+                + allocated_by_doc.get(document.id, Decimal("0"))
+            )
+            pendiente = max(_money(document.total - pagado), Decimal("0"))
         statement_documents.append(
             StatementDocumentPublic(
                 id=document.id,
@@ -1914,6 +1964,8 @@ def get_counterpart_statement(
                 type_name=type_names.get(document.document_type_id, ""),
                 kind=kind,
                 total=document.total,
+                pagado=pagado,
+                pendiente=pendiente,
                 lines=[
                     StatementLinePublic(
                         product_id=line.product_id,

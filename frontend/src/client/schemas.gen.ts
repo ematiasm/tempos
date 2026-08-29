@@ -127,6 +127,28 @@ export const AccountMovementPublicSchema = {
                 }
             ],
             title: 'Document Numero'
+        },
+        payment_method_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Payment Method Name'
+        },
+        counterpart_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Counterpart Name'
         }
     },
     type: 'object',
@@ -5480,6 +5502,24 @@ export const StatementDocumentPublicSchema = {
             type: 'string',
             pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
             title: 'Total'
+        },
+        pagado: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Pagado',
+            default: '0'
+        },
+        pendiente: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Pendiente'
         },
         lines: {
             items: {

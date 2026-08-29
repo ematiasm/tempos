@@ -1677,6 +1677,8 @@ class AccountMovementPublic(SQLModel):
     # Resolved by the route for display purposes.
     account_name: str | None = None
     document_numero: str | None = None
+    payment_method_name: str | None = None
+    counterpart_name: str | None = None
 
 
 class CustomerAccountMovementPublic(SQLModel):
@@ -1852,6 +1854,13 @@ class StatementDocumentPublic(SQLModel):
     type_name: str
     kind: StatementDocumentKind
     total: Decimal
+    # Portion of the total already settled (favor_monto + payments via
+    # marks_paid methods + amounts settled by active receipts). Only
+    # meaningful for debt-direction rows (venta/compra); notes stay at 0.
+    pagado: Decimal = Decimal("0")
+    # Still-unsettled portion, computed with the same formula as
+    # ``outstanding_documents``. None for notes (a note is not "paid").
+    pendiente: Decimal | None = None
     lines: list[StatementLinePublic] = []
 
 

@@ -187,6 +187,8 @@ def test_cash_sale_moves_main_cash_account(
     assert mov["monto"] == "121.00"
     assert mov["account_name"] == "Caja Principal"
     assert mov["document_numero"] == doc["numero"]
+    assert mov["payment_method_name"] == "Efectivo"
+    assert mov["counterpart_name"] == customer["razon_social"]
 
 
 def test_partial_payment_leaves_balance_and_moves_cash(
@@ -790,3 +792,80 @@ def test_void_unpaid_sale_reverses_customer_balance(
         Decimal("-121.00"),
         Decimal("121.00"),
     ]
+
+
+def _other_account_id(client: TestClient, headers: dict[str, str]) -> str:
+    r = client.get(
+        f"{settings.API_V1_STR}/financial-accounts/",
+        headers=headers,
+        params={"limit": 100},
+    )
+    assert r.status_code == 200, r.text
+    return next(a["id"] for a in r.json()["data"] if a["name"] == "Crédito")
+
+
+def test_account_movement_display_names(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """payment_method_name / counterpart_name resolve for receipts and stay
+    None for movements without a payment method or document (transfers)."""
+    product = _create_product(client, superuser_token_headers)
+    load_stock(client, superuser_token_headers, product["id"], "1")
+    customer = _create_customer(client, superuser_token_headers)
+    tck = _doc_type_id(client, superuser_token_headers, "TCK")
+
+    # Credit sale: the full 121.00 lands on the current account (no cash).
+    doc = _create_doc(
+        client,
+        superuser_token_headers,
+        {
+            "document_type_id": tck,
+            "contraparte_id": customer["id"],
+            "lines": [{"product_id": product["id"], "cantidad": "1"}],
+        },
+    )
+
+    # RC receipt settling it: one cobro movement with method + counterpart.
+    r = client.post(
+        f"{settings.API_V1_STR}/payments/",
+        headers=superuser_token_headers,
+        json={
+            "contraparte_type": "customer",
+            "contraparte_id": customer["id"],
+            "payments": [
+                {"payment_method_id": _cash_method_id(db), "monto": "121.00"}
+            ],
+        },
+    )
+    assert r.status_code == 200, r.text
+    receipt_numero = r.json()["document"]["numero"]
+
+    # A transfer movement has neither a payment method nor a document.
+    r = client.post(
+        f"{settings.API_V1_STR}/transfers/",
+        headers=superuser_token_headers,
+        json={
+            "from_account_id": _cash_account_id(client, superuser_token_headers),
+            "to_account_id": _other_account_id(client, superuser_token_headers),
+            "monto": "10.00",
+        },
+    )
+    assert r.status_code == 200, r.text
+
+    page = _account_movements(client, superuser_token_headers, limit=100)
+    receipt_mov = next(
+        m for m in page["data"] if m["document_numero"] == receipt_numero
+    )
+    assert receipt_mov["tipo"] == "cobro"
+    assert receipt_mov["payment_method_name"] == "Efectivo"
+    assert receipt_mov["counterpart_name"] == customer["razon_social"]
+
+    transfer_mov = next(
+        m for m in page["data"] if m["tipo"] == "transferencia"
+    )
+    assert transfer_mov["payment_method_name"] is None
+    assert transfer_mov["counterpart_name"] is None
+
+    # The credit sale itself never moved cash, so no movement for it beyond
+    # the receipt's cobro; the sale document shows up only via the receipt.
+    assert all(m["document_id"] != doc["id"] for m in page["data"])

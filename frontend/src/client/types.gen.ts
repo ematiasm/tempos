@@ -16,6 +16,8 @@ export type AccountMovementPublic = {
     created_at?: (string | null);
     account_name?: (string | null);
     document_numero?: (string | null);
+    payment_method_name?: (string | null);
+    counterpart_name?: (string | null);
 };
 
 export type AccountMovementType = 'pago' | 'cobro' | 'comision' | 'transferencia' | 'ajuste';
@@ -1025,6 +1027,8 @@ export type StatementDocumentPublic = {
     type_name: string;
     kind: StatementDocumentKind;
     total: string;
+    pagado?: string;
+    pendiente?: (string | null);
     lines?: Array<StatementLinePublic>;
 };
 
