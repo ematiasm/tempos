@@ -27,6 +27,7 @@ jobs:
     needs:
       - labeler
     permissions:
+      issues: read # Required by label-checker to read PR labels via GraphQL on private repos.
       pull-requests: read
     runs-on: ubuntu-latest
     timeout-minutes: 5
