@@ -123,6 +123,8 @@ export const en: Messages = {
   "sell.noCustomer": "No customer",
   "sell.quickPayment.customerRequired": "Select a customer to sell on credit",
   "sell.quickPayment.splitEntry": "Split payment",
+  "sell.quickPayment.f2Hint": "F2: confirm the sale with this shortcut",
+  "sell.quickPayment.f2HintPay": "F2: confirm the sale",
   "sell.split.title": "Split payment",
   "sell.split.addRow": "Add payment method",
   "sell.split.covered": "Covered: {amount}",
@@ -773,7 +775,7 @@ export const en: Messages = {
     "Payment shortcuts, defaults and policies for the sell screen",
   "admin.sellScreen.quickMethods": "Quick payment shortcuts",
   "admin.sellScreen.quickMethodsHint":
-    "Choose which methods appear as shortcuts and in which order; with no selection all methods are shown.",
+    "Choose which methods appear as shortcuts and in which order; with no selection all methods are shown. The first shortcut can also be confirmed with the F2 key.",
   "admin.sellScreen.noMethods": "No payment methods configured",
   "admin.sellScreen.selectedOrder": "Shortcut order",
   "admin.sellScreen.moveUp": "Move up",

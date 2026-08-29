@@ -458,7 +458,13 @@ function Sell() {
               className="w-full"
               data-testid="split-payment-button"
               disabled={baseDisabled}
-              title={!sessionOpen ? t("cash.registerClosedHint") : undefined}
+              title={
+                !sessionOpen
+                  ? t("cash.registerClosedHint")
+                  : quickMethods.length === 0
+                    ? t("sell.quickPayment.f2HintPay")
+                    : undefined
+              }
               onClick={() => setSplitOpen(true)}
             >
               <SplitSquareHorizontal className="mr-2 h-4 w-4" />

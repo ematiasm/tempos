@@ -27,7 +27,7 @@ export function QuickPaymentBar({
 
   return (
     <div className="flex flex-wrap gap-2">
-      {methods.map((method) => {
+      {methods.map((method, index) => {
         const isCredit = method.marks_paid === false
         const disabled = isCredit ? disabledForCredit : disabledForPaid
         return (
@@ -38,7 +38,13 @@ export function QuickPaymentBar({
             variant={isCredit ? "secondary" : "default"}
             size="sm"
             disabled={disabled}
-            title={disabled ? gateTitle : undefined}
+            title={
+              disabled
+                ? gateTitle
+                : index === 0
+                  ? t("sell.quickPayment.f2Hint")
+                  : undefined
+            }
             onClick={() => onPay(method)}
           >
             {method.name}
