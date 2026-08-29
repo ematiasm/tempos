@@ -83,6 +83,16 @@ export function MovementsTab({ initialAccountId }: MovementsTabProps) {
       cell: ({ row }) => row.original.document_numero ?? "—",
     },
     {
+      accessorKey: "payment_method_name",
+      header: t("reports.method"),
+      cell: ({ row }) => row.original.payment_method_name ?? "—",
+    },
+    {
+      accessorKey: "counterpart_name",
+      header: t("reports.counterpart"),
+      cell: ({ row }) => row.original.counterpart_name ?? "—",
+    },
+    {
       accessorKey: "tipo",
       header: t("reports.type"),
       cell: ({ row }) => <Badge variant="secondary">{row.original.tipo}</Badge>,
