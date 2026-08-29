@@ -1334,26 +1334,20 @@ export const CashSessionOpenCreateSchema = {
             title: 'Opening Amount'
         },
         opening_source_account_id: {
-            anyOf: [
-                {
-                    type: 'string',
-                    format: 'uuid'
-                },
-                {
-                    type: 'null'
-                }
-            ],
+            type: 'string',
+            format: 'uuid',
             title: 'Opening Source Account Id'
         }
     },
     type: 'object',
-    required: ['opening_amount'],
+    required: ['opening_amount', 'opening_source_account_id'],
     title: 'CashSessionOpenCreate',
     description: `Open a daily cash session.
 
 \`\`opening_amount\`\` is the physical float placed in the drawer;
 \`\`opening_source_account_id\`\` is the financial account that float comes
-from (defaults to the drawer account, i.e. no movement is generated).`
+from (mandatory: same account as the drawer books no movement, a
+different account books a funding movement).`
 } as const;
 
 export const CashSessionPerUserSchema = {
@@ -4087,6 +4081,17 @@ export const PaymentMethodPublicSchema = {
             type: 'string',
             format: 'uuid',
             title: 'Financial Account Id'
+        },
+        financial_account_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Financial Account Name'
         },
         marks_paid: {
             type: 'boolean',

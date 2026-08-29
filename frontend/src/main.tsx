@@ -28,7 +28,10 @@ const handleQueryError = (error: Error) => {
     localStorage.removeItem("access_token")
     window.location.href = "/login"
   } else if (error.status === 403) {
-    toast.error(formatStatic("errors.not_enough_privileges"))
+    // Stable id: repeated 403s replace the existing toast instead of stacking.
+    toast.error(formatStatic("errors.not_enough_privileges"), {
+      id: "not-enough-privileges",
+    })
   }
 }
 

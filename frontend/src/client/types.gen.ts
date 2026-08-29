@@ -221,11 +221,12 @@ export type CashSessionMovement = {
  *
  * ``opening_amount`` is the physical float placed in the drawer;
  * ``opening_source_account_id`` is the financial account that float comes
- * from (defaults to the drawer account, i.e. no movement is generated).
+ * from (mandatory: same account as the drawer books no movement, a
+ * different account books a funding movement).
  */
 export type CashSessionOpenCreate = {
     opening_amount: (number | string);
-    opening_source_account_id?: (string | null);
+    opening_source_account_id: string;
 };
 
 /**
@@ -766,6 +767,7 @@ export type PaymentMethodPublic = {
     id: string;
     name: string;
     financial_account_id: string;
+    financial_account_name?: (string | null);
     marks_paid: boolean;
     requiere_conciliacion: boolean;
     is_cash_drawer: boolean;

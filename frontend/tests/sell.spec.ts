@@ -1353,7 +1353,10 @@ test.describe("Sell flow", () => {
   test("The email action is hidden without the document.email permission", async ({
     page,
   }) => {
-    // a role without document.email: the action must not render at all
+    // a role covering the sell flow but WITHOUT document.email: the email
+    // action must not render at all. The users/me response is mocked, but the
+    // permission gating of the sell screen (cash session, customers) reads
+    // from it, so the role must include every sell-flow permission.
     await page.route("**/api/v1/users/me", (route) =>
       route.fulfill({
         status: 200,
@@ -1363,8 +1366,23 @@ test.describe("Sell flow", () => {
           email: "cashier@example.com",
           is_active: true,
           is_superuser: false,
-          full_name: "Cajador Sin Permiso",
-          roles: [],
+          full_name: "Cajero Sin Email",
+          roles: [
+            {
+              id: "00000000-0000-0000-0000-00000000beef",
+              name: "Cajero",
+              permissions: [
+                { id: "p1", code: "product.read" },
+                { id: "p2", code: "customer.read" },
+                { id: "p3", code: "document.read" },
+                { id: "p4", code: "document.create" },
+                { id: "p5", code: "cash.read" },
+                { id: "p6", code: "cash.open" },
+                { id: "p7", code: "cash.close" },
+                { id: "p8", code: "finance.read" },
+              ],
+            },
+          ],
         }),
       }),
     )

@@ -1,10 +1,15 @@
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import col, func, select
 
-from app.api.deps import PaginationDep, SessionDep, require_permissions
+from app.api.deps import (
+    PaginationDep,
+    SessionDep,
+    get_current_user,
+    require_permissions,
+)
 from app.models import (
     DocumentType,
     DocumentTypePublic,
@@ -18,7 +23,8 @@ router = APIRouter(prefix="/document-types", tags=["document-types"])
 @router.get(
     "/",
     response_model=Page[DocumentTypePublic],
-    dependencies=[require_permissions("document.read")],
+    # Authentication only: reference data needed by the sell screen.
+    dependencies=[Depends(get_current_user)],
 )
 def read_document_types(session: SessionDep, pagination: PaginationDep) -> Any:
     """Retrieve document types."""

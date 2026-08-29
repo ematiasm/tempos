@@ -357,16 +357,26 @@ export const getCurrentCashSession = async (
  * The backend rejects VENTA documents without an open cash session
  * (`cash_session_required`), so every spec that issues sales must ensure one.
  * Tolerates races: if opening fails because another worker just opened one,
- * re-reads the current session before giving up.
+ * re-reads the current session before giving up. The float source is mandatory:
+ * it is resolved the same way the app does (the cash-drawer method's account).
  */
 export const ensureOpenCashSession = async (
   request: APIRequestContext,
 ): Promise<{ id: string; status: string }> => {
   const current = await getCurrentCashSession(request)
   if (current && current.status === "open") return current
+  const methods = await api
+    .get<{ id: string; is_cash_drawer: boolean; financial_account_id: string }>(
+      request,
+      "/payment-methods/?skip=0&limit=1000",
+    )
+    .then((r) => r.data)
+  const drawer = methods.find((m) => m.is_cash_drawer)
+  if (!drawer) throw new Error("Cash drawer payment method not seeded")
   try {
     return await api.post(request, "/cash-sessions/open", {
       opening_amount: 0,
+      opening_source_account_id: drawer.financial_account_id,
     })
   } catch {
     const retry = await getCurrentCashSession(request)

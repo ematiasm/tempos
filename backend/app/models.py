@@ -1597,6 +1597,9 @@ class PaymentMethodPublic(SQLModel):
     id: uuid.UUID
     name: str
     financial_account_id: uuid.UUID
+    # Resolved by the route so users without finance.read (who cannot list
+    # financial accounts) still see which account each method books to.
+    financial_account_name: str | None = None
     marks_paid: bool
     requiere_conciliacion: bool
     is_cash_drawer: bool
@@ -1909,14 +1912,15 @@ class CashSessionOpenCreate(SQLModel):
 
     ``opening_amount`` is the physical float placed in the drawer;
     ``opening_source_account_id`` is the financial account that float comes
-    from (defaults to the drawer account, i.e. no movement is generated).
+    from (mandatory: same account as the drawer books no movement, a
+    different account books a funding movement).
     """
 
     opening_amount: Decimal = Field(
         ge=0,
         sa_type=Numeric(12, 2),  # type: ignore
     )
-    opening_source_account_id: uuid.UUID | None = None
+    opening_source_account_id: uuid.UUID
 
 
 class CashSessionCloseCreate(SQLModel):

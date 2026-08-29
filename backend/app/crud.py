@@ -2134,7 +2134,9 @@ def open_cash_session(
             "cash_session_already_open", "A cash session is already open"
         )
     drawer = _cash_drawer_account(session)
-    source_id = open_in.opening_source_account_id or drawer.id
+    # The float source is mandatory (client-side explicit choice): silently
+    # defaulting to the drawer would hide where the change float came from.
+    source_id = open_in.opening_source_account_id
     if session.get(FinancialAccount, source_id) is None:
         raise BusinessError(
             "financial_account_not_found", "Financial account not found"

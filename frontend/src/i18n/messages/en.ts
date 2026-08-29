@@ -628,7 +628,7 @@ export const en: Messages = {
   "cash.openingAmountLabel": "Opening amount",
   "cash.openingSource": "Funding source account",
   "cash.openingSourceHint":
-    "The change float comes out of this account (by default, the account tied to cash).",
+    "The change float comes out of this account (the account tied to cash is preselected).",
   "cash.selectAccount": "Select account",
   "cash.expected": "Expected",
   "cash.counted": "Counted",
@@ -673,6 +673,8 @@ export const en: Messages = {
   "cash.reportDate": "Date",
   "cash.reportConcept": "Concept",
   "cash.reportAmount": "Amount",
+  "cash.noOpenPermission": "You don't have permission to open the register",
+  "cash.noClosePermission": "You don't have permission to close the register",
   "setup.title": "First-run setup",
   "setup.subtitle":
     "Tell us the basic details of your business to start using tempos.",

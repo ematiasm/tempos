@@ -27,8 +27,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useT } from "@/i18n"
+import { hasPermission } from "@/lib/permissions"
 import { handleError } from "@/utils"
 
 interface OpenCashDialogProps {
@@ -40,14 +42,18 @@ export function OpenCashDialog({ open, onOpenChange }: OpenCashDialogProps) {
   const t = useT()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
+  const { user } = useAuth()
+  const canReadFinance = hasPermission(user, "finance.read")
 
   const [openingAmount, setOpeningAmount] = useState("")
   const [sourceAccountId, setSourceAccountId] = useState<string | null>(null)
 
+  // The full account list exposes saldos, so it only loads with finance.read.
   const { data: accountsData } = useQuery({
     queryFn: () =>
       FinancialAccountsService.readFinancialAccounts({ skip: 0, limit: 100 }),
     queryKey: ["financial-accounts"],
+    enabled: canReadFinance,
   })
   const { data: methodsData } = useQuery({
     queryFn: () =>
@@ -55,10 +61,26 @@ export function OpenCashDialog({ open, onOpenChange }: OpenCashDialogProps) {
     queryKey: ["payment-methods"],
   })
 
-  const drawerAccountId = useMemo(() => {
-    const drawerMethod = (methodsData?.data ?? []).find((m) => m.is_cash_drawer)
-    return drawerMethod?.financial_account_id ?? null
-  }, [methodsData])
+  const drawerMethod = useMemo(
+    () => (methodsData?.data ?? []).find((m) => m.is_cash_drawer),
+    [methodsData],
+  )
+  const drawerAccountId = drawerMethod?.financial_account_id ?? null
+
+  // Without finance.read the user cannot list financial accounts: the only
+  // source option is the drawer method's own account (name comes embedded).
+  const sourceOptions = useMemo(() => {
+    if (canReadFinance) return accountsData?.data ?? []
+    if (drawerMethod?.financial_account_name) {
+      return [
+        {
+          id: drawerMethod.financial_account_id,
+          name: drawerMethod.financial_account_name,
+        },
+      ]
+    }
+    return []
+  }, [canReadFinance, accountsData, drawerMethod])
 
   useEffect(() => {
     if (open && drawerAccountId && !sourceAccountId) {
@@ -66,14 +88,12 @@ export function OpenCashDialog({ open, onOpenChange }: OpenCashDialogProps) {
     }
   }, [open, drawerAccountId, sourceAccountId])
 
-  const accounts = accountsData?.data ?? []
-
   const mutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (sourceAccountId: string) =>
       CashSessionsService.openCashSession({
         requestBody: {
           opening_amount: Number(openingAmount) || 0,
-          opening_source_account_id: sourceAccountId ?? undefined,
+          opening_source_account_id: sourceAccountId,
         },
       }),
     onSuccess: () => {
@@ -124,7 +144,7 @@ export function OpenCashDialog({ open, onOpenChange }: OpenCashDialogProps) {
                 <SelectValue placeholder={t("cash.selectAccount")} />
               </SelectTrigger>
               <SelectContent>
-                {accounts.map((account) => (
+                {sourceOptions.map((account) => (
                   <SelectItem key={account.id} value={account.id}>
                     {account.name}
                   </SelectItem>
@@ -143,12 +163,15 @@ export function OpenCashDialog({ open, onOpenChange }: OpenCashDialogProps) {
               {t("common.cancel")}
             </Button>
           </DialogClose>
+          {/* The float source is mandatory: the backend rejects a missing one. */}
           <LoadingButton
             type="button"
             data-testid="cash-open-submit"
             loading={mutation.isPending}
-            disabled={Number(openingAmount) < 0}
-            onClick={() => mutation.mutate()}
+            disabled={Number(openingAmount) < 0 || !sourceAccountId}
+            onClick={() => {
+              if (sourceAccountId) mutation.mutate(sourceAccountId)
+            }}
           >
             {t("cash.open")}
           </LoadingButton>

@@ -6,6 +6,8 @@ import {
   DocumentTypesService,
   PaymentMethodsService,
 } from "@/client"
+import useAuth from "@/hooks/useAuth"
+import { hasPermission } from "@/lib/permissions"
 
 const SALE_PREFIXES = ["FA", "FB", "FC", "TCK"]
 
@@ -13,11 +15,16 @@ const SALE_PREFIXES = ["FA", "FB", "FC", "TCK"]
  * Shared reference data for the sell screen: active customers (plus the
  * seeded Consumidor Final default), payment methods and sale document types.
  * React Query keys: customers / payment-methods / document-types.
+ * The customers query is gated by `customer.read`; payment methods and
+ * document types are authentication-only reference data.
  */
 export function useReferenceData() {
+  const { user } = useAuth()
+  const canReadCustomers = hasPermission(user, "customer.read")
   const { data: customersData } = useQuery({
     queryFn: () => CustomersService.readCustomers({ skip: 0, limit: 1000 }),
     queryKey: ["customers"],
+    enabled: canReadCustomers,
   })
   const { data: methodsData } = useQuery({
     queryFn: () =>

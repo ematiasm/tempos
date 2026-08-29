@@ -1,10 +1,10 @@
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlmodel import select
 
-from app.api.deps import SessionDep, require_permissions
+from app.api.deps import SessionDep, get_current_user, require_permissions
 from app.core.config import settings
 from app.models import (
     BusinessSettings,
@@ -36,7 +36,8 @@ def _get_settings(session: SessionDep) -> BusinessSettings:
 @router.get(
     "/",
     response_model=BusinessSettingsPublic,
-    dependencies=[require_permissions("settings.read")],
+    # Authentication only: operational config of the user's own store.
+    dependencies=[Depends(get_current_user)],
 )
 def read_business_settings(session: SessionDep) -> Any:
     """Get the business settings (singleton row)."""

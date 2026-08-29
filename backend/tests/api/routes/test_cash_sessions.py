@@ -129,11 +129,15 @@ def _close_current_session(client: TestClient, headers: dict[str, str]) -> str:
 def test_open_close_lifecycle(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
+    drawer = _cash_account_id(client, superuser_token_headers)
     # A session is already open by the autouse fixture; double open is rejected.
     r = client.post(
         f"{settings.API_V1_STR}/cash-sessions/open",
         headers=superuser_token_headers,
-        json={"opening_amount": "1000.00"},
+        json={
+            "opening_amount": "1000.00",
+            "opening_source_account_id": drawer,
+        },
     )
     assert r.status_code == 400, r.text
     assert r.json()["detail"]["code"] == "cash_session_already_open"
@@ -159,7 +163,10 @@ def test_open_close_lifecycle(
     r = client.post(
         f"{settings.API_V1_STR}/cash-sessions/open",
         headers=superuser_token_headers,
-        json={"opening_amount": "500.00"},
+        json={
+            "opening_amount": "500.00",
+            "opening_source_account_id": drawer,
+        },
     )
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "open"
@@ -192,7 +199,12 @@ def test_sale_requires_open_session(
     r = client.post(
         f"{settings.API_V1_STR}/cash-sessions/open",
         headers=superuser_token_headers,
-        json={"opening_amount": "100.00"},
+        json={
+            "opening_amount": "100.00",
+            "opening_source_account_id": _cash_account_id(
+                client, superuser_token_headers
+            ),
+        },
     )
     assert r.status_code == 200, r.text
     session_id = r.json()["id"]
@@ -253,7 +265,12 @@ def test_report_expected_math_with_transfer(
     r = client.post(
         f"{settings.API_V1_STR}/cash-sessions/open",
         headers=superuser_token_headers,
-        json={"opening_amount": "1000.00"},
+        json={
+            "opening_amount": "1000.00",
+            "opening_source_account_id": _cash_account_id(
+                client, superuser_token_headers
+            ),
+        },
     )
     assert r.status_code == 200, r.text
     session_id = r.json()["id"]
@@ -307,6 +324,10 @@ def test_report_expected_math_with_transfer(
     assert Decimal(cash_row["net"]) == Decimal("121.00")
     # money movements include the transfer
     assert any(m["concept"] == "Transfer" for m in data["movements"])
+    # same-account float source: no funding movement was booked
+    assert not any(
+        m["concept"] == "Opening float funding" for m in data["movements"]
+    )
 
     # Close with the physical count (drawer holds float + 121 - 500 deposit).
     r = client.post(
@@ -432,6 +453,23 @@ def test_credit_sale_counts_in_methods_but_not_drawer(
     assert Decimal(credit_row["ingresos"]) == Decimal("121.00")
 
 
+def test_open_requires_source_account(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """The opening float source is mandatory: no silent drawer fallback.
+
+    Omitting ``opening_source_account_id`` must fail request validation (422)
+    so the float origin is always an explicit, auditable choice.
+    """
+    _close_current_session(client, superuser_token_headers)
+    r = client.post(
+        f"{settings.API_V1_STR}/cash-sessions/open",
+        headers=superuser_token_headers,
+        json={"opening_amount": "100.00"},
+    )
+    assert r.status_code == 422, r.text
+
+
 def test_open_requires_permission(
     client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
@@ -455,7 +493,12 @@ def test_session_history(
     r = client.post(
         f"{settings.API_V1_STR}/cash-sessions/open",
         headers=superuser_token_headers,
-        json={"opening_amount": "100.00"},
+        json={
+            "opening_amount": "100.00",
+            "opening_source_account_id": _cash_account_id(
+                client, superuser_token_headers
+            ),
+        },
     )
     assert r.status_code == 200
     _close_current_session(client, superuser_token_headers)
@@ -498,13 +541,21 @@ def test_open_with_external_source_funds_drawer(
     session_id = r.json()["id"]
     assert r.json()["opening_source_account_id"] == other["id"]
 
-    # A funding movement moved the float into the drawer account.
+    # A funding movement moved the float into the drawer account: two AJUSTE
+    # ledger rows (out of the source, into the drawer), both linked to the session.
     r = client.get(
         f"{settings.API_V1_STR}/cash-sessions/{session_id}/report",
         headers=superuser_token_headers,
     )
     assert r.status_code == 200, r.text
-    assert any(m["concept"] == "Opening float funding" for m in r.json()["movements"])
+    funding = [
+        m for m in r.json()["movements"] if m["concept"] == "Opening float funding"
+    ]
+    assert len(funding) == 2
+    assert {Decimal(m["monto"]) for m in funding} == {
+        Decimal("500.00"),
+        Decimal("-500.00"),
+    }
 
 
 def test_cash_methods_flagged_as_drawer(db: Session) -> None:

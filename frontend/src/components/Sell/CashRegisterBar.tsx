@@ -1,8 +1,15 @@
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import useAuth from "@/hooks/useAuth"
 import { useLocale, useT } from "@/i18n"
 import { formatMoney } from "@/lib/format"
+import { hasPermission } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 import CloseCashDialog from "./CloseCashDialog"
 import OpenCashDialog from "./OpenCashDialog"
@@ -17,8 +24,12 @@ const money = (
 export function CashRegisterBar() {
   const t = useT()
   const { numberFormat } = useLocale()
+  const { user } = useAuth()
   const [openOpen, setOpenOpen] = useState(false)
   const [openClose, setOpenClose] = useState(false)
+
+  const canOpen = hasPermission(user, "cash.open")
+  const canClose = hasPermission(user, "cash.close")
 
   const { session, isOpen } = useOpenCashSession()
 
@@ -57,22 +68,44 @@ export function CashRegisterBar() {
 
       <div className="flex gap-2">
         {isOpen ? (
-          <Button
-            variant="destructive"
-            size="sm"
-            data-testid="open-close-cash-dialog"
-            onClick={() => setOpenClose(true)}
-          >
-            {t("cash.close")}
-          </Button>
+          <Tooltip>
+            {/* Disabled buttons swallow pointer events: the span keeps the
+                tooltip reachable while the button stays non-interactive. */}
+            <TooltipTrigger asChild>
+              <span className="inline-block">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  data-testid="open-close-cash-dialog"
+                  disabled={!canClose}
+                  onClick={() => canClose && setOpenClose(true)}
+                >
+                  {t("cash.close")}
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {!canClose && (
+              <TooltipContent>{t("cash.noClosePermission")}</TooltipContent>
+            )}
+          </Tooltip>
         ) : (
-          <Button
-            size="sm"
-            data-testid="open-open-cash-dialog"
-            onClick={() => setOpenOpen(true)}
-          >
-            {t("cash.open")}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-block">
+                <Button
+                  size="sm"
+                  data-testid="open-open-cash-dialog"
+                  disabled={!canOpen}
+                  onClick={() => canOpen && setOpenOpen(true)}
+                >
+                  {t("cash.open")}
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {!canOpen && (
+              <TooltipContent>{t("cash.noOpenPermission")}</TooltipContent>
+            )}
+          </Tooltip>
         )}
       </div>
 

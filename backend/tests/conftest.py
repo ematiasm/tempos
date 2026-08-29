@@ -191,7 +191,9 @@ def open_cash_session(db: Session) -> Generator[None]:
     """Every test starts with an open daily cash session.
 
     Sales (operation ``venta``) require an open session; tests that exercise
-    the session lifecycle close/reopen it explicitly.
+    the session lifecycle close/reopen it explicitly. The float source is
+    resolved the same way the app does (the cash-drawer method's account) so
+    every test keeps the previous same-account (no-movement) semantics.
     """
     from decimal import Decimal
 
@@ -199,9 +201,13 @@ def open_cash_session(db: Session) -> Generator[None]:
     from app.models import CashSessionOpenCreate, User
 
     opener = db.exec(select(User).where(User.email == settings.FIRST_SUPERUSER)).one()
+    drawer = crud._cash_drawer_account(db)  # noqa: SLF001
     crud.open_cash_session(
         session=db,
-        open_in=CashSessionOpenCreate(opening_amount=Decimal("0")),
+        open_in=CashSessionOpenCreate(
+            opening_amount=Decimal("0"),
+            opening_source_account_id=drawer.id,
+        ),
         user_id=opener.id,
     )
     yield

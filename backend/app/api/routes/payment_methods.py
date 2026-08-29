@@ -1,10 +1,15 @@
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import col, func, select
 
-from app.api.deps import PaginationDep, SessionDep, require_permissions
+from app.api.deps import (
+    PaginationDep,
+    SessionDep,
+    get_current_user,
+    require_permissions,
+)
 from app.models import (
     DocumentPayment,
     FinancialAccount,
@@ -19,10 +24,21 @@ from app.models import (
 router = APIRouter(prefix="/payment-methods", tags=["payment-methods"])
 
 
+def _payment_method_public(
+    session: SessionDep, payment_method: PaymentMethod
+) -> PaymentMethodPublic:
+    """Public shape with the account name resolved for restricted users."""
+    public = PaymentMethodPublic.model_validate(payment_method)
+    account = session.get(FinancialAccount, payment_method.financial_account_id)
+    public.financial_account_name = account.name if account else None
+    return public
+
+
 @router.get(
     "/",
     response_model=Page[PaymentMethodPublic],
-    dependencies=[require_permissions("finance.read")],
+    # Authentication only: the list is needed to charge and exposes no saldo.
+    dependencies=[Depends(get_current_user)],
 )
 def read_payment_methods(session: SessionDep, pagination: PaginationDep) -> Any:
     """Retrieve payment methods."""
@@ -31,7 +47,7 @@ def read_payment_methods(session: SessionDep, pagination: PaginationDep) -> Any:
         select(PaymentMethod).offset(pagination.skip).limit(pagination.limit)
     ).all()
     return Page[PaymentMethodPublic](
-        data=[PaymentMethodPublic.model_validate(pm) for pm in payment_methods],
+        data=[_payment_method_public(session, pm) for pm in payment_methods],
         count=count,
     )
 
@@ -39,14 +55,14 @@ def read_payment_methods(session: SessionDep, pagination: PaginationDep) -> Any:
 @router.get(
     "/{payment_method_id}",
     response_model=PaymentMethodPublic,
-    dependencies=[require_permissions("finance.read")],
+    dependencies=[Depends(get_current_user)],
 )
 def read_payment_method(session: SessionDep, payment_method_id: uuid.UUID) -> Any:
     """Get a specific payment method by id."""
     payment_method = session.get(PaymentMethod, payment_method_id)
     if not payment_method:
         raise HTTPException(status_code=404, detail="Payment method not found")
-    return payment_method
+    return _payment_method_public(session, payment_method)
 
 
 @router.post(
@@ -65,7 +81,7 @@ def create_payment_method(
     session.add(payment_method)
     session.commit()
     session.refresh(payment_method)
-    return payment_method
+    return _payment_method_public(session, payment_method)
 
 
 @router.patch(
@@ -92,7 +108,7 @@ def update_payment_method(
     session.add(payment_method)
     session.commit()
     session.refresh(payment_method)
-    return payment_method
+    return _payment_method_public(session, payment_method)
 
 
 @router.delete(

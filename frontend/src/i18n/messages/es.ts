@@ -640,7 +640,7 @@ export const es = {
   "cash.openingAmountLabel": "Monto inicial",
   "cash.openingSource": "Cuenta de origen del fondo",
   "cash.openingSourceHint":
-    "La plata del cambio sale de esta cuenta (por defecto, la cuenta asociada al efectivo).",
+    "La plata del cambio sale de esta cuenta (se preselecciona la cuenta asociada al efectivo).",
   "cash.selectAccount": "Seleccionar cuenta",
   "cash.expected": "Esperado",
   "cash.counted": "Contado",
@@ -684,6 +684,8 @@ export const es = {
   "cash.reportDate": "Fecha",
   "cash.reportConcept": "Concepto",
   "cash.reportAmount": "Monto",
+  "cash.noOpenPermission": "No tenés permiso para abrir la caja",
+  "cash.noClosePermission": "No tenés permiso para cerrar la caja",
   "setup.title": "Configuración inicial",
   "setup.subtitle":
     "Contanos los datos básicos de tu negocio para empezar a usar tempos.",
