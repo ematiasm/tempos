@@ -151,7 +151,9 @@ def _create_receipt(
     return r.json()
 
 
-def _void_document(client: TestClient, headers: dict[str, str], document_id: str) -> dict:
+def _void_document(
+    client: TestClient, headers: dict[str, str], document_id: str
+) -> dict:
     r = client.post(
         f"{settings.API_V1_STR}/documents/{document_id}/void",
         headers=headers,
@@ -162,7 +164,11 @@ def _void_document(client: TestClient, headers: dict[str, str], document_id: str
 
 
 def _get_statement(
-    client: TestClient, headers: dict[str, str], counterpart_type: str, id_: str, **params
+    client: TestClient,
+    headers: dict[str, str],
+    counterpart_type: str,
+    id_: str,
+    **params,
 ) -> dict:
     r = client.get(
         f"{settings.API_V1_STR}/{counterpart_type}s/{id_}/statement",
@@ -283,9 +289,7 @@ def test_customer_statement_date_filtering(
     )
 
     # Full history: both sales and the receipt.
-    full = _get_statement(
-        client, superuser_token_headers, "customer", customer["id"]
-    )
+    full = _get_statement(client, superuser_token_headers, "customer", customer["id"])
     assert {d["numero"] for d in full["documents"]} == {
         sale_past["numero"],
         sale_recent["numero"],
