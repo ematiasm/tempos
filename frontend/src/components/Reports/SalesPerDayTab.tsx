@@ -8,11 +8,17 @@ import { ReportDateRange } from "@/components/Reports/ReportDateRange"
 import { type DateRangeValue, money } from "@/components/Reports/reportFormat"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import useAuth from "@/hooks/useAuth"
 import { useLocale, useT } from "@/i18n"
+import { hasPermission } from "@/lib/permissions"
 
 export function SalesPerDayTab() {
   const t = useT()
   const { numberFormat } = useLocale()
+  const { user } = useAuth()
+  // GET /reports/sales-per-day requires report.view; without it the query
+  // does not fire and the tab renders its empty state (no 403 toast).
+  const canView = hasPermission(user, "report.view")
   const [range, setRange] = useState<DateRangeValue>({})
 
   const { data, isLoading } = useQuery({
@@ -22,6 +28,7 @@ export function SalesPerDayTab() {
         hasta: range.hasta ?? null,
       }),
     queryKey: ["reports", "sales-per-day", range],
+    enabled: canView,
   })
   const rows = data ?? []
 

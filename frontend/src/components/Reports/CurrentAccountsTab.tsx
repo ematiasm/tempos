@@ -7,7 +7,9 @@ import { money } from "@/components/Reports/reportFormat"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import useAuth from "@/hooks/useAuth"
 import { useLocale, useT } from "@/i18n"
+import { hasPermission } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 
 interface AccountRow {
@@ -22,13 +24,23 @@ interface AccountRow {
 export function CurrentAccountsTab() {
   const t = useT()
   const { numberFormat } = useLocale()
+  const { user } = useAuth()
+  // The tab reads from the customers / suppliers endpoints (customer.read /
+  // supplier.read) inside the reports panel, so each query is gated on the
+  // panel permission plus its endpoint permission: an unauthorized visitor
+  // gets empty states instead of 403 toasts.
+  const canView = hasPermission(user, "report.view")
+  const canReadCustomers = canView && hasPermission(user, "customer.read")
+  const canReadSuppliers = canView && hasPermission(user, "supplier.read")
   const { data: customers, isLoading: loadingCustomers } = useQuery({
     queryFn: () => CustomersService.readCustomers({ skip: 0, limit: 500 }),
     queryKey: ["customers"],
+    enabled: canReadCustomers,
   })
   const { data: suppliers, isLoading: loadingSuppliers } = useQuery({
     queryFn: () => SuppliersService.readSuppliers({ skip: 0, limit: 500 }),
     queryKey: ["suppliers"],
+    enabled: canReadSuppliers,
   })
 
   const rows: AccountRow[] = [

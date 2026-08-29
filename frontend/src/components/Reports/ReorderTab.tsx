@@ -15,21 +15,33 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import useAuth from "@/hooks/useAuth"
 import { useLocale, useT } from "@/i18n"
+import { hasPermission } from "@/lib/permissions"
 
 export function ReorderTab() {
   const t = useT()
   const { numberFormat } = useLocale()
+  const { user } = useAuth()
+  // The reorder report requires report.view; the filter dropdowns hit
+  // supplier.read / category.read endpoints. Each query is gated on the
+  // exact permission its endpoint requires (plus the panel permission), so
+  // an unauthorized visitor gets empty states instead of 403 toasts.
+  const canView = hasPermission(user, "report.view")
+  const canReadSuppliers = canView && hasPermission(user, "supplier.read")
+  const canReadCategories = canView && hasPermission(user, "category.read")
   const [supplierId, setSupplierId] = useState<string | undefined>()
   const [categoryId, setCategoryId] = useState<string | undefined>()
 
   const { data: suppliers } = useQuery({
     queryFn: () => SuppliersService.readSuppliers({ skip: 0, limit: 100 }),
     queryKey: ["suppliers"],
+    enabled: canReadSuppliers,
   })
   const { data: categories } = useQuery({
     queryFn: () => CategoriesService.readCategories({ skip: 0, limit: 100 }),
     queryKey: ["categories"],
+    enabled: canReadCategories,
   })
 
   const { data, isLoading } = useQuery({
@@ -39,6 +51,7 @@ export function ReorderTab() {
         categoryId: categoryId ?? null,
       }),
     queryKey: ["reports", "reorder", supplierId, categoryId],
+    enabled: canView,
   })
   const rows = data ?? []
 

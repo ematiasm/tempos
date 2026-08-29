@@ -22,19 +22,29 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import useAuth from "@/hooks/useAuth"
 import { useLocale, useT } from "@/i18n"
+import { hasPermission } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 
-function ReportDialog({ session }: { session: CashSessionPublic }) {
+function ReportDialog({
+  session,
+  canView,
+}: {
+  session: CashSessionPublic
+  canView: boolean
+}) {
   const t = useT()
   const [open, setOpen] = useState(false)
+  // GET /cash-sessions/{id}/report requires cash.read; the dialog is only
+  // reachable from rows of the gated table, the flag is belt-and-braces.
   const { data: report } = useQuery({
     queryFn: () =>
       CashSessionsService.readCashSessionReport({
         cashSessionId: session.id,
       }),
     queryKey: ["cash-sessions-report", session.id],
-    enabled: open,
+    enabled: open && canView,
   })
   return (
     <>
@@ -56,6 +66,12 @@ function ReportDialog({ session }: { session: CashSessionPublic }) {
 export function CashSessionsTab() {
   const t = useT()
   const { numberFormat } = useLocale()
+  const { user } = useAuth()
+  // The sessions list lives in the reports panel but reads from the
+  // cash-sessions endpoint (cash.read): both permissions are required, so an
+  // unauthorized visitor gets empty states instead of 403 toasts.
+  const canView =
+    hasPermission(user, "report.view") && hasPermission(user, "cash.read")
   const [status, setStatus] = useState<CashSessionStatus | "all">("all")
 
   const { data, isLoading } = useQuery({
@@ -65,6 +81,7 @@ export function CashSessionsTab() {
         status: status === "all" ? null : status,
       }),
     queryKey: ["cash-sessions", status],
+    enabled: canView,
   })
   const rows = data?.data ?? []
 
@@ -133,7 +150,9 @@ export function CashSessionsTab() {
     {
       id: "actions",
       header: "",
-      cell: ({ row }) => <ReportDialog session={row.original} />,
+      cell: ({ row }) => (
+        <ReportDialog session={row.original} canView={canView} />
+      ),
     },
   ]
 

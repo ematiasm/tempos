@@ -13,10 +13,16 @@ import {
 } from "@/components/Reports/reportFormat"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import useAuth from "@/hooks/useAuth"
 import { useT } from "@/i18n"
+import { hasPermission } from "@/lib/permissions"
 
 export function MarginTab() {
   const t = useT()
+  const { user } = useAuth()
+  // GET /reports/margin requires report.view; without it the query does not
+  // fire and the tab renders its empty state (no 403 toast).
+  const canView = hasPermission(user, "report.view")
   const [range, setRange] = useState<DateRangeValue>({})
 
   const { data, isLoading } = useQuery({
@@ -26,6 +32,7 @@ export function MarginTab() {
         hasta: range.hasta ?? null,
       }),
     queryKey: ["reports", "margin", range],
+    enabled: canView,
   })
   const rows = data ?? []
 

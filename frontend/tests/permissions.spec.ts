@@ -7,8 +7,9 @@ import { logInUser } from "./utils/user"
 /**
  * Restricted-user permission flow: a user with a limited role sees only the
  * sidebar sections their permissions allow, keeps their session when they
- * navigate to a panel they lack permissions for (403 → toast, no logout),
- * and can still use the panels they do have access to.
+ * navigate to a panel they lack permissions for (queries are permission-gated
+ * so they never fire: empty states, no 403 toast, no logout), and can still
+ * use the panels they do have access to.
  */
 test("restricted user keeps session and gets a filtered sidebar", async ({
   page,
@@ -51,14 +52,16 @@ test("restricted user keeps session and gets a filtered sidebar", async ({
   await expect(page.getByRole("link", { name: "Finanzas" })).toHaveCount(0)
   await expect(page.getByRole("link", { name: "Reportes" })).toHaveCount(0)
 
-  // Direct navigation to a forbidden panel: the session survives (no redirect
-  // to /login) and the translated "no permission" toast appears. The page
-  // fires more than one forbidden query, so sonner may stack several toasts.
+  // Direct navigation to a forbidden panel: the panel's data queries are
+  // gated on the panel permission, so they do not fire at all — the page
+  // renders with empty states, no 403 toast appears, and the session
+  // survives (no redirect to /login).
   await page.goto("/finance")
   await expect(page).toHaveURL(/\/finance$/)
+  await expect(page.getByRole("heading", { name: "Finanzas" })).toBeVisible()
   await expect(
-    page.getByText("No tenés permisos para realizar esta acción").first(),
-  ).toBeVisible({ timeout: 15_000 })
+    page.getByText("No tenés permisos para realizar esta acción"),
+  ).toHaveCount(0)
   await expect(page.getByTestId("user-menu")).toBeVisible()
 
   // An allowed panel loads normally.

@@ -4,7 +4,9 @@ import { FinancialAccountsService } from "@/client"
 import { money } from "@/components/Reports/reportFormat"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import useAuth from "@/hooks/useAuth"
 import { useLocale, useT } from "@/i18n"
+import { hasPermission } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 
 interface AccountsCardsProps {
@@ -15,11 +17,16 @@ interface AccountsCardsProps {
 export function AccountsCards({ selectedId, onSelect }: AccountsCardsProps) {
   const t = useT()
   const { numberFormat } = useLocale()
+  const { user } = useAuth()
+  // GET /financial-accounts requires finance.read; without it the query does
+  // not fire and the panel renders its empty state (no 403 toast).
+  const canRead = hasPermission(user, "finance.read")
 
   const { data, isLoading } = useQuery({
     queryFn: () =>
       FinancialAccountsService.readFinancialAccounts({ skip: 0, limit: 100 }),
     queryKey: ["financial-accounts"],
+    enabled: canRead,
   })
 
   if (isLoading) {

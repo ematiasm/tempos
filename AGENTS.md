@@ -528,8 +528,10 @@ This is the high-level module map, complete for the current implementation.
 - The upstream template historically shipped with
   `except InvalidTokenError, ValidationError:` (no parentheses) at
   `backend/app/api/deps.py`. It was a syntax error pre-3.14; the project now
-  requires Python >=3.14, where PEP 758 makes the tuple form valid again. The
-  canonical parenthesized form is kept anyway. Phase 0 note updated accordingly.
+  requires Python >=3.14, where PEP 758 makes the unparenthesized tuple form
+  valid. That unparenthesized form is canonical for this project: ruff with
+  `target-version = "py314"` enforces it, and `ruff format --check` fails on
+  the parenthesized version.
 - The `db` fixture in `backend/tests/conftest.py` uses the **real** Postgres
   instance (no isolated test DB). Tests are non-parallel-safe by default. To
   run tests you must have the Postgres service up and migrations applied.

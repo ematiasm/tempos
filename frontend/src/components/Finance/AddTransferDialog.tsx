@@ -34,8 +34,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useLocale, useT } from "@/i18n"
+import { hasPermission } from "@/lib/permissions"
 import { handleError } from "@/utils"
 
 const formSchema = z
@@ -77,11 +79,16 @@ export function AddTransferDialog({
   const { numberFormat } = useLocale()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
+  const { user } = useAuth()
+  // GET /financial-accounts requires finance.read; gate the query so it does
+  // not fire (the dialog itself is only reachable with transfer.create).
+  const canReadAccounts = hasPermission(user, "finance.read")
 
   const { data: accountsData } = useQuery({
     queryFn: () =>
       FinancialAccountsService.readFinancialAccounts({ skip: 0, limit: 100 }),
     queryKey: ["financial-accounts"],
+    enabled: canReadAccounts,
   })
   const accounts = accountsData?.data ?? []
 

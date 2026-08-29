@@ -6,13 +6,20 @@ import { DataTable } from "@/components/Common/DataTable"
 import { qty } from "@/components/Reports/reportFormat"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import useAuth from "@/hooks/useAuth"
 import { useT } from "@/i18n"
+import { hasPermission } from "@/lib/permissions"
 
 export function LowStockTab() {
   const t = useT()
+  const { user } = useAuth()
+  // GET /reports/low-stock requires report.view; without it the query does
+  // not fire and the tab renders its empty state (no 403 toast).
+  const canView = hasPermission(user, "report.view")
   const { data, isLoading } = useQuery({
     queryFn: () => ReportsService.lowStock(),
     queryKey: ["reports", "low-stock"],
+    enabled: canView,
   })
   const rows = data ?? []
 

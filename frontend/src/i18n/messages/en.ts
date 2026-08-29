@@ -57,6 +57,8 @@ export const en: Messages = {
   "finance.tabMovements": "Movements",
   "finance.tabTransfers": "Transfers",
   "finance.newTransfer": "New transfer",
+  "finance.noTransferPermission":
+    "You don't have permission to create transfers",
   "finance.transferTitle": "Transfer between accounts",
   "finance.transferDescription":
     "Move money from one financial account to another. It is recorded in the ledger of both accounts.",

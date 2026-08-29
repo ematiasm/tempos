@@ -9,6 +9,11 @@ import { MovementsTab } from "@/components/Reports/MovementsTab"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import useAuth from "@/hooks/useAuth"
 import { formatStatic, useT } from "@/i18n"
 import { hasPermission } from "@/lib/permissions"
@@ -48,12 +53,24 @@ function Finance() {
             </p>
           </div>
         </div>
-        {canTransfer && (
-          <Button onClick={() => setTransferOpen(true)}>
-            <ArrowLeftRight className="mr-2 h-4 w-4" />
-            {t("finance.newTransfer")}
-          </Button>
-        )}
+        <Tooltip>
+          {/* Disabled buttons swallow pointer events: the span keeps the
+              tooltip reachable while the button stays non-interactive. */}
+          <TooltipTrigger asChild>
+            <span className="inline-block">
+              <Button
+                disabled={!canTransfer}
+                onClick={() => canTransfer && setTransferOpen(true)}
+              >
+                <ArrowLeftRight className="mr-2 h-4 w-4" />
+                {t("finance.newTransfer")}
+              </Button>
+            </span>
+          </TooltipTrigger>
+          {!canTransfer && (
+            <TooltipContent>{t("finance.noTransferPermission")}</TooltipContent>
+          )}
+        </Tooltip>
       </div>
 
       <Card>

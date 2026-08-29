@@ -17,7 +17,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import useAuth from "@/hooks/useAuth"
 import { useLocale, useT } from "@/i18n"
+import { hasPermission } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 
 interface MovementsTabProps {
@@ -27,6 +29,11 @@ interface MovementsTabProps {
 export function MovementsTab({ initialAccountId }: MovementsTabProps) {
   const t = useT()
   const { numberFormat } = useLocale()
+  const { user } = useAuth()
+  // Both endpoints (financial accounts and account movements) require
+  // finance.read; without it the queries do not fire and the tab renders its
+  // empty state (no 403 toast).
+  const canRead = hasPermission(user, "finance.read")
   const [range, setRange] = useState<DateRangeValue>({})
   const [accountId, setAccountId] = useState<string | undefined>(
     initialAccountId,
@@ -42,6 +49,7 @@ export function MovementsTab({ initialAccountId }: MovementsTabProps) {
     queryFn: () =>
       FinancialAccountsService.readFinancialAccounts({ skip: 0, limit: 100 }),
     queryKey: ["financial-accounts"],
+    enabled: canRead,
   })
 
   const { data, isLoading } = useQuery({
@@ -53,6 +61,7 @@ export function MovementsTab({ initialAccountId }: MovementsTabProps) {
         fechaHasta: range.hasta ?? null,
       }),
     queryKey: ["reports", "movements", range, accountId],
+    enabled: canRead,
   })
   const rows = data?.data ?? []
   const accountName = accounts?.data.find((a) => a.id === accountId)?.name

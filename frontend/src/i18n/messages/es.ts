@@ -55,6 +55,7 @@ export const es = {
   "finance.tabMovements": "Movimientos",
   "finance.tabTransfers": "Transferencias",
   "finance.newTransfer": "Nueva transferencia",
+  "finance.noTransferPermission": "No tenés permiso para crear transferencias",
   "finance.transferTitle": "Transferencia entre cuentas",
   "finance.transferDescription":
     "Mové dinero de una cuenta financiera a otra. Se registra en el libro mayor de ambas cuentas.",

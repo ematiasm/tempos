@@ -16,7 +16,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import useAuth from "@/hooks/useAuth"
 import { useLocale, useT } from "@/i18n"
+import { hasPermission } from "@/lib/permissions"
 
 interface TransferHistoryTabProps {
   accountId?: string | null
@@ -29,12 +31,17 @@ export function TransferHistoryTab({
 }: TransferHistoryTabProps) {
   const t = useT()
   const { numberFormat } = useLocale()
+  const { user } = useAuth()
+  // Both endpoints (financial accounts and transfers) require finance.read;
+  // without it the queries do not fire and the tab renders its empty state.
+  const canRead = hasPermission(user, "finance.read")
   const [range, setRange] = useState<DateRangeValue>({})
 
   const { data: accountsData } = useQuery({
     queryFn: () =>
       FinancialAccountsService.readFinancialAccounts({ skip: 0, limit: 100 }),
     queryKey: ["financial-accounts"],
+    enabled: canRead,
   })
   const accounts = accountsData?.data ?? []
   const accountName = (id: string) => accounts.find((a) => a.id === id)?.name
@@ -42,6 +49,7 @@ export function TransferHistoryTab({
   const { data, isLoading } = useQuery({
     queryFn: () => TransfersService.readTransfers({ skip: 0, limit: 200 }),
     queryKey: ["transfers"],
+    enabled: canRead,
   })
 
   const rows = useMemo(() => {
