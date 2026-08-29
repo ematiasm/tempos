@@ -77,9 +77,25 @@ export function SplitPaymentDialog({
 
   useEffect(() => {
     if (!open) return
-    setRows(defaultMethodId ? [{ methodId: defaultMethodId, amount: 0 }] : [])
+    // Prefill the first row with the full remaining total (favor-aware) so
+    // the operator only edits amounts when splitting across methods.
+    const initialFavor = computeFavorApplied(
+      creditInFavor,
+      creditInFavor > 0,
+      total,
+    )
+    setRows(
+      defaultMethodId
+        ? [
+            {
+              methodId: defaultMethodId,
+              amount: Math.max(round2(total - initialFavor), 0),
+            },
+          ]
+        : [],
+    )
     setUseCredit(creditInFavor > 0)
-  }, [open, defaultMethodId, creditInFavor])
+  }, [open, defaultMethodId, creditInFavor, total])
 
   const favorApplied = computeFavorApplied(creditInFavor, useCredit, total)
   const metrics = computeSplitMetrics(rows, methodIndex, total, favorApplied)
@@ -91,7 +107,12 @@ export function SplitPaymentDialog({
   }
   const addRow = () => {
     if (!defaultMethodId) return
-    setRows((prev) => [...prev, { methodId: defaultMethodId, amount: 0 }])
+    // New rows start with whatever is still uncovered (never negative) so
+    // the operator only types when splitting.
+    setRows((prev) => [
+      ...prev,
+      { methodId: defaultMethodId, amount: Math.max(metrics.remaining, 0) },
+    ])
   }
   const removeRow = (index: number) => {
     setRows((prev) => prev.filter((_, i) => i !== index))
