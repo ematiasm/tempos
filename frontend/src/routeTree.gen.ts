@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RecoverPasswordRouteImport } from './routes/recover-password'
 import { Route as LoginRouteImport } from './routes/login'
@@ -32,6 +33,11 @@ import { Route as LayoutCatalogProductsRouteImport } from './routes/_layout/cata
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/setup': typeof SetupRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
   '/buy': typeof LayoutBuyRoute
@@ -148,6 +155,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/setup': typeof SetupRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
   '/buy': typeof LayoutBuyRoute
@@ -170,6 +178,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/setup': typeof SetupRoute
   '/signup': typeof SignupRoute
   '/_layout/admin': typeof LayoutAdminRoute
   '/_layout/buy': typeof LayoutBuyRoute
@@ -193,6 +202,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/recover-password'
     | '/reset-password'
+    | '/setup'
     | '/signup'
     | '/admin'
     | '/buy'
@@ -212,6 +222,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/recover-password'
     | '/reset-password'
+    | '/setup'
     | '/signup'
     | '/admin'
     | '/buy'
@@ -233,6 +244,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/recover-password'
     | '/reset-password'
+    | '/setup'
     | '/signup'
     | '/_layout/admin'
     | '/_layout/buy'
@@ -255,6 +267,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   RecoverPasswordRoute: typeof RecoverPasswordRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SetupRoute: typeof SetupRoute
   SignupRoute: typeof SignupRoute
 }
 
@@ -265,6 +278,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -438,6 +458,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   RecoverPasswordRoute: RecoverPasswordRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SetupRoute: SetupRoute,
   SignupRoute: SignupRoute,
 }
 export const routeTree = rootRouteImport

@@ -684,6 +684,14 @@ export const es = {
   "cash.reportDate": "Fecha",
   "cash.reportConcept": "Concepto",
   "cash.reportAmount": "Monto",
+  "setup.title": "Configuración inicial",
+  "setup.subtitle":
+    "Contanos los datos básicos de tu negocio para empezar a usar tempos.",
+  "setup.submit": "Comenzar",
+  "setup.completed": "Configuración inicial completada",
+  "setup.loadDemoData": "Cargar datos demo",
+  "setup.loadDemoDataHint":
+    "Carga categorías demo, 14 productos con códigos de barra (stock cero), un cliente y un proveedor para probar el sistema.",
   "errors.document_type_not_found": "Tipo de documento no encontrado",
   "errors.counterpart_not_allowed":
     "Este tipo de documento no admite contraparte",
@@ -710,6 +718,9 @@ export const es = {
     "La operación supera el límite de crédito del cliente",
   "errors.business_settings_not_found":
     "No se encontró la configuración del negocio",
+  "errors.setup_already_completed":
+    "La configuración inicial ya fue completada",
+  "errors.setup_not_completed": "El sistema aún no está configurado",
   "errors.document_already_voided": "El documento ya está anulado",
   "errors.document_type_missing": "El documento no tiene tipo",
   "errors.document_not_voidable":

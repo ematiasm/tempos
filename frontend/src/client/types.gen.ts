@@ -987,6 +987,27 @@ export type SalesPerDayRow = {
 };
 
 /**
+ * First-run setup payload.
+ *
+ * Identity fields mirror the ``BusinessSettingsUpdate`` schema used by the
+ * Admin General tab; the business name and fiscal condition are required and
+ * every other field keeps its model default.
+ */
+export type SetupCreate = {
+    business_name: string;
+    address?: (string | null);
+    phone?: (string | null);
+    email?: (string | null);
+    cuit?: (string | null);
+    condicion_fiscal: TaxCondition;
+    load_demo_data?: boolean;
+};
+
+export type SetupStatusPublic = {
+    setup_completed: boolean;
+};
+
+/**
  * Bucket a statement document belongs to (balance-direction based).
  *
  * Values reuse the domain vocabulary: ``venta``/``compra`` for the
@@ -1949,6 +1970,14 @@ export type RolesDeleteRoleData = {
 };
 
 export type RolesDeleteRoleResponse = (Message);
+
+export type SetupReadSetupStatusResponse = (SetupStatusPublic);
+
+export type SetupRunSetupData = {
+    requestBody: SetupCreate;
+};
+
+export type SetupRunSetupResponse = (BusinessSettingsPublic);
 
 export type StockMovementsReadStockMovementsData = {
     documentId?: (string | null);

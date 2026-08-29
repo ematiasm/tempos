@@ -673,6 +673,14 @@ export const en: Messages = {
   "cash.reportDate": "Date",
   "cash.reportConcept": "Concept",
   "cash.reportAmount": "Amount",
+  "setup.title": "First-run setup",
+  "setup.subtitle":
+    "Tell us the basic details of your business to start using tempos.",
+  "setup.submit": "Get started",
+  "setup.completed": "First-run setup completed",
+  "setup.loadDemoData": "Load demo data",
+  "setup.loadDemoDataHint":
+    "Loads demo categories, 14 products with barcodes (zero stock), one customer and one supplier for testing.",
   "errors.document_type_not_found": "Document type not found",
   "errors.counterpart_not_allowed":
     "This document type does not take a counterpart",
@@ -695,6 +703,9 @@ export const en: Messages = {
   "errors.credit_limit_exceeded":
     "Operation exceeds the customer's credit limit",
   "errors.business_settings_not_found": "Business settings not found",
+  "errors.setup_already_completed":
+    "First-run setup has already been completed",
+  "errors.setup_not_completed": "The system has not been set up yet",
   "errors.document_already_voided": "Document is already voided",
   "errors.document_type_missing": "Document has no document type",
   "errors.document_not_voidable": "Documents of this type are not voidable",

@@ -19,6 +19,7 @@ from app.models import (
     BusinessSettings,
     CashRegisterSession,
     Category,
+    CONSUMIDOR_FINAL_NAME,
     Customer,
     CustomerAccountMovement,
     Document,
@@ -39,6 +40,7 @@ from app.models import (
     Supplier,
     SupplierAccountMovement,
     Tax,
+    TaxCondition,
     Transfer,
     UoM,
     User,
@@ -96,6 +98,33 @@ def _primary_keys(model: type[SQLModel]) -> list[Any]:
     return list(model.__table__.primary_key.columns)
 
 
+def _seed_setup_defaults(session: Session) -> None:
+    """Re-seed the rows tests assume but ``init_db`` no longer creates.
+
+    The first-run /setup flow owns the BusinessSettings singleton and the
+    protected "Consumidor Final" customer now; tests exercise the configured
+    state, so restore them when missing (e.g. after a test deleted them to
+    simulate a fresh install).
+    """
+    if not session.exec(select(BusinessSettings)).first():
+        session.add(
+            BusinessSettings(
+                business_name="My Business",
+                condicion_fiscal=TaxCondition.CONSUMIDOR_FINAL,
+            )
+        )
+    if not session.exec(
+        select(Customer).where(Customer.razon_social == CONSUMIDOR_FINAL_NAME)
+    ).first():
+        session.add(
+            Customer(
+                razon_social=CONSUMIDOR_FINAL_NAME,
+                condicion_fiscal=TaxCondition.CONSUMIDOR_FINAL,
+            )
+        )
+    session.commit()
+
+
 def _clean_test_data(session: Session) -> None:
     """Delete test-created rows (FK-safe order), keeping the session baseline."""
     try:
@@ -110,6 +139,7 @@ def _clean_test_data(session: Session) -> None:
         session.commit()
         # Safety net: restore seed rows a test may have removed or renamed.
         init_db(session)
+        _seed_setup_defaults(session)
     except Exception:
         # Never leave the session in an aborted transaction: a failed cleanup
         # would poison every later test in the session.
@@ -121,6 +151,7 @@ def _clean_test_data(session: Session) -> None:
 def db() -> Generator[Session]:
     with Session(engine) as session:
         init_db(session)
+        _seed_setup_defaults(session)
         for model in CLEANUP_MODELS:
             pk_cols = _primary_keys(model)
             rows = session.exec(select(*pk_cols)).all()

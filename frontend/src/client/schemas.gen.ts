@@ -5350,6 +5350,93 @@ export const SalesPerDayRowSchema = {
     title: 'SalesPerDayRow'
 } as const;
 
+export const SetupCreateSchema = {
+    properties: {
+        business_name: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Business Name'
+        },
+        address: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Address'
+        },
+        phone: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 50
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Phone'
+        },
+        email: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Email'
+        },
+        cuit: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 20
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Cuit'
+        },
+        condicion_fiscal: {
+            '$ref': '#/components/schemas/TaxCondition'
+        },
+        load_demo_data: {
+            type: 'boolean',
+            title: 'Load Demo Data',
+            default: false
+        }
+    },
+    type: 'object',
+    required: ['business_name', 'condicion_fiscal'],
+    title: 'SetupCreate',
+    description: `First-run setup payload.
+
+Identity fields mirror the \`\`BusinessSettingsUpdate\`\` schema used by the
+Admin General tab; the business name and fiscal condition are required and
+every other field keeps its model default.`
+} as const;
+
+export const SetupStatusPublicSchema = {
+    properties: {
+        setup_completed: {
+            type: 'boolean',
+            title: 'Setup Completed'
+        }
+    },
+    type: 'object',
+    required: ['setup_completed'],
+    title: 'SetupStatusPublic'
+} as const;
+
 export const StatementDocumentKindSchema = {
     type: 'string',
     enum: ['venta', 'compra', 'nota'],

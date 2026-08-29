@@ -21,10 +21,15 @@ MAX_LOGO_BYTES = 2 * 1024 * 1024
 def _get_settings(session: SessionDep) -> BusinessSettings:
     bs = session.exec(select(BusinessSettings)).first()
     if not bs:
-        bs = BusinessSettings(business_name="My Business")
-        session.add(bs)
-        session.commit()
-        session.refresh(bs)
+        # The singleton row is created by the first-run setup flow, never
+        # lazily here: an accidental read must not silently complete setup.
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "setup_not_completed",
+                "message": "The first-run setup has not been completed yet",
+            },
+        )
     return bs
 
 

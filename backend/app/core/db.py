@@ -5,10 +5,7 @@ from sqlmodel import Session, create_engine, select
 from app import crud
 from app.core.config import settings
 from app.models import (
-    CONSUMIDOR_FINAL_NAME,
-    BusinessSettings,
     CounterpartType,
-    Customer,
     DocumentOperation,
     DocumentType,
     FinancialAccount,
@@ -17,7 +14,6 @@ from app.models import (
     Role,
     RolePermission,
     TaxAppliesTo,
-    TaxCondition,
     TaxType,
     UoM,
     User,
@@ -285,15 +281,9 @@ def init_db(session: Session) -> None:
             session.add(UserRole(user_id=user.id, role_id=admin_role.id))
             session.commit()
 
-    # --- Seed BusinessSettings singleton ---
-    bs = session.exec(select(BusinessSettings)).first()
-    if not bs:
-        bs = BusinessSettings(
-            business_name="My Business",
-            condicion_fiscal=TaxCondition.CONSUMIDOR_FINAL,
-        )
-        session.add(bs)
-        session.commit()
+    # NOTE: the BusinessSettings singleton and the "Consumidor Final" default
+    # customer are NOT seeded here anymore: the system is "not configured"
+    # until a BusinessSettings row exists (first-run /setup flow).
 
     # --- Seed UoM (only "unidad", the rest are user-created) ---
     if not session.exec(select(UoM).where(UoM.name == "unidad")).first():
@@ -329,18 +319,6 @@ def init_db(session: Session) -> None:
     if iva21 and not iva21.is_default:
         iva21.is_default = True
         session.add(iva21)
-        session.commit()
-
-    # --- Seed "Consumidor Final" default customer ---
-    if not session.exec(
-        select(Customer).where(Customer.razon_social == CONSUMIDOR_FINAL_NAME)
-    ).first():
-        session.add(
-            Customer(
-                razon_social=CONSUMIDOR_FINAL_NAME,
-                condicion_fiscal=TaxCondition.CONSUMIDOR_FINAL,
-            )
-        )
         session.commit()
 
     # --- Seed document types ---

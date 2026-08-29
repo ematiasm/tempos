@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 
+import { ApiError } from "@/client"
 import { Footer } from "@/components/Common/Footer"
 import AppSidebar from "@/components/Sidebar/AppSidebar"
 import {
@@ -8,14 +9,32 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { isLoggedIn } from "@/hooks/useAuth"
+import { setupStatusQueryOptions } from "@/hooks/useSetupStatus"
 
 export const Route = createFileRoute("/_layout")({
   component: Layout,
-  beforeLoad: async () => {
+  beforeLoad: async ({ context }) => {
     if (!isLoggedIn()) {
       throw redirect({
         to: "/login",
       })
+    }
+    let setupCompleted: boolean
+    try {
+      const status = await context.queryClient.ensureQueryData(
+        setupStatusQueryOptions(),
+      )
+      setupCompleted = status.setup_completed
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        throw redirect({ to: "/login" })
+      }
+      // Fail open on other errors (e.g. network): the /setup route re-checks
+      // the status and its submit surfaces the real API error.
+      return
+    }
+    if (!setupCompleted) {
+      throw redirect({ to: "/setup" })
     }
   },
 })
