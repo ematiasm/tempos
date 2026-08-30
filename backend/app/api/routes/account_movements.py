@@ -137,7 +137,8 @@ def read_account_movements(
     movements = session.exec(
         select(AccountMovement)
         .where(*conditions)
-        .order_by(col(AccountMovement.fecha).desc())
+        # id desc breaks fecha ties so the paginated window is deterministic
+        .order_by(col(AccountMovement.fecha).desc(), col(AccountMovement.id).desc())
         .offset(pagination.skip)
         .limit(pagination.limit)
     ).all()

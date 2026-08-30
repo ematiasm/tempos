@@ -94,16 +94,9 @@ test.describe("Reports", () => {
     await expect(await findRowInPages(page, lowStockName)).toBeVisible()
   })
 
-  // PRE-EXISTING PRODUCT LIMITATION (do not "fix" client-side):
-  // GET /account-movements/ orders by `fecha desc` with NO id tiebreaker and
-  // the Movements tab fetches `limit: 200`. Once a single day accumulates
-  // more than 200 movements (dev DB has 400+), the just-created sale's
-  // movement falls outside the fetched window on tie-order luck, so this
-  // assertion is inherently flaky. Product fix (future backend change): add
-  // `, col(AccountMovement.id).desc()` as a secondary sort key in
-  // app/api/routes/account_movements.py. Skipped per SDD apply-batch rule
-  // (no backend changes in slices 8-9).
-  test.fixme("Movements show the sale document", async ({ page }) => {
+  // Deterministic ordering (fecha desc, id desc tiebreaker) keeps the
+  // freshly created sale's movement inside the fetched window.
+  test("Movements show the sale document", async ({ page }) => {
     await page.goto("/reports")
     await page.getByRole("tab", { name: "Movimientos" }).click()
 

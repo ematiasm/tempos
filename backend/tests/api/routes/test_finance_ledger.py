@@ -1,5 +1,6 @@
 """Tests for the finance ledger: AccountMovement, current-account ledgers."""
 
+import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -7,7 +8,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from app.core.config import settings
-from app.models import PaymentMethod
+from app.models import AccountMovement, AccountMovementType, PaymentMethod, User
 from tests.utils.ledger import load_stock
 from tests.utils.utils import random_lower_string
 
@@ -865,3 +866,59 @@ def test_account_movement_display_names(
     # The credit sale itself never moved cash, so no movement for it beyond
     # the receipt's cobro; the sale document shows up only via the receipt.
     assert all(m["document_id"] != doc["id"] for m in page["data"])
+
+
+def test_account_movements_equal_fecha_order_is_deterministic(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Movements sharing the exact same fecha list in id desc order.
+
+    The id tiebreaker makes the paginated window deterministic: rows are
+    compared on a stable key instead of tie-order luck, so a just-created
+    movement can never randomly fall outside the fetched page.
+    """
+    r = client.post(
+        f"{settings.API_V1_STR}/financial-accounts/",
+        headers=superuser_token_headers,
+        json={"name": random_lower_string()[:20]},
+    )
+    assert r.status_code == 200, r.text
+    account_id = uuid.UUID(r.json()["id"])
+    user_id = db.exec(
+        select(User).where(User.email == settings.FIRST_SUPERUSER)
+    ).one().id
+
+    fecha = datetime(2026, 1, 15, 12, 0, tzinfo=UTC)
+    db.add_all(
+        [
+            AccountMovement(
+                financial_account_id=account_id,
+                monto=Decimal("10.00"),
+                tipo=AccountMovementType.AJUSTE,
+                fecha=fecha,
+                user_id=user_id,
+            ),
+            AccountMovement(
+                financial_account_id=account_id,
+                monto=Decimal("20.00"),
+                tipo=AccountMovementType.AJUSTE,
+                fecha=fecha,
+                user_id=user_id,
+            ),
+        ]
+    )
+    db.commit()
+
+    params = {"financial_account_id": str(account_id)}
+    ids = [
+        m["id"]
+        for m in _account_movements(client, superuser_token_headers, **params)["data"]
+    ]
+    assert len(ids) == 2
+    # Equal fechas fall back to the id desc tiebreaker, stable across reads.
+    assert ids == sorted(ids, reverse=True)
+    again = [
+        m["id"]
+        for m in _account_movements(client, superuser_token_headers, **params)["data"]
+    ]
+    assert again == ids
