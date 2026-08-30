@@ -125,39 +125,48 @@ export function VatTab() {
     { accessorKey: "count", header: headerLabels[7] },
   ]
 
-  const totalTax = rows.reduce((acc, r) => acc + Number(r.monto), 0)
+  // Two sections with separate totals: line taxes are already inside shelf
+  // prices (informational only); document-level taxes add on top of the total.
+  const lineRows = rows.filter((r) => r.applies_to === "linea")
+  const docRows = rows.filter((r) => r.applies_to === "documento")
+  const lineTotal = lineRows.reduce((acc, r) => acc + Number(r.monto), 0)
+  const docTotal = docRows.reduce((acc, r) => acc + Number(r.monto), 0)
   const periodLabel = [range.desde, range.hasta]
     .filter(Boolean)
     .map(csvDate)
     .join(" — ")
 
+  const vatSection = (title: string, sectionRows: VatRow[], total: number) => (
+    <Card>
+      <CardContent className="p-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
+          <h3 className="text-sm font-semibold">{title}</h3>
+          <span className="text-sm text-muted-foreground">
+            {t("reports.amount")}: {money(total, numberFormat)}
+          </span>
+        </div>
+        <DataTable columns={columns} data={sectionRows} />
+      </CardContent>
+    </Card>
+  )
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <ReportDateRange value={range} onChange={setRange} />
-        <div className="flex flex-wrap items-center gap-3">
-          {!isLoading && rows.length > 0 && (
-            <span className="text-sm text-muted-foreground">
-              {t("reports.totalTaxes", {
-                amount: money(totalTax, numberFormat),
-              })}
-            </span>
-          )}
-          <ReportActions
-            hasRows={rows.length > 0}
-            onExportCsv={exportCsv}
-            onPrint={() => setPrintOpen(true)}
-          />
-        </div>
+        <ReportActions
+          hasRows={rows.length > 0}
+          onExportCsv={exportCsv}
+          onPrint={() => setPrintOpen(true)}
+        />
       </div>
       {isLoading ? (
         <Skeleton className="h-64 w-full" />
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <DataTable columns={columns} data={rows} />
-          </CardContent>
-        </Card>
+        <div className="flex flex-col gap-4">
+          {vatSection(t("reports.vatIncludedTitle"), lineRows, lineTotal)}
+          {vatSection(t("reports.vatPerceptionsTitle"), docRows, docTotal)}
+        </div>
       )}
       <ReportPrintDialog
         open={printOpen}
@@ -166,8 +175,9 @@ export function VatTab() {
         period={periodLabel}
         sections={[
           {
+            title: t("reports.vatIncludedTitle"),
             headers: headerLabels,
-            rows: rows.map((r) => [
+            rows: lineRows.map((r) => [
               r.tax_code ?? "—",
               r.tax_name ?? "—",
               r.tipo ?? "—",
@@ -179,8 +189,28 @@ export function VatTab() {
             ]),
             totals: [
               {
-                label: t("reports.taxesTotal"),
-                value: money(totalTax, numberFormat),
+                label: t("reports.vatIncludedTotal"),
+                value: money(lineTotal, numberFormat),
+              },
+            ],
+          },
+          {
+            title: t("reports.vatPerceptionsTitle"),
+            headers: headerLabels,
+            rows: docRows.map((r) => [
+              r.tax_code ?? "—",
+              r.tax_name ?? "—",
+              r.tipo ?? "—",
+              r.is_percent ? pct(r.rate) : money(r.rate, numberFormat),
+              r.applies_to ?? "—",
+              money(r.base, numberFormat),
+              money(r.monto, numberFormat),
+              String(r.count),
+            ]),
+            totals: [
+              {
+                label: t("reports.vatPerceptionsTotal"),
+                value: money(docTotal, numberFormat),
               },
             ],
           },
