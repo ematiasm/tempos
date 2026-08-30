@@ -1,11 +1,15 @@
 """Tests for the stock ledger: /stock-movements and product stock deltas."""
 
+import uuid
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlmodel import Session
 
 from app.core.config import settings
+from app.models import StockMovement
 from tests.utils.ledger import load_stock, unload_stock
 from tests.utils.utils import random_lower_string
 
@@ -416,3 +420,72 @@ def test_sale_without_stock_on_void_returns_stock(
         client, superuser_token_headers, product_id=product["id"], limit=100
     )
     assert page["count"] == 3  # AJS +, sale -, NC +
+
+
+def test_stock_movements_filter_resolves_business_local_days(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """``fecha_desde``/``fecha_hasta`` are inclusive business-local days.
+
+    A movement created at 02:30 UTC is 23:30 business-local on the previous
+    day (America/Argentina/Buenos_Aires, UTC-3): it must match that local day
+    and not the calendar day of its UTC timestamp.
+    """
+    product = _create_product(client, superuser_token_headers)
+    load_stock(client, superuser_token_headers, product["id"], "1")
+
+    settings_url = f"{settings.API_V1_STR}/business-settings/"
+    previous_tz = client.get(
+        settings_url, headers=superuser_token_headers
+    ).json()["timezone"]
+    r = client.patch(
+        settings_url,
+        headers=superuser_token_headers,
+        json={"timezone": "America/Argentina/Buenos_Aires"},
+    )
+    assert r.status_code == 200, r.text
+    try:
+        page = _stock_movements(
+            client, superuser_token_headers, product_id=product["id"], limit=100
+        )
+        assert page["count"] == 1
+        movement_id = page["data"][0]["id"]
+        # created_at is server-generated; pin it directly for determinism.
+        movement = db.get(StockMovement, uuid.UUID(movement_id))
+        assert movement is not None
+        movement.created_at = datetime(2026, 8, 30, 2, 30, tzinfo=UTC)
+        db.add(movement)
+        db.commit()
+
+        r = client.get(
+            f"{settings.API_V1_STR}/stock-movements/",
+            headers=superuser_token_headers,
+            params={
+                "product_id": product["id"],
+                "fecha_desde": "2026-08-29",
+                "fecha_hasta": "2026-08-29",
+                "limit": 100,
+            },
+        )
+        assert r.status_code == 200, r.text
+        assert movement_id in {m["id"] for m in r.json()["data"]}
+
+        # the previous local day does not include it
+        r = client.get(
+            f"{settings.API_V1_STR}/stock-movements/",
+            headers=superuser_token_headers,
+            params={
+                "product_id": product["id"],
+                "fecha_desde": "2026-08-28",
+                "fecha_hasta": "2026-08-28",
+                "limit": 100,
+            },
+        )
+        assert r.status_code == 200, r.text
+        assert movement_id not in {m["id"] for m in r.json()["data"]}
+    finally:
+        client.patch(
+            settings_url,
+            headers=superuser_token_headers,
+            json={"timezone": previous_tz},
+        )

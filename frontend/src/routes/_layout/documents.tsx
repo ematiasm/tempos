@@ -13,6 +13,7 @@ import {
 } from "@/components/Documents/documentColumns"
 import NewDocumentDialog from "@/components/Documents/NewDocumentDialog"
 import PendingUsers from "@/components/Pending/PendingUsers"
+import { ReportDateRange } from "@/components/Reports/ReportDateRange"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -38,9 +39,7 @@ const NO_FILTERS: DocumentFilters = {
   to: null,
 }
 
-const dayStart = (date: string) => new Date(`${date}T00:00:00`).toISOString()
-const dayEnd = (date: string) => new Date(`${date}T23:59:59.999`).toISOString()
-
+// fecha_desde/fecha_hasta are inclusive business-local days (plain dates).
 function getDocumentsQueryOptions(filters: DocumentFilters) {
   return {
     queryFn: () =>
@@ -49,8 +48,8 @@ function getDocumentsQueryOptions(filters: DocumentFilters) {
         limit: 100,
         documentTypeId: filters.typeId ?? undefined,
         userId: filters.userId ?? undefined,
-        fechaDesde: filters.from ? dayStart(filters.from) : undefined,
-        fechaHasta: filters.to ? dayEnd(filters.to) : undefined,
+        fechaDesde: filters.from ?? undefined,
+        fechaHasta: filters.to ?? undefined,
       }),
     queryKey: ["documents", filters],
   }
@@ -183,22 +182,17 @@ function DocumentsContent() {
           </SelectContent>
         </Select>
         <div className="flex items-center gap-2">
-          <Input
-            type="date"
-            aria-label={t("documents.fromDate")}
-            className="lg:w-40"
-            value={filters.from ?? ""}
-            onChange={(e) =>
-              setFilters((f) => ({ ...f, from: e.target.value || null }))
-            }
-          />
-          <Input
-            type="date"
-            aria-label={t("documents.toDate")}
-            className="lg:w-40"
-            value={filters.to ?? ""}
-            onChange={(e) =>
-              setFilters((f) => ({ ...f, to: e.target.value || null }))
+          <ReportDateRange
+            value={{
+              desde: filters.from ?? undefined,
+              hasta: filters.to ?? undefined,
+            }}
+            onChange={(v) =>
+              setFilters((f) => ({
+                ...f,
+                from: v.desde ?? null,
+                to: v.hasta ?? null,
+              }))
             }
           />
           <Button

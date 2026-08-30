@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -164,19 +164,24 @@ def read_documents(
     session: SessionDep,
     pagination: PaginationDep,
     document_type_id: uuid.UUID | None = None,
-    fecha_desde: datetime | None = None,
-    fecha_hasta: datetime | None = None,
+    fecha_desde: date | None = None,
+    fecha_hasta: date | None = None,
     user_id: uuid.UUID | None = None,
 ) -> Any:
     """Retrieve documents with lines, taxes and payments, optionally filtered
-    by document type, a date range (both bounds inclusive) and creator."""
+    by document type, a date range and creator.
+
+    ``fecha_desde``/``fecha_hasta`` are inclusive business-local days resolved
+    against ``Document.fecha``.
+    """
     clauses = []
     if document_type_id is not None:
         clauses.append(col(Document.document_type_id) == document_type_id)
-    if fecha_desde is not None:
-        clauses.append(col(Document.fecha) >= fecha_desde)
-    if fecha_hasta is not None:
-        clauses.append(col(Document.fecha) <= fecha_hasta)
+    dt_from, dt_to = crud.period_bounds(session, fecha_desde, fecha_hasta)
+    if dt_from is not None:
+        clauses.append(col(Document.fecha) >= dt_from)
+    if dt_to is not None:
+        clauses.append(col(Document.fecha) <= dt_to)
     if user_id is not None:
         clauses.append(col(Document.user_id) == user_id)
     count = session.exec(

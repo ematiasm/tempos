@@ -841,7 +841,10 @@ export class DocumentsService {
     /**
      * Read Documents
      * Retrieve documents with lines, taxes and payments, optionally filtered
-     * by document type, a date range (both bounds inclusive) and creator.
+     * by document type, a date range and creator.
+     *
+     * ``fecha_desde``/``fecha_hasta`` are inclusive business-local days resolved
+     * against ``Document.fecha``.
      * @param data The data for the request.
      * @param data.documentTypeId
      * @param data.fechaDesde
@@ -2180,6 +2183,9 @@ export class StockMovementsService {
     /**
      * Read Stock Movements
      * Retrieve stock movements (append-only ledger), optionally filtered.
+     *
+     * ``fecha_desde``/``fecha_hasta`` are inclusive business-local days resolved
+     * against ``StockMovement.created_at``.
      * @param data The data for the request.
      * @param data.productId
      * @param data.documentId

@@ -1,10 +1,11 @@
 import uuid
-from datetime import datetime
+from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, Query
 from sqlmodel import col, func, select
 
+from app import crud
 from app.api.deps import PaginationDep, SessionDep, require_permissions
 from app.models import (
     Document,
@@ -54,19 +55,24 @@ def read_stock_movements(
     pagination: PaginationDep,
     product_id: uuid.UUID | None = Query(default=None),
     document_id: uuid.UUID | None = Query(default=None),
-    fecha_desde: datetime | None = Query(default=None),
-    fecha_hasta: datetime | None = Query(default=None),
+    fecha_desde: date | None = Query(default=None),
+    fecha_hasta: date | None = Query(default=None),
 ) -> Any:
-    """Retrieve stock movements (append-only ledger), optionally filtered."""
+    """Retrieve stock movements (append-only ledger), optionally filtered.
+
+    ``fecha_desde``/``fecha_hasta`` are inclusive business-local days resolved
+    against ``StockMovement.created_at``.
+    """
     conditions = []
     if product_id:
         conditions.append(col(StockMovement.product_id) == product_id)
     if document_id:
         conditions.append(col(StockMovement.document_id) == document_id)
-    if fecha_desde is not None:
-        conditions.append(col(StockMovement.created_at) >= fecha_desde)
-    if fecha_hasta is not None:
-        conditions.append(col(StockMovement.created_at) <= fecha_hasta)
+    dt_from, dt_to = crud.period_bounds(session, fecha_desde, fecha_hasta)
+    if dt_from is not None:
+        conditions.append(col(StockMovement.created_at) >= dt_from)
+    if dt_to is not None:
+        conditions.append(col(StockMovement.created_at) <= dt_to)
     count_stmt = select(func.count()).select_from(StockMovement)
     if conditions:
         count_stmt = count_stmt.where(*conditions)

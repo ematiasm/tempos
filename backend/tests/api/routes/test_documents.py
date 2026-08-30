@@ -788,13 +788,13 @@ def test_read_documents_filters_by_type_and_date_range(
     assert newer["id"] in ids
     assert older["id"] not in ids
 
-    # by date range (bounds inclusive)
+    # by date range (bounds inclusive business-local days)
     r = client.get(
         f"{settings.API_V1_STR}/documents/",
         headers=superuser_token_headers,
         params={
-            "fecha_desde": "2025-01-01T00:00:00Z",
-            "fecha_hasta": "2025-02-01T00:00:00Z",
+            "fecha_desde": "2025-01-01",
+            "fecha_hasta": "2025-02-01",
             "limit": 100,
         },
     )
@@ -809,8 +809,8 @@ def test_read_documents_filters_by_type_and_date_range(
         headers=superuser_token_headers,
         params={
             "document_type_id": tck,
-            "fecha_desde": "2025-01-01T00:00:00Z",
-            "fecha_hasta": "2025-12-31T23:59:59Z",
+            "fecha_desde": "2025-01-01",
+            "fecha_hasta": "2025-12-31",
             "limit": 100,
         },
     )
@@ -902,3 +902,71 @@ def test_read_documents_filters_by_user_and_creators(
     )
     assert r.status_code == 200
     assert r.json()["count"] == 0
+
+
+def test_read_documents_filter_resolves_business_local_days(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """``fecha_desde``/``fecha_hasta`` are inclusive business-local days.
+
+    A document with fecha 02:30 UTC is 23:30 business-local on the previous
+    day (America/Argentina/Buenos_Aires, UTC-3): it must match that local day
+    and not the calendar day of its UTC timestamp.
+    """
+    customer = _create_customer(client, superuser_token_headers)
+    product = _create_product(client, superuser_token_headers)
+    load_stock(client, superuser_token_headers, product["id"], "1")
+    tck = _doc_type_id(client, superuser_token_headers, "TCK")
+
+    settings_url = f"{settings.API_V1_STR}/business-settings/"
+    previous_tz = client.get(
+        settings_url, headers=superuser_token_headers
+    ).json()["timezone"]
+    r = client.patch(
+        settings_url,
+        headers=superuser_token_headers,
+        json={"timezone": "America/Argentina/Buenos_Aires"},
+    )
+    assert r.status_code == 200, r.text
+    try:
+        doc = _create_doc(
+            client,
+            superuser_token_headers,
+            {
+                "document_type_id": tck,
+                "contraparte_id": customer["id"],
+                "fecha": "2026-08-30T02:30:00Z",  # 23:30 local on 2026-08-29
+                "lines": [{"product_id": product["id"], "cantidad": "1"}],
+            },
+        )
+
+        r = client.get(
+            f"{settings.API_V1_STR}/documents/",
+            headers=superuser_token_headers,
+            params={
+                "fecha_desde": "2026-08-29",
+                "fecha_hasta": "2026-08-29",
+                "limit": 100,
+            },
+        )
+        assert r.status_code == 200, r.text
+        assert doc["id"] in {d["id"] for d in r.json()["data"]}
+
+        # the previous local day does not include it
+        r = client.get(
+            f"{settings.API_V1_STR}/documents/",
+            headers=superuser_token_headers,
+            params={
+                "fecha_desde": "2026-08-28",
+                "fecha_hasta": "2026-08-28",
+                "limit": 100,
+            },
+        )
+        assert r.status_code == 200, r.text
+        assert doc["id"] not in {d["id"] for d in r.json()["data"]}
+    finally:
+        client.patch(
+            settings_url,
+            headers=superuser_token_headers,
+            json={"timezone": previous_tz},
+        )
