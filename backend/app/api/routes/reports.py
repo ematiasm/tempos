@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import APIRouter, Query
 from sqlmodel import col, select
 
+from app import crud
 from app.api.deps import SessionDep, require_permissions
 from app.models import (
     Category,
@@ -67,13 +68,19 @@ def _active_sales(
 )
 def sales_per_day(
     session: SessionDep,
-    desde: datetime | None = Query(default=None),
-    hasta: datetime | None = Query(default=None),
+    desde: date | None = Query(default=None),
+    hasta: date | None = Query(default=None),
 ) -> Any:
-    """Aggregate active sales (subtotal, discount, total) grouped by day."""
+    """Aggregate active sales (subtotal, discount, total) grouped by day.
+
+    Days are business-local dates (``BusinessSettings.timezone``) and the
+    ``desde``/``hasta`` bounds are inclusive local days.
+    """
+    dt_from, dt_to = crud.period_bounds(session, desde, hasta)
+    tz = crud.business_timezone(session)
     days: dict[date, SalesPerDayRow] = {}
-    for doc in _active_sales(session, desde=desde, hasta=hasta):
-        key = doc.fecha.date()
+    for doc in _active_sales(session, desde=dt_from, hasta=dt_to):
+        key = doc.fecha.astimezone(tz).date()
         row = days.get(key)
         if row is None:
             row = SalesPerDayRow(
@@ -123,15 +130,17 @@ def low_stock(session: SessionDep) -> Any:
 )
 def margin_report(
     session: SessionDep,
-    desde: datetime | None = Query(default=None),
-    hasta: datetime | None = Query(default=None),
+    desde: date | None = Query(default=None),
+    hasta: date | None = Query(default=None),
 ) -> Any:
     """Gross margin per product from active sales in the date range.
 
     Revenue is the net-of-line-discount line subtotal; cost is the sale-time
-    cost snapshot times the quantity sold.
+    cost snapshot times the quantity sold. Bounds are inclusive business-local
+    days.
     """
-    docs = _active_sales(session, desde=desde, hasta=hasta)
+    dt_from, dt_to = crud.period_bounds(session, desde, hasta)
+    docs = _active_sales(session, desde=dt_from, hasta=dt_to)
     doc_ids = [d.id for d in docs]
     if not doc_ids:
         return []
@@ -184,11 +193,15 @@ def margin_report(
 )
 def vat_report(
     session: SessionDep,
-    desde: datetime | None = Query(default=None),
-    hasta: datetime | None = Query(default=None),
+    desde: date | None = Query(default=None),
+    hasta: date | None = Query(default=None),
 ) -> Any:
-    """Aggregate line-level and document-level taxes on active sales."""
-    docs = _active_sales(session, desde=desde, hasta=hasta)
+    """Aggregate line-level and document-level taxes on active sales.
+
+    Bounds are inclusive business-local days.
+    """
+    dt_from, dt_to = crud.period_bounds(session, desde, hasta)
+    docs = _active_sales(session, desde=dt_from, hasta=dt_to)
     doc_ids = [d.id for d in docs]
     if not doc_ids:
         return []

@@ -1,10 +1,11 @@
 import uuid
-from datetime import datetime
+from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from sqlmodel import col, func, select
 
+from app import crud
 from app.api.deps import PaginationDep, SessionDep, require_permissions
 from app.models import (
     AccountMovement,
@@ -109,10 +110,14 @@ def read_account_movements(
     pagination: PaginationDep,
     financial_account_id: uuid.UUID | None = Query(default=None),
     conciliado: bool | None = Query(default=None),
-    fecha_desde: datetime | None = Query(default=None),
-    fecha_hasta: datetime | None = Query(default=None),
+    fecha_desde: date | None = Query(default=None),
+    fecha_hasta: date | None = Query(default=None),
 ) -> Any:
-    """Retrieve account movements (append-only ledger), optionally filtered."""
+    """Retrieve account movements (append-only ledger), optionally filtered.
+
+    ``fecha_desde``/``fecha_hasta`` are inclusive business-local days resolved
+    against ``AccountMovement.fecha``.
+    """
     conditions = []
     if financial_account_id:
         conditions.append(
@@ -120,10 +125,11 @@ def read_account_movements(
         )
     if conciliado is not None:
         conditions.append(col(AccountMovement.conciliado) == conciliado)
-    if fecha_desde is not None:
-        conditions.append(col(AccountMovement.fecha) >= fecha_desde)
-    if fecha_hasta is not None:
-        conditions.append(col(AccountMovement.fecha) <= fecha_hasta)
+    dt_from, dt_to = crud.period_bounds(session, fecha_desde, fecha_hasta)
+    if dt_from is not None:
+        conditions.append(col(AccountMovement.fecha) >= dt_from)
+    if dt_to is not None:
+        conditions.append(col(AccountMovement.fecha) <= dt_to)
     count_stmt = select(func.count()).select_from(AccountMovement)
     if conditions:
         count_stmt = count_stmt.where(*conditions)

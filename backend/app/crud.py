@@ -1747,24 +1747,33 @@ def create_receipt(
 # ---------------------------------------------------------------------------
 # Counterpart statement (estado de cuenta)
 # ---------------------------------------------------------------------------
-def _statement_period_bounds(
+def business_timezone(session: Session) -> tzinfo:
+    """Timezone configured for the business, falling back to UTC.
+
+    Reads the singleton ``BusinessSettings`` row; a missing row or an invalid
+    stored IANA name degrades to UTC so callers always get a usable tzinfo.
+    """
+    settings_row = session.exec(select(BusinessSettings)).first()
+    if settings_row and settings_row.timezone:
+        try:
+            return ZoneInfo(settings_row.timezone)
+        except Exception:  # noqa: BLE001 - invalid stored tz falls back to UTC
+            return UTC
+    return UTC
+
+
+def period_bounds(
     session: Session, date_from: date | None, date_to: date | None
 ) -> tuple[datetime | None, datetime | None]:
-    """Inclusive UTC bounds for the requested period on ``Document.fecha``.
+    """Inclusive UTC bounds for the requested period on UTC-stored timestamps.
 
     Day boundaries resolve in the business timezone (``BusinessSettings
-    .timezone``) so a period picked in local terms covers every document of
-    those days (documents store UTC timestamps).
+    .timezone``) so a period picked in local terms covers every row of
+    those days (timestamps are stored in UTC).
     """
     if date_from is None and date_to is None:
         return None, None
-    settings_row = session.exec(select(BusinessSettings)).first()
-    tz: tzinfo = UTC
-    if settings_row and settings_row.timezone:
-        try:
-            tz = ZoneInfo(settings_row.timezone)
-        except Exception:  # noqa: BLE001 - invalid stored tz falls back to UTC
-            tz = UTC
+    tz = business_timezone(session)
     dt_from = (
         datetime.combine(date_from, time.min, tzinfo=tz).astimezone(UTC)
         if date_from is not None
@@ -1831,7 +1840,7 @@ def get_counterpart_statement(
             bucket = base_ids if _increases_balance(doc_type.signo_caja) else note_ids
             bucket.add(doc_type.id)
 
-    dt_from, dt_to = _statement_period_bounds(session, date_from, date_to)
+    dt_from, dt_to = period_bounds(session, date_from, date_to)
     conditions: list[Any] = [
         col(Document.contraparte_type) == contraparte_type,
         col(Document.contraparte_id) == contraparte_id,

@@ -9,6 +9,9 @@ export class AccountMovementsService {
     /**
      * Read Account Movements
      * Retrieve account movements (append-only ledger), optionally filtered.
+     *
+     * ``fecha_desde``/``fecha_hasta`` are inclusive business-local days resolved
+     * against ``AccountMovement.fecha``.
      * @param data The data for the request.
      * @param data.financialAccountId
      * @param data.conciliado
@@ -1907,6 +1910,9 @@ export class ReportsService {
     /**
      * Sales Per Day
      * Aggregate active sales (subtotal, discount, total) grouped by day.
+     *
+     * Days are business-local dates (``BusinessSettings.timezone``) and the
+     * ``desde``/``hasta`` bounds are inclusive local days.
      * @param data The data for the request.
      * @param data.desde
      * @param data.hasta
@@ -1945,7 +1951,8 @@ export class ReportsService {
      * Gross margin per product from active sales in the date range.
      *
      * Revenue is the net-of-line-discount line subtotal; cost is the sale-time
-     * cost snapshot times the quantity sold.
+     * cost snapshot times the quantity sold. Bounds are inclusive business-local
+     * days.
      * @param data The data for the request.
      * @param data.desde
      * @param data.hasta
@@ -1969,6 +1976,8 @@ export class ReportsService {
     /**
      * Vat Report
      * Aggregate line-level and document-level taxes on active sales.
+     *
+     * Bounds are inclusive business-local days.
      * @param data The data for the request.
      * @param data.desde
      * @param data.hasta

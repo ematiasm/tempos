@@ -88,6 +88,17 @@ def _cash_method_id(db: Session) -> str:
     return str(method.id)
 
 
+def _set_timezone(
+    client: TestClient, headers: dict[str, str], value: str | None
+) -> None:
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=headers,
+        json={"timezone": value},
+    )
+    assert r.status_code == 200, r.text
+
+
 def _create_sale(
     client: TestClient,
     headers: dict[str, str],
@@ -123,13 +134,15 @@ def test_sales_per_day_aggregates_by_date(
     load_stock(client, superuser_token_headers, product["id"], "10")
     method = _cash_method_id(db)
 
+    # Midday-UTC fechas: they map to the same business-local day under both
+    # the seeded AR timezone and the UTC fallback.
     _create_sale(
         client,
         superuser_token_headers,
         product["id"],
         customer["id"],
         method,
-        fecha="2024-06-05",
+        fecha="2024-06-05T12:00:00Z",
     )
     _create_sale(
         client,
@@ -137,7 +150,7 @@ def test_sales_per_day_aggregates_by_date(
         product["id"],
         customer["id"],
         method,
-        fecha="2024-06-05",
+        fecha="2024-06-05T12:00:00Z",
     )
     _create_sale(
         client,
@@ -145,7 +158,7 @@ def test_sales_per_day_aggregates_by_date(
         product["id"],
         customer["id"],
         method,
-        fecha="2024-06-06",
+        fecha="2024-06-06T12:00:00Z",
     )
 
     r = client.get(
@@ -168,13 +181,15 @@ def test_sales_per_day_filters_by_date_range(
     load_stock(client, superuser_token_headers, product["id"], "5")
     method = _cash_method_id(db)
 
+    # Midday-UTC fechas: under the business-local day bounds each sale stays
+    # on the asserted local date under both the AR timezone and UTC.
     _create_sale(
         client,
         superuser_token_headers,
         product["id"],
         customer["id"],
         method,
-        fecha="2024-02-10",
+        fecha="2024-02-10T12:00:00Z",
     )
     _create_sale(
         client,
@@ -182,7 +197,7 @@ def test_sales_per_day_filters_by_date_range(
         product["id"],
         customer["id"],
         method,
-        fecha="2024-03-15",
+        fecha="2024-03-15T12:00:00Z",
     )
 
     r = client.get(
@@ -193,6 +208,117 @@ def test_sales_per_day_filters_by_date_range(
     assert r.status_code == 200, r.text
     dates = [row["fecha"] for row in r.json()]
     assert dates == ["2024-02-10"]
+
+
+def test_sales_per_day_groups_by_business_timezone_with_inclusive_bounds(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    customer = _create_customer(client, superuser_token_headers)
+    product = _create_product(client, superuser_token_headers)
+    load_stock(client, superuser_token_headers, product["id"], "10")
+    method = _cash_method_id(db)
+
+    previous_tz = client.get(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+    ).json()["timezone"]
+    _set_timezone(client, superuser_token_headers, "America/Argentina/Buenos_Aires")
+    try:
+        # 22:05 and 23:30 business-local on 2026-08-29 (UTC-3): their UTC
+        # timestamps fall on 2026-08-30, yet they belong to the queried local
+        # day. The third sale is 12:00 local on 2026-08-30: outside the range.
+        _create_sale(
+            client,
+            superuser_token_headers,
+            product["id"],
+            customer["id"],
+            method,
+            fecha="2026-08-30T01:05:00Z",
+        )
+        _create_sale(
+            client,
+            superuser_token_headers,
+            product["id"],
+            customer["id"],
+            method,
+            fecha="2026-08-30T02:30:00Z",
+        )
+        _create_sale(
+            client,
+            superuser_token_headers,
+            product["id"],
+            customer["id"],
+            method,
+            fecha="2026-08-30T15:00:00Z",
+        )
+
+        r = client.get(
+            f"{settings.API_V1_STR}/reports/sales-per-day/",
+            headers=superuser_token_headers,
+            params={"desde": "2026-08-29", "hasta": "2026-08-29"},
+        )
+        assert r.status_code == 200, r.text
+        rows = r.json()
+        assert [row["fecha"] for row in rows] == ["2026-08-29"]
+        assert rows[0]["count"] == 2
+        assert rows[0]["total"] == "484.00"
+    finally:
+        _set_timezone(client, superuser_token_headers, previous_tz)
+
+
+def test_account_movements_filter_by_business_local_days(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    customer = _create_customer(client, superuser_token_headers)
+    product = _create_product(client, superuser_token_headers)
+    load_stock(client, superuser_token_headers, product["id"], "5")
+    method = _cash_method_id(db)
+
+    previous_tz = client.get(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+    ).json()["timezone"]
+    _set_timezone(client, superuser_token_headers, "America/Argentina/Buenos_Aires")
+    try:
+        # 22:05 business-local on 2026-08-29; the cash sale's account movement
+        # inherits the document fecha.
+        sale = _create_sale(
+            client,
+            superuser_token_headers,
+            product["id"],
+            customer["id"],
+            method,
+            fecha="2026-08-30T01:05:00Z",
+        )
+
+        r = client.get(
+            f"{settings.API_V1_STR}/account-movements/",
+            headers=superuser_token_headers,
+            params={
+                "fecha_desde": "2026-08-29",
+                "fecha_hasta": "2026-08-29",
+                "limit": 500,
+            },
+        )
+        assert r.status_code == 200, r.text
+        numeros = [row["document_numero"] for row in r.json()["data"]]
+        assert sale["numero"] in numeros
+
+        # Its UTC timestamp falls on 2026-08-30, but that is not its local day.
+        r = client.get(
+            f"{settings.API_V1_STR}/account-movements/",
+            headers=superuser_token_headers,
+            params={
+                "fecha_desde": "2026-08-30",
+                "fecha_hasta": "2026-08-30",
+                "limit": 500,
+            },
+        )
+        assert r.status_code == 200, r.text
+        numeros = [row["document_numero"] for row in r.json()["data"]]
+        assert sale["numero"] not in numeros
+    finally:
+        _set_timezone(client, superuser_token_headers, previous_tz)
 
 
 def test_low_stock_lists_active_products_below_minimum(
