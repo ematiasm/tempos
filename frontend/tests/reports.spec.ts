@@ -10,7 +10,6 @@ const TAB_LABELS = [
   "Impuestos",
   "A reponer",
   "Movimientos",
-  "Cuentas corrientes",
 ]
 
 test.describe("Reports", () => {
@@ -91,13 +90,5 @@ test.describe("Reports", () => {
     await page.getByRole("tab", { name: "Movimientos" }).click()
 
     await expect(await findRowInPages(page, saleNumero)).toBeVisible()
-  })
-
-  test("Current accounts show the credit sale", async ({ page }) => {
-    await page.goto("/reports")
-    await page.getByRole("tab", { name: "Cuentas corrientes" }).click()
-
-    const row = await findRowInPages(page, "Consumidor Final")
-    await expect(row).toBeVisible()
   })
 })
