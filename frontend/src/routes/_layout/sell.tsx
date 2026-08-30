@@ -11,16 +11,19 @@ import type {
   ProductVariantPublic,
 } from "@/client"
 import { DocumentsService } from "@/client"
+import { round2, toPaymentCreates } from "@/components/Payments/paymentMath"
+import {
+  SplitPaymentDialog,
+  type SplitPaymentResult,
+} from "@/components/Payments/SplitPaymentDialog"
 import { CartActionBar } from "@/components/Sell/CartActionBar"
 import { CartTable } from "@/components/Sell/CartTable"
 import { CashRegisterBar } from "@/components/Sell/CashRegisterBar"
 import { PostSaleDialog } from "@/components/Sell/PostSaleDialog"
 import ProductSearch from "@/components/Sell/ProductSearch"
-import { round2 } from "@/components/Sell/paymentMath"
 import { QuantityModal } from "@/components/Sell/QuantityModal"
 import { QuickPaymentBar } from "@/components/Sell/QuickPaymentBar"
 import { SellSidebar } from "@/components/Sell/SellSidebar"
-import { SplitPaymentDialog } from "@/components/Sell/SplitPaymentDialog"
 import { useBusinessSettings } from "@/components/Sell/useBusinessSettings"
 import { useOpenCashSession } from "@/components/Sell/useOpenCashSession"
 import { useReferenceData } from "@/components/Sell/useReferenceData"
@@ -480,10 +483,15 @@ function Sell() {
         methods={methods}
         total={total}
         creditInFavor={creditInFavor}
+        mode="counter"
+        party="customer"
         pending={createMutation.isPending}
-        onConfirm={(payments, saleVuelto) => {
+        onConfirm={(result: SplitPaymentResult) => {
           setSplitOpen(false)
-          createMutation.mutate({ payments, vuelto: saleVuelto })
+          createMutation.mutate({
+            payments: toPaymentCreates(result.rows),
+            vuelto: result.vuelto,
+          })
         }}
       />
 

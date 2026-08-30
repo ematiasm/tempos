@@ -9,7 +9,14 @@ from sqlmodel import Session, select
 
 from app import crud
 from app.core.config import settings
-from app.models import PaymentMethod, Role, UserCreate
+from app.models import (
+    AccountMovement,
+    AccountMovementType,
+    PaymentMethod,
+    Role,
+    SupplierAccountMovement,
+    UserCreate,
+)
 from tests.utils.ledger import load_stock
 from tests.utils.utils import random_email, random_lower_string
 
@@ -207,6 +214,14 @@ def _customer_saldo_str(
     return r.json()["saldo"]
 
 
+def _supplier_saldo_str(
+    client: TestClient, headers: dict[str, str], supplier_id: str
+) -> str:
+    r = client.get(f"{settings.API_V1_STR}/suppliers/{supplier_id}", headers=headers)
+    assert r.status_code == 200, r.text
+    return r.json()["saldo"]
+
+
 def test_credit_exceeds_total_rejected(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
@@ -321,6 +336,108 @@ def test_full_cash_overpay_stays_permissive(
     assert _customer_saldo_str(client, superuser_token_headers, customer["id"]) == (
         "-200.00"
     )
+
+
+def test_purchase_split_payment_multiple_methods_and_debt(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """A purchase paid across several methods: each marks_paid row books one
+    AccountMovement, a Crédito row books none, and the unpaid remainder stays
+    on the supplier balance (we owe it)."""
+    product = _create_product(client, superuser_token_headers)
+    supplier = _create_supplier(client, superuser_token_headers)
+    oc = _doc_type_id(client, superuser_token_headers, "OC")
+    debit = _create_debit_method(client, superuser_token_headers)
+    credit_method = db.exec(
+        select(PaymentMethod).where(PaymentMethod.name == "Crédito")
+    ).first()
+    assert credit_method is not None, "Seeded credit payment method not found"
+
+    doc = _create_doc(
+        client,
+        superuser_token_headers,
+        {
+            "document_type_id": oc,
+            "contraparte_id": supplier["id"],
+            "lines": [{"product_id": product["id"], "cantidad": "2"}],  # 200.00
+            "payments": [
+                {"payment_method_id": _cash_method_id(db), "monto": "60.00"},
+                {"payment_method_id": debit["id"], "monto": "90.00"},
+                {"payment_method_id": str(credit_method.id), "monto": "30.00"},
+            ],
+        },
+    )
+    assert doc["total"] == "200.00"
+    assert len(doc["payments"]) == 3
+
+    # one account movement per marks_paid row; the Crédito row books none
+    movements = db.exec(
+        select(AccountMovement).where(AccountMovement.document_id == doc["id"])
+    ).all()
+    assert [str(m.monto) for m in movements] == ["-60.00", "-90.00"]
+    assert all(m.tipo == AccountMovementType.PAGO for m in movements)
+
+    # unpaid remainder (200 - 150) stays as debt owed to the supplier
+    assert _supplier_saldo_str(client, superuser_token_headers, supplier["id"]) in (
+        "50.00",
+        "50",
+    )
+    supplier_movs = db.exec(
+        select(SupplierAccountMovement).where(
+            SupplierAccountMovement.document_id == doc["id"]
+        )
+    ).all()
+    assert [str(m.monto) for m in supplier_movs] == ["50.00"]
+
+
+def test_purchase_full_cash_overpay_stays_permissive(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Regression guard (mirror of the sale case): a purchase fully paid in
+    cash above its total is allowed and the excess books as credit in our
+    favor (negative supplier balance); a non-cash overpay stays rejected.
+    """
+    product = _create_product(client, superuser_token_headers)
+    supplier = _create_supplier(client, superuser_token_headers)
+    oc = _doc_type_id(client, superuser_token_headers, "OC")
+
+    doc = _create_doc(
+        client,
+        superuser_token_headers,
+        {
+            "document_type_id": oc,
+            "contraparte_id": supplier["id"],
+            "lines": [{"product_id": product["id"], "cantidad": "1"}],  # 100.00
+            "payments": [
+                {"payment_method_id": _cash_method_id(db), "monto": "150.00"}
+            ],
+        },
+    )
+    assert doc["total"] == "100.00"
+    assert doc["payments"][0]["monto"] == "150.00"
+    # excess 50 stays as credit in our favor (negative supplier balance)
+    assert _supplier_saldo_str(client, superuser_token_headers, supplier["id"]) in (
+        "-50.00",
+        "-50",
+    )
+
+    # a non-cash overpay is still rejected (payment_exceeds_total)
+    supplier2 = _create_supplier(client, superuser_token_headers)
+    debit = _create_debit_method(client, superuser_token_headers)
+    count_before = _documents_count(client, superuser_token_headers)
+    r = client.post(
+        f"{settings.API_V1_STR}/documents/",
+        headers=superuser_token_headers,
+        json={
+            "document_type_id": oc,
+            "contraparte_id": supplier2["id"],
+            "lines": [{"product_id": product["id"], "cantidad": "1"}],
+            "payments": [{"payment_method_id": debit["id"], "monto": "150.00"}],
+        },
+    )
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "payment_exceeds_total"
+    assert _documents_count(client, superuser_token_headers) == count_before
 
 
 def test_favor_auto_coverage_with_effective_cash_row(

@@ -1,5 +1,5 @@
 import { Minus, Plus, Trash2 } from "lucide-react"
-
+import { round2 } from "@/components/Payments/paymentMath"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -7,7 +7,6 @@ import { useLocale, useT } from "@/i18n"
 import { money } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import type { CartLine } from "./ProductSearch"
-import { round2 } from "./paymentMath"
 
 interface CartTableProps {
   cart: CartLine[]

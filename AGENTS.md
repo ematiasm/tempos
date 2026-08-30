@@ -381,6 +381,18 @@ This is the high-level module map, complete for the current implementation.
   ledger rows are emitted in the same transaction. The printed receipt
   (client-side voucher) shows the allocations with Saldo inicial / Saldo
   pagado / Saldo restante columns plus a "saldo a cuenta" row.
+  - **Split payments (sales and purchases):** documents may carry multiple
+    `DocumentPayment` rows so the charge can be divided across payment methods
+    (duplicates allowed) and/or left partially unpaid (the unpaid remainder
+    becomes counterpart debt via the current-account ledger; overpayment on
+    purchases books credit in our favor — the backend auto-applies
+    `favor_monto`, the frontend never sends it). Both the sell screen and
+    purchase entry (`/buy`, `NewDocumentDialog`) share
+    `src/components/Payments/SplitPaymentDialog.tsx` (mode `counter` = rows
+    must cover, UI-only vuelto; mode `document` = under-cover is debt,
+    non-cash overpay blocked by `payment_exceeds_total`) and `paymentMath.ts`
+    in the same folder. The former "a crédito" checkboxes were removed: a
+    `Crédito` (`marks_paid = false`) method row is equivalent to 100% credit.
 
 ### Costs
 - `SupplierProduct` (supplier_id, product_id, costo_anterior, costo_actual,

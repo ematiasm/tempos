@@ -5,6 +5,7 @@ import {
   Minus,
   Plus,
   Printer,
+  SplitSquareHorizontal,
   Trash2,
 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
@@ -25,6 +26,14 @@ import {
   SuppliersService,
 } from "@/client"
 import { PrintVoucherDialog } from "@/components/Documents/VoucherPrint"
+import {
+  type SplitPayment,
+  toPaymentCreates,
+} from "@/components/Payments/paymentMath"
+import {
+  SplitPaymentDialog,
+  SplitPaymentSummary,
+} from "@/components/Payments/SplitPaymentDialog"
 import ProductSearch, { type CartLine } from "@/components/Sell/ProductSearch"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -66,7 +75,6 @@ const INITIAL_STATE = {
   discountTotal: 0,
   methodId: null as string | null,
   amount: 0,
-  useCredit: false,
   autoAmount: true,
   cart: [] as CartLine[],
   created: null as DocumentPublic | null,
@@ -91,8 +99,10 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
     INITIAL_STATE.methodId,
   )
   const [amount, setAmount] = useState(INITIAL_STATE.amount)
-  const [useCredit, setUseCredit] = useState(INITIAL_STATE.useCredit)
   const [autoAmount, setAutoAmount] = useState(INITIAL_STATE.autoAmount)
+  // Confirmed split composition; null keeps the inline single payment fields.
+  const [split, setSplit] = useState<SplitPayment | null>(null)
+  const [splitOpen, setSplitOpen] = useState(false)
   const [cart, setCart] = useState<CartLine[]>(INITIAL_STATE.cart)
   const [created, setCreated] = useState<DocumentPublic | null>(
     INITIAL_STATE.created,
@@ -158,10 +168,13 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
   const isSupplierOp = selectedType?.tipo_contraparte === "supplier"
 
   const selectedCustomer = customers.find((c) => c.id === counterpartId) ?? null
-  const creditInFavor =
-    selectedCustomer && Number(selectedCustomer.saldo) < 0
-      ? -Number(selectedCustomer.saldo)
-      : 0
+  const selectedSupplier = suppliers.find((s) => s.id === counterpartId) ?? null
+  // On either side a negative saldo is credit in favor that the backend applies
+  // to the unpaid part of a document that moves cash in that direction.
+  const counterpartSaldo = isSupplierOp
+    ? Number(selectedSupplier?.saldo ?? 0)
+    : Number(selectedCustomer?.saldo ?? 0)
+  const creditInFavor = counterpartSaldo < 0 ? -counterpartSaldo : 0
 
   const { data: pairCostsData } = useQuery({
     queryFn: () =>
@@ -182,8 +195,8 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
     setDiscountTotal(INITIAL_STATE.discountTotal)
     setMethodId(INITIAL_STATE.methodId)
     setAmount(INITIAL_STATE.amount)
-    setUseCredit(INITIAL_STATE.useCredit)
     setAutoAmount(INITIAL_STATE.autoAmount)
+    setSplit(null)
     setCart(INITIAL_STATE.cart)
     setCreated(INITIAL_STATE.created)
     setSuggestions(INITIAL_STATE.suggestions)
@@ -240,31 +253,21 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
   }, [cart, discountTotal, isAdjustment])
 
   useEffect(() => {
-    if (!autoAmount) return
-    const base =
-      useCredit && creditInFavor > 0
-        ? Math.max(total - creditInFavor, 0)
-        : total
-    setAmount(round2(base))
-  }, [total, useCredit, creditInFavor, autoAmount])
+    if (!autoAmount || split) return
+    setAmount(round2(total))
+  }, [total, autoAmount, split])
 
   const cashChange =
     total > 0 && amount > total && !onCredit ? round2(amount - total) : 0
 
-  const appliedFavor =
-    creditInFavor > 0
-      ? round2(
-          Math.min(
-            creditInFavor,
-            onCredit ? total : Math.max(total - amount, 0),
-          ),
-        )
-      : 0
+  // Credit in favor is chosen inside the split dialog, so it only exists while
+  // a composition is active.
+  const appliedFavor = split ? split.favorApplied : 0
 
   const resetForm = () => {
     setCart([])
     setDiscountTotal(0)
-    setUseCredit(false)
+    setSplit(null)
     setAutoAmount(true)
     setSuggestions([])
     setApplied(new Set())
@@ -274,7 +277,7 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
   const selectType = (id: string) => {
     setTypeId(id)
     setCounterpartId(null)
-    setUseCredit(false)
+    setSplit(null)
     setAutoAmount(true)
     setCart([])
   }
@@ -342,10 +345,13 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
             precio_unit: isAdjustment ? 0 : l.unitPrice,
             descuento_pct: isAdjustment ? 0 : l.discountPct,
           })),
-          payments:
-            takesPayments && amount > 0
-              ? [{ payment_method_id: methodId!, monto: amount }]
-              : [],
+          payments: !takesPayments
+            ? []
+            : split
+              ? toPaymentCreates(split.rows)
+              : amount > 0
+                ? [{ payment_method_id: methodId!, monto: amount }]
+                : [],
         },
       })
     },
@@ -359,7 +365,7 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
       setApplied(new Set())
       setCart([])
       setDiscountTotal(0)
-      setUseCredit(false)
+      setSplit(null)
       setAutoAmount(true)
       queryClient.invalidateQueries({ queryKey: ["documents"] })
       queryClient.invalidateQueries({ queryKey: ["products"] })
@@ -783,7 +789,7 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
                     <span>{t("sell.total")}</span>
                     <span>{money(total)}</span>
                   </div>
-                  {isCustomerOp && appliedFavor > 0 && (
+                  {appliedFavor > 0 && (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">
                         {t("sell.creditInFavor")}
@@ -795,116 +801,132 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
 
                 {takesPayments && (
                   <div className="grid gap-3">
-                    {creditMethod && (
-                      <label className="flex cursor-pointer items-center gap-2 text-xs">
-                        <input
-                          type="checkbox"
-                          checked={onCredit}
-                          onChange={(e) => {
-                            setMethodId(
-                              e.target.checked
-                                ? creditMethod.id
-                                : (defaultMethod?.id ?? null),
-                            )
-                            setAutoAmount(true)
-                          }}
-                          className="h-3.5 w-3.5"
-                        />
-                        {isSupplierOp ? t("buy.onCredit") : t("sell.onCredit")}
-                      </label>
-                    )}
-                    <div>
-                      <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                        {t("sell.paymentMethod")}
-                      </span>
-                      <Select
-                        value={methodId ?? ""}
-                        onValueChange={setMethodId}
-                      >
-                        <SelectTrigger data-testid="doc-method-select">
-                          <SelectValue placeholder={t("sell.selectMethod")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {methods.map((m) => (
-                            <SelectItem key={m.id} value={m.id}>
-                              {m.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {onCredit ? (
-                      <div>
-                        <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                          {isSupplierOp
-                            ? t("buy.amountPaid")
-                            : t("sell.amountReceived")}
-                        </span>
-                        <p className="text-xs text-muted-foreground">
-                          {isSupplierOp
-                            ? t("buy.onCreditHint", {
-                                amount: money(
-                                  round2(Math.max(total - appliedFavor, 0)),
-                                ),
-                              })
-                            : t("sell.onCreditHint", {
-                                amount: money(
-                                  round2(Math.max(total - appliedFavor, 0)),
-                                ),
-                              })}
-                        </p>
-                      </div>
+                    {split ? (
+                      <SplitPaymentSummary
+                        rows={split.rows}
+                        methods={methods}
+                        total={total}
+                        favorApplied={split.favorApplied}
+                        party={isSupplierOp ? "supplier" : "customer"}
+                        onEdit={() => setSplitOpen(true)}
+                        onClear={() => {
+                          setSplit(null)
+                          setAutoAmount(true)
+                        }}
+                      />
                     ) : (
-                      <div>
-                        <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                          {isSupplierOp
-                            ? t("buy.amountPaid")
-                            : t("sell.amountReceived")}
-                        </span>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={amount}
-                          onChange={(e) => {
-                            setAmount(Number(e.target.value) || 0)
-                            setAutoAmount(false)
-                          }}
-                        />
-                        {amount > 0 && amount < total && (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {isSupplierOp
-                              ? t("buy.onSupplierBalance", {
-                                  amount: money(round2(total - amount)),
-                                })
-                              : t("sell.goOnBalance", {
-                                  amount: money(round2(total - amount)),
+                      <>
+                        <div>
+                          <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                            {t("sell.paymentMethod")}
+                          </span>
+                          <Select
+                            value={methodId ?? ""}
+                            onValueChange={setMethodId}
+                          >
+                            <SelectTrigger data-testid="doc-method-select">
+                              <SelectValue
+                                placeholder={t("sell.selectMethod")}
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {methods.map((m) => (
+                                <SelectItem key={m.id} value={m.id}>
+                                  {m.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {onCredit ? (
+                          <div>
+                            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                              {isSupplierOp
+                                ? t("buy.amountPaid")
+                                : t("sell.amountReceived")}
+                            </span>
+                            <p className="text-xs text-muted-foreground">
+                              {isSupplierOp
+                                ? t("buy.onCreditHint", {
+                                    amount: money(total),
+                                  })
+                                : t("sell.onCreditHint", {
+                                    amount: money(total),
+                                  })}
+                            </p>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                              {isSupplierOp
+                                ? t("buy.amountPaid")
+                                : t("sell.amountReceived")}
+                            </span>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={amount}
+                              onChange={(e) => {
+                                setAmount(Number(e.target.value) || 0)
+                                setAutoAmount(false)
+                              }}
+                            />
+                            {amount > 0 && amount < total && (
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {isSupplierOp
+                                  ? t("buy.onSupplierBalance", {
+                                      amount: money(round2(total - amount)),
+                                    })
+                                  : t("sell.goOnBalance", {
+                                      amount: money(round2(total - amount)),
+                                    })}
+                              </p>
+                            )}
+                            {cashChange > 0 && (
+                              <p className="mt-1 text-xs text-emerald-600">
+                                {t("sell.changeDue", {
+                                  change: money(cashChange),
                                 })}
-                          </p>
+                              </p>
+                            )}
+                          </div>
                         )}
-                        {cashChange > 0 && (
-                          <p className="mt-1 text-xs text-emerald-600">
-                            {t("sell.changeDue", { change: money(cashChange) })}
-                          </p>
-                        )}
-                      </div>
+                      </>
                     )}
-                    {isCustomerOp && creditInFavor > 0 && (
-                      <label className="flex cursor-pointer items-center gap-2 text-xs">
-                        <input
-                          type="checkbox"
-                          checked={useCredit}
-                          onChange={(e) => {
-                            setUseCredit(e.target.checked)
-                            setAutoAmount(true)
-                          }}
-                          className="h-3.5 w-3.5"
-                        />
-                        {t("sell.useCredit", {
-                          credit: money(creditInFavor),
-                        })}
-                      </label>
-                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="justify-self-start"
+                      data-testid="doc-split-payment-button"
+                      onClick={() => setSplitOpen(true)}
+                    >
+                      <SplitSquareHorizontal className="mr-2 h-4 w-4" />
+                      {t("payments.split.entry")}
+                    </Button>
                   </div>
+                )}
+
+                {takesPayments && (
+                  <SplitPaymentDialog
+                    open={splitOpen}
+                    onOpenChange={setSplitOpen}
+                    methods={methods}
+                    total={total}
+                    creditInFavor={creditInFavor}
+                    mode="document"
+                    party={isSupplierOp ? "supplier" : "customer"}
+                    initialRows={split?.rows}
+                    initialFavorApplied={split?.favorApplied}
+                    pending={createMutation.isPending}
+                    onConfirm={(result) => {
+                      setSplit({
+                        rows: result.rows,
+                        favorApplied: result.favorApplied,
+                      })
+                      setSplitOpen(false)
+                    }}
+                  />
                 )}
 
                 <LoadingButton

@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { CheckCircle2, Minus, Plus, Trash2 } from "lucide-react"
+import {
+  CheckCircle2,
+  Minus,
+  Plus,
+  SplitSquareHorizontal,
+  Trash2,
+} from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 import type {
@@ -16,6 +22,14 @@ import {
   SupplierProductsService,
   SuppliersService,
 } from "@/client"
+import {
+  type SplitPayment,
+  toPaymentCreates,
+} from "@/components/Payments/paymentMath"
+import {
+  SplitPaymentDialog,
+  SplitPaymentSummary,
+} from "@/components/Payments/SplitPaymentDialog"
 import ProductSearch, { type CartLine } from "@/components/Sell/ProductSearch"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -80,6 +94,8 @@ function Buy() {
   const [discountTotal, setDiscountTotal] = useState(0)
   const [methodId, setMethodId] = useState<string | null>(null)
   const [amount, setAmount] = useState(0)
+  const [split, setSplit] = useState<SplitPayment | null>(null)
+  const [splitOpen, setSplitOpen] = useState(false)
   const [created, setCreated] = useState<DocumentPublic | null>(null)
   const [suggestions, setSuggestions] = useState<CostChangeSuggestion[]>([])
   const [applied, setApplied] = useState<Set<string>>(new Set())
@@ -88,6 +104,13 @@ function Buy() {
   const defaultMethod =
     methods.find((m) => m.marks_paid !== false) ?? methods[0] ?? null
   const onCredit = !!creditMethod && methodId === creditMethod.id
+  const selectedSupplier = suppliers.find((s) => s.id === supplierId) ?? null
+  // A negative supplier balance is money we overpaid: a credit in our favor
+  // the backend applies to the unpaid part of the purchase by itself.
+  const creditInFavor =
+    selectedSupplier && Number(selectedSupplier.saldo) < 0
+      ? -Number(selectedSupplier.saldo)
+      : 0
 
   const { data: pairCostsData } = useQuery({
     queryFn: () =>
@@ -114,8 +137,10 @@ function Buy() {
   const total = round2(subtotal - discountTotal)
 
   useEffect(() => {
-    setAmount(total)
-  }, [total])
+    // While a split is composed the rows own the amounts: re-syncing the
+    // inline field would silently discard what the operator entered.
+    if (!split) setAmount(total)
+  }, [total, split])
 
   const defaultCostFor = (
     product: ProductPublic,
@@ -178,8 +203,11 @@ function Buy() {
             precio_unit: l.unitPrice,
             descuento_pct: l.discountPct,
           })),
-          payments:
-            amount > 0 ? [{ payment_method_id: methodId!, monto: amount }] : [],
+          payments: split
+            ? toPaymentCreates(split.rows)
+            : amount > 0
+              ? [{ payment_method_id: methodId!, monto: amount }]
+              : [],
         },
       })
     },
@@ -231,6 +259,7 @@ function Buy() {
   const newPurchase = () => {
     setCreated(null)
     setSuggestions([])
+    setSplit(null)
     setCart([])
   }
 
@@ -520,72 +549,82 @@ function Buy() {
           </div>
 
           <div className="grid gap-3">
-            {creditMethod && (
-              <label className="flex cursor-pointer items-center gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  checked={onCredit}
-                  onChange={(e) => {
-                    setMethodId(
-                      e.target.checked
-                        ? creditMethod.id
-                        : (defaultMethod?.id ?? null),
-                    )
-                    setAmount(total)
-                  }}
-                  className="h-3.5 w-3.5"
-                />
-                {t("buy.onCredit")}
-              </label>
-            )}
-            <div>
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                {t("buy.paymentMethod")}
-              </span>
-              <Select value={methodId ?? ""} onValueChange={setMethodId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t("buy.selectMethod")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {methods.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {onCredit ? (
-              <div>
-                <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                  {t("buy.amountPaid")}
-                </span>
-                <p className="text-xs text-muted-foreground">
-                  {t("buy.onCreditHint", {
-                    amount: money(total, numberFormat),
-                  })}
-                </p>
-              </div>
+            {split ? (
+              <SplitPaymentSummary
+                rows={split.rows}
+                methods={methods}
+                total={total}
+                favorApplied={split.favorApplied}
+                party="supplier"
+                onEdit={() => setSplitOpen(true)}
+                onClear={() => {
+                  setSplit(null)
+                  setAmount(total)
+                }}
+              />
             ) : (
-              <div>
-                <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                  {t("buy.amountPaid")}
-                </span>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={amount}
-                  onChange={(e) => setAmount(Number(e.target.value) || 0)}
-                />
-                {amount > 0 && amount < total && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t("buy.onSupplierBalance", {
-                      amount: money(round2(total - amount), numberFormat),
-                    })}
-                  </p>
+              <>
+                <div>
+                  <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                    {t("buy.paymentMethod")}
+                  </span>
+                  <Select value={methodId ?? ""} onValueChange={setMethodId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("buy.selectMethod")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {methods.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {onCredit ? (
+                  <div>
+                    <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                      {t("buy.amountPaid")}
+                    </span>
+                    <p className="text-xs text-muted-foreground">
+                      {t("buy.onCreditHint", {
+                        amount: money(total, numberFormat),
+                      })}
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                      {t("buy.amountPaid")}
+                    </span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={amount}
+                      onChange={(e) => setAmount(Number(e.target.value) || 0)}
+                    />
+                    {amount > 0 && amount < total && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t("buy.onSupplierBalance", {
+                          amount: money(round2(total - amount), numberFormat),
+                        })}
+                      </p>
+                    )}
+                  </div>
                 )}
-              </div>
+              </>
             )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="justify-self-start"
+              data-testid="split-payment-button"
+              onClick={() => setSplitOpen(true)}
+            >
+              <SplitSquareHorizontal className="mr-2 h-4 w-4" />
+              {t("payments.split.entry")}
+            </Button>
           </div>
 
           <LoadingButton
@@ -599,6 +638,23 @@ function Buy() {
           </LoadingButton>
         </div>
       </div>
+
+      <SplitPaymentDialog
+        open={splitOpen}
+        onOpenChange={setSplitOpen}
+        methods={methods}
+        total={total}
+        creditInFavor={creditInFavor}
+        mode="document"
+        party="supplier"
+        initialRows={split?.rows}
+        initialFavorApplied={split?.favorApplied}
+        pending={createMutation.isPending}
+        onConfirm={(result) => {
+          setSplit({ rows: result.rows, favorApplied: result.favorApplied })
+          setSplitOpen(false)
+        }}
+      />
     </div>
   )
 }

@@ -1,7 +1,6 @@
 import { useState } from "react"
-
+import { round2 } from "@/components/Payments/paymentMath"
 import type { CartLine } from "./ProductSearch"
-import { round2 } from "./paymentMath"
 
 /** Sensible minimum quantity: the smallest amount the UoM can represent. */
 export const minQtyFor = (decimalPlaces: number): number =>

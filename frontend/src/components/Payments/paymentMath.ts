@@ -1,10 +1,17 @@
+import type { DocumentPaymentCreate } from "@/client"
+
 /**
- * Pure payment-composition math for the sell screen.
+ * Pure payment-composition math, shared by every surface that posts payment
+ * rows on a document (counter sales, purchases, manual documents).
  *
  * The dialog composes payment rows against `target = total - favorApplied`.
- * On confirm, cash rows are capped (reverse entry order) so the posted rows
- * sum EXACTLY to the target: the backend books a zero balance delta and the
- * vuelto (change) never reaches the ledger — it is UI state only.
+ * Two coverage policies use the same numbers:
+ * - counter (POS): on confirm cash rows are capped (reverse entry order) so the
+ *   posted rows sum EXACTLY to the target; the vuelto (change) never reaches the
+ *   ledger and is UI state only.
+ * - document: rows are posted as entered. An uncovered remainder is allowed and
+ *   stays pending on the counterpart's account; a cash overpayment is allowed
+ *   and becomes credit on account (`overpaid`).
  */
 
 export interface MethodFlags {
@@ -18,6 +25,39 @@ export interface SplitRowInput {
   methodId: string
   amount: number
 }
+
+/**
+ * A confirmed composition held by a caller: the rows to post plus how much
+ * credit in favor the operator chose to consume against the total.
+ */
+export interface SplitPayment {
+  rows: SplitRowInput[]
+  favorApplied: number
+}
+
+/** Shape needed to classify a row; `PaymentMethodPublic` satisfies it. */
+export interface MethodOption {
+  id: string
+  marks_paid: boolean
+  is_cash_drawer: boolean
+}
+
+/** Lookup used by every consumer that measures a set of payment rows. */
+export const buildMethodIndex = (methods: MethodOption[]): MethodIndex =>
+  new Map(
+    methods.map((m) => [
+      m.id,
+      { marks_paid: m.marks_paid, is_cash_drawer: m.is_cash_drawer },
+    ]),
+  )
+
+/** Rows as posted to the backend. */
+export const toPaymentCreates = (
+  rows: SplitRowInput[],
+): DocumentPaymentCreate[] =>
+  rows
+    .filter((row) => row.amount > 0)
+    .map((row) => ({ payment_method_id: row.methodId, monto: row.amount }))
 
 export interface SplitMetrics {
   /** Sum of rows whose method marks the document as paid. */
@@ -34,6 +74,8 @@ export interface SplitMetrics {
   remaining: number
   /** Change due; only cash overpayment can produce it (see module doc). */
   vuelto: number
+  /** Amount paid beyond the target; booked as credit on account, not change. */
+  overpaid: number
   /** Rows do not cover the target yet. */
   uncovered: boolean
   /** Credit portion exceeds the remaining total (credit_exceeds_total). */
@@ -103,6 +145,7 @@ export function computeSplitMetrics(
     target,
     remaining,
     vuelto,
+    overpaid: round2(Math.max(-remaining, 0)),
     uncovered: remaining > 0,
     // The credit portion may not exceed the remaining total once the
     // non-credit rows (cash included, as entered) are counted. The room is
@@ -115,7 +158,8 @@ export function computeSplitMetrics(
 /**
  * Cap cash rows in reverse entry order so `paidSum + creditSum == target`
  * (the excess is handed back as vuelto, never posted). Rows reduced to zero
- * are dropped — the backend rejects non-positive amounts.
+ * are dropped — the backend rejects non-positive amounts. Only the counter
+ * policy caps; document entry posts the rows as entered.
  */
 export function capCashRows(
   rows: SplitRowInput[],
