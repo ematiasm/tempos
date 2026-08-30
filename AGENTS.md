@@ -22,7 +22,7 @@ full-stack template it was forked from https://github.com/fastapi/full-stack-fas
   transfers, card conciliation), cash register sessions (daily open/close +
   arqueo), reports, HTML voucher printing via `window.print()`.
 - Current focus: refining the fast-sell screen (`/sell`) for daily counter
-  use with a barcode scanner, then 80mm thermal printing.
+  use with a barcode scanner.
 - Future (out of current scope): multi-store, AFIP/ARCA electronic invoicing
   (hooks reserved, see section 7).
 
@@ -477,9 +477,6 @@ This is the high-level module map, complete for the current implementation.
 - `Document.cae`, `Document.cae_vto` — reserved for AFIP/ARCA electronic
   invoicing integration in a future phase. They must remain nullable and
   unused until that integration is implemented.
-- 80mm thermal printing (ESC/POS) is the planned next hardware step after the
-  fast-sell screen work. Do not add printing libs or endpoints until that
-  work starts, and confirm the approach with the user first.
 - Multi-store / multi-warehouse: schema today is mono-store; do not add
   store/warehouse foreign keys without first consulting the user.
 
