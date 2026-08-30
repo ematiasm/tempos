@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Loader2, Search, ShoppingCart } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
@@ -23,28 +23,67 @@ interface ProductSearchProps {
   onAdd: (product: ProductPublic, variant?: ProductVariantPublic) => void
   /** Optional external ref so the parent can refocus the input (new sale). */
   inputRef?: React.RefObject<HTMLInputElement | null>
+  /** Debounce (ms) applied to the term used by the search query (0 = off). */
+  debounceMs?: number
+  /**
+   * Enter with no results yet awaits the missing/in-flight fetch and adds an
+   * exact barcode hit, so a scanner's Enter keystroke is never lost.
+   */
+  scanEnter?: boolean
 }
+
+/** Shared definition so useQuery and the scan-path fetchQuery never drift. */
+const searchQueryOptions = (term: string) => ({
+  queryKey: ["products-search", term] as const,
+  queryFn: () => ProductsService.searchProducts({ q: term }),
+})
 
 const ProductSearch = ({
   onAdd,
   inputRef: externalInputRef,
+  debounceMs = 0,
+  scanEnter = false,
 }: ProductSearchProps) => {
   const t = useT()
   const { numberFormat } = useLocale()
+  const queryClient = useQueryClient()
   const [query, setQuery] = useState("")
+  const [debouncedQuery, setDebouncedQuery] = useState("")
   const [expanded, setExpanded] = useState<string | null>(null)
   const [highlight, setHighlight] = useState(0)
   const [dismissed, setDismissed] = useState(false)
   const internalInputRef = useRef<HTMLInputElement>(null)
   const inputRef = externalInputRef ?? internalInputRef
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // With debounceMs > 0 the term used by the search query lags behind the
+  // raw input; the input itself always shows the raw text.
+  useEffect(() => {
+    if (debounceMs > 0) {
+      debounceTimerRef.current = setTimeout(
+        () => setDebouncedQuery(query),
+        debounceMs,
+      )
+      return () => {
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current)
+        }
+      }
+    }
+    setDebouncedQuery(query)
+  }, [query, debounceMs])
+
+  const trimmed = query.trim()
+  const searchTerm = debounceMs > 0 ? debouncedQuery.trim() : trimmed
+  // true while the (debounced) query has not picked up the typed term yet
+  const searchPending = debounceMs > 0 && trimmed !== debouncedQuery.trim()
 
   const { data, isFetching, isError } = useQuery({
-    queryFn: () => ProductsService.searchProducts({ q: query.trim() }),
-    queryKey: ["products-search", query.trim()],
-    enabled: query.trim().length >= 2,
+    ...searchQueryOptions(searchTerm),
+    enabled: searchTerm.length >= 2,
   })
   const results = data?.data ?? []
-  const listOpen = query.trim().length >= 2 && !dismissed
+  const listOpen = trimmed.length >= 2 && !dismissed
 
   useEffect(() => {
     if (!query) {
@@ -61,21 +100,52 @@ const ProductSearch = ({
   /** Barcode codes are UNIQUE, so an exact hit resolves one variant. */
   const resolveVariantBarcode = (
     product: ProductPublic,
+    term: string,
   ): ProductVariantPublic | undefined => {
-    const term = query.trim()
     if (!term) return undefined
     return (product.variants ?? []).find((variant) =>
       (variant.barcodes ?? []).some((barcode) => barcode.code === term),
     )
   }
 
+  /** Shared post-add reset: clear the search and refocus for the next scan. */
+  const resetAfterAdd = () => {
+    setExpanded(null)
+    setQuery("")
+    // keep the debounced term from refetching the just-cleared search
+    setDebouncedQuery("")
+    inputRef.current?.focus()
+  }
+
+  /** Scan path: the Enter keystroke can arrive before the (possibly
+   * debounced) search has produced results, so the fetch is awaited here
+   * instead of being lost. The RAW trimmed term is used — never the lagging
+   * debounced one — or the last typed character would be missed. An exact
+   * barcode hit (codes are UNIQUE) goes straight to the cart; without one
+   * this does nothing. */
+  const scanAddByBarcode = async (term: string) => {
+    if (term.length < 2) return
+    const fresh = await queryClient.fetchQuery(searchQueryOptions(term))
+    for (const product of fresh.data ?? []) {
+      const variant = resolveVariantBarcode(product, term)
+      if (variant) {
+        onAdd(product, variant)
+        resetAfterAdd()
+        return
+      }
+      if ((product.barcodes ?? []).some((barcode) => barcode.code === term)) {
+        onAdd(product)
+        resetAfterAdd()
+        return
+      }
+    }
+  }
+
   const addMain = (product: ProductPublic) => {
-    const variant = resolveVariantBarcode(product)
+    const variant = resolveVariantBarcode(product, query.trim())
     if (variant) {
       onAdd(product, variant)
-      setExpanded(null)
-      setQuery("")
-      inputRef.current?.focus()
+      resetAfterAdd()
       return
     }
     if ((product.variants ?? []).length > 0) {
@@ -83,8 +153,7 @@ const ProductSearch = ({
       return
     }
     onAdd(product)
-    setQuery("")
-    inputRef.current?.focus()
+    resetAfterAdd()
   }
 
   const addVariant = (
@@ -92,9 +161,7 @@ const ProductSearch = ({
     variant: ProductVariantPublic,
   ) => {
     onAdd(product, variant)
-    setExpanded(null)
-    setQuery("")
-    inputRef.current?.focus()
+    resetAfterAdd()
   }
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -120,12 +187,28 @@ const ProductSearch = ({
       if (!selected) return
       if (
         (selected.variants ?? []).length > 0 &&
-        !resolveVariantBarcode(selected)
+        !resolveVariantBarcode(selected, query.trim())
       ) {
         setExpanded(selected.id)
         return
       }
       addMain(selected)
+      return
+    }
+    if (
+      e.key === "Enter" &&
+      scanEnter &&
+      results.length === 0 &&
+      trimmed.length >= 2
+    ) {
+      // Cancel any pending debounce and search the RAW term right away:
+      // a scanner fires Enter before the debounced query would run.
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+        debounceTimerRef.current = null
+      }
+      setDebouncedQuery(query)
+      void scanAddByBarcode(trimmed)
     }
   }
 
@@ -252,16 +335,19 @@ const ProductSearch = ({
         </div>
       )}
 
-      {query.trim().length >= 2 && results.length === 0 && !isFetching && (
-        <p
-          className={cn(
-            "text-sm text-muted-foreground",
-            isError && "text-destructive",
-          )}
-        >
-          {isError ? t("search.failed") : t("search.noMatch")}
-        </p>
-      )}
+      {trimmed.length >= 2 &&
+        results.length === 0 &&
+        !isFetching &&
+        !searchPending && (
+          <p
+            className={cn(
+              "text-sm text-muted-foreground",
+              isError && "text-destructive",
+            )}
+          >
+            {isError ? t("search.failed") : t("search.noMatch")}
+          </p>
+        )}
     </div>
   )
 }

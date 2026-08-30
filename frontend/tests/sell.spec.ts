@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test"
 import {
+  addBarcode,
   adjustStock,
   api,
   closeCashSession,
@@ -891,6 +892,85 @@ test.describe("Sell flow", () => {
     const row = page.getByRole("row").filter({ hasText: variantSuffix })
     await expect(row).toBeVisible()
     await expect(page.getByTestId("sale-success-numero")).toHaveCount(0)
+  })
+
+  test("A scan whose search response is delayed still adds the product", async ({
+    page,
+    request,
+  }) => {
+    const suffix = uid()
+    const name = `Producto E2E Scan Lento ${suffix}`
+    const uoms = await getUoms(request)
+    const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
+    const product = await createProduct(request, {
+      name,
+      sku: `SCL-${suffix.toUpperCase()}`,
+      uom_id: uom.id,
+      costo_actual: 100,
+      margen_pct: 50,
+    })
+    await adjustStock(request, product.id, 5)
+    const barcode = `770${Math.floor(Math.random() * 1e10)
+      .toString()
+      .padStart(10, "0")}`
+    await addBarcode(request, product.id, barcode)
+
+    // slow the search API down so the Enter keystroke lands while the
+    // response is still missing
+    let searchRequests = 0
+    await page.route("**/api/v1/products/search*", async (route) => {
+      searchRequests += 1
+      await new Promise((resolve) => setTimeout(resolve, 800))
+      await route.continue()
+    })
+
+    await page.goto("/sell")
+    const search = page.getByTestId("product-search")
+    await search.fill(barcode)
+    await search.press("Enter")
+
+    // the scan is not lost: exactly one line lands once the response arrives
+    const rows = page.getByTestId("cart-row")
+    await expect(rows).toHaveCount(1)
+    await expect(rows.nth(0)).toContainText(name)
+    await expect(search).toHaveValue("")
+    expect(searchRequests).toBe(1)
+  })
+
+  test("Typing a barcode debounces the search requests", async ({
+    page,
+    request,
+  }) => {
+    const suffix = uid()
+    const name = `Producto E2E Scan Debounce ${suffix}`
+    const uoms = await getUoms(request)
+    const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
+    const product = await createProduct(request, {
+      name,
+      sku: `SCD-${suffix.toUpperCase()}`,
+      uom_id: uom.id,
+      costo_actual: 100,
+      margen_pct: 50,
+    })
+    await adjustStock(request, product.id, 5)
+    const barcode = `771${Math.floor(Math.random() * 1e10)
+      .toString()
+      .padStart(10, "0")}`
+    await addBarcode(request, product.id, barcode)
+
+    let searchRequests = 0
+    await page.route("**/api/v1/products/search*", (route) => {
+      searchRequests += 1
+      return route.continue()
+    })
+
+    await page.goto("/sell")
+    const search = page.getByTestId("product-search")
+    // keystroke per character: without the debounce this would fire ~12 calls
+    await search.pressSequentially(barcode, { delay: 25 })
+    await expect(page.getByTestId("search-option").first()).toBeVisible()
+    expect(searchRequests).toBeGreaterThanOrEqual(1)
+    expect(searchRequests).toBeLessThanOrEqual(3)
   })
 
   test("Decimal-UoM product opens the quantity modal and accepts 0.25 at dp=3", async ({

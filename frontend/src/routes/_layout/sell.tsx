@@ -375,7 +375,14 @@ function Sell() {
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="flex flex-1 flex-col gap-4">
-          <ProductSearch onAdd={handleAdd} inputRef={searchInputRef} />
+          {/* Scanner-friendly: debounced typing + Enter re-fetches the raw
+              term when results are missing, so a scan is never lost. */}
+          <ProductSearch
+            onAdd={handleAdd}
+            inputRef={searchInputRef}
+            scanEnter
+            debounceMs={150}
+          />
 
           {cart.length === 0 ? (
             <p className="text-sm text-muted-foreground">
