@@ -157,34 +157,53 @@ test.describe("Sell flow", () => {
   })
 
   test("Cannot sell more stock than available", async ({ page, request }) => {
-    // the oversell block only applies when the stock policy is "block";
-    // pin the precondition instead of trusting ambient environment data
-    await api.patch(request, "/business-settings/", { stock_policy: "block" })
-    const uoms = await getUoms(request)
-    const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
-    const name = `Producto E2E Sin Stock ${uid()}`
-    const product = await createProduct(request, {
-      name,
-      sku: `SIN-${uid().toUpperCase()}`,
-      uom_id: uom.id,
-      costo_actual: 100,
-      margen_pct: 50,
+    // the oversell block only applies when the stock policy is "block" AND
+    // allow_negative_stock is false (the backend ORs both); pin BOTH
+    // preconditions instead of trusting ambient environment data, and
+    // restore them afterwards so parallel suites and real dev data are
+    // left exactly as found
+    const ambient = await api.getOne<{
+      stock_policy: "block" | "warn"
+      allow_negative_stock: boolean
+    }>(request, "/business-settings/")
+    await api.patch(request, "/business-settings/", {
+      stock_policy: "block",
+      allow_negative_stock: false,
     })
+    try {
+      const uoms = await getUoms(request)
+      const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
+      const name = `Producto E2E Sin Stock ${uid()}`
+      const product = await createProduct(request, {
+        name,
+        sku: `SIN-${uid().toUpperCase()}`,
+        uom_id: uom.id,
+        costo_actual: 100,
+        margen_pct: 50,
+      })
 
-    await page.goto("/sell")
-    await page.getByTestId("product-search").fill(name)
-    await page.getByRole("button", { name: new RegExp(name) }).click()
-    await expect(page.getByRole("row").filter({ hasText: name })).toBeVisible()
+      await page.goto("/sell")
+      await page.getByTestId("product-search").fill(name)
+      await page.getByRole("button", { name: new RegExp(name) }).click()
+      await expect(
+        page.getByRole("row").filter({ hasText: name }),
+      ).toBeVisible()
 
-    await payQuick(page, "Efectivo")
+      await payQuick(page, "Efectivo")
 
-    await expect(
-      page.getByText("Stock insuficiente para completar la operación"),
-    ).toBeVisible()
-    await expect(page.getByTestId("sale-success-numero")).toHaveCount(0)
+      await expect(
+        page.getByText("Stock insuficiente para completar la operación"),
+      ).toBeVisible()
+      await expect(page.getByTestId("sale-success-numero")).toHaveCount(0)
 
-    const after = await readProduct(request, product.id)
-    expect(Number(after.stock_current)).toBe(0)
+      const after = await readProduct(request, product.id)
+      expect(Number(after.stock_current)).toBe(0)
+    } finally {
+      await api.patch(request, "/business-settings/", {
+        stock_policy: ambient.stock_policy,
+        allow_negative_stock: ambient.allow_negative_stock,
+      })
+    }
   })
 
   test("Quick paid button creates the sale with a single full-total row", async ({
