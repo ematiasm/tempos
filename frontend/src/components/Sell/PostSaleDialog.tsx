@@ -60,7 +60,7 @@ export function PostSaleDialog({
 
   const { data: methodsData } = useQuery({
     queryFn: () =>
-      PaymentMethodsService.readPaymentMethods({ skip: 0, limit: 100 }),
+      PaymentMethodsService.readPaymentMethods({ skip: 0, limit: 1000 }),
     queryKey: ["payment-methods"],
   })
   const methodNames = new Map(

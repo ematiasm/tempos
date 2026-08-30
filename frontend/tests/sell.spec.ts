@@ -1688,6 +1688,153 @@ test.describe("Sell flow", () => {
     expect(sale?.payments[0].payment_method_id).toBe(methods[0].id)
   })
 
+  test("F2 and F3 pay with the first two configured quick methods", async ({
+    page,
+    request,
+  }) => {
+    // Deterministic order: two paid methods configured as the quick
+    // shortcuts, the same way other specs drive the shared settings. Reuse
+    // existing methods (the shared dev DB accumulates one row per created
+    // method); only top up when fewer than two paid methods exist. Created
+    // names must NOT contain substrings other specs filter on (like
+    // "Efectivo"): the rows persist across runs.
+    const readPaid = async () =>
+      api
+        .get<{ id: string; name: string; marks_paid: boolean }>(
+          request,
+          "/payment-methods/?skip=0&limit=1000",
+        )
+        .then((r) => r.data.filter((m) => m.marks_paid !== false))
+    if ((await readPaid()).length < 2) {
+      await createPaidPaymentMethod(request, `Atajo Dos ${uid()}`)
+    }
+    const [first, second] = await readPaid()
+    expect(first.id).not.toBe(second.id)
+    await api.patch(request, "/business-settings/", {
+      sell_quick_method_ids: [first.id, second.id],
+    })
+    await expect
+      .poll(async () =>
+        api
+          .getOne<{ sell_quick_method_ids: string[] | null }>(
+            request,
+            "/business-settings/",
+          )
+          .then((s) => s.sell_quick_method_ids),
+      )
+      .toEqual([first.id, second.id])
+
+    const paidWithKey = async (
+      key: string,
+      method: { id: string; name: string },
+    ) => {
+      await searchAndAdd(page)
+      await expect(page.getByTestId("quick-pay-button").first()).toBeEnabled()
+      await page.keyboard.press(key)
+      const numero = page.getByTestId("sale-success-numero")
+      await expect(numero).toBeVisible()
+      const numeroText = (await numero.textContent())?.trim() ?? ""
+      // the post-sale dialog lists the payment method by name
+      await expect(
+        page.getByTestId("post-sale-dialog").getByText(method.name),
+      ).toBeVisible()
+      const docs = await readDocuments(request)
+      const sale = docs.find((d) => d.numero === numeroText)
+      expect(sale).toBeDefined()
+      expect(sale?.payments).toHaveLength(1)
+      expect(sale?.payments[0].payment_method_id).toBe(method.id)
+    }
+
+    await paidWithKey("F2", first)
+
+    // back to the sell screen and pay the second sale with F3
+    await page.getByTestId("post-sale-new-sale").click()
+    await paidWithKey("F3", second)
+
+    // restore the suite default
+    await api.patch(request, "/business-settings/", {
+      sell_quick_method_ids: null,
+    })
+  })
+
+  test("Customer combobox searches by documento and shows saldo", async ({
+    page,
+    request,
+  }) => {
+    const suffix = uid()
+    const name = `Cliente Busqueda ${suffix}`
+    // deterministic valid CUIT (mod-11): 2 + 8 unique digits + DV. The
+    // documento is UNIQUE, so it must not collide with previous runs.
+    const digits = String(Date.now()).slice(-8)
+    const base = `20${digits}`
+    const weights = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2]
+    const sum = base
+      .split("")
+      .reduce((acc, d, i) => acc + Number(d) * weights[i], 0)
+    const check = 11 - (sum % 11)
+    const dv = check === 11 ? 0 : check === 10 ? 9 : check
+    const documento = `${base}${dv}`
+    const customer = await api.post<{ id: string; razon_social: string }>(
+      request,
+      "/customers/",
+      { razon_social: name, documento },
+    )
+    expect(customer.id).toBeDefined()
+
+    await page.goto("/sell")
+
+    // Alt+C opens the customer picker and focuses its search input
+    await expect(page.getByTestId("customer-select")).toBeVisible()
+    await page.keyboard.press("Alt+c")
+    const search = page.getByTestId("counterpart-combobox-search")
+    await expect(search).toBeFocused()
+    await page.keyboard.press("Escape")
+    await expect(search).toHaveCount(0)
+
+    await page.getByTestId("customer-select").click()
+
+    // search by a PARTIAL documento (contains match)
+    await expect(search).toBeFocused()
+    await search.fill(documento.slice(2, 9))
+
+    const option = page.getByRole("option", { name: new RegExp(name) })
+    await expect(option).toBeVisible()
+    // only the matching customer remains; "Sin cliente" and non-matching
+    // customers (Consumidor Final has no documento) are filtered out
+    await expect(page.getByRole("option")).toHaveCount(1)
+    // saldo is rendered on the row even when it is zero
+    await expect(option).toContainText(/\$0[.,]00/)
+
+    await option.click()
+    await expect(page.getByTestId("customer-select")).toContainText(name)
+    await expect(page.getByTestId("customer-select")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    )
+  })
+
+  test("F2 is swallowed while a dialog is open, then pays after it closes", async ({
+    page,
+  }) => {
+    await searchAndAdd(page)
+    await expect(page.getByTestId("quick-pay-button").first()).toBeEnabled()
+
+    await page.getByTestId("split-payment-button").click()
+    const dialog = page.getByTestId("split-dialog")
+    await expect(dialog).toBeVisible()
+
+    // decision A: the modal wins — no sale is issued from behind the dialog
+    await page.keyboard.press("F2")
+    await expect(page.getByTestId("sale-success-numero")).toHaveCount(0)
+    await expect(dialog).toBeVisible()
+
+    // closing the dialog restores the shortcut
+    await page.keyboard.press("Escape")
+    await expect(dialog).toHaveCount(0)
+    await page.keyboard.press("F2")
+    await expect(page.getByTestId("sale-success-numero")).toBeVisible()
+  })
+
   test("Enter reopens the quantity modal pre-filled on a selected decimal line", async ({
     page,
     request,

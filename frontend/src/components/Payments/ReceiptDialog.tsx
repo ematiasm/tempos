@@ -87,7 +87,7 @@ export function ReceiptDialog({
   })
   const { data: methodsData } = useQuery({
     queryFn: () =>
-      PaymentMethodsService.readPaymentMethods({ skip: 0, limit: 100 }),
+      PaymentMethodsService.readPaymentMethods({ skip: 0, limit: 1000 }),
     queryKey: ["payment-methods"],
   })
 

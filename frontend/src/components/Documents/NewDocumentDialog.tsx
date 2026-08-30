@@ -25,6 +25,7 @@ import {
   SupplierProductsService,
   SuppliersService,
 } from "@/client"
+import { CounterpartCombobox } from "@/components/Common/CounterpartCombobox"
 import { PrintVoucherDialog } from "@/components/Documents/VoucherPrint"
 import {
   type SplitPayment,
@@ -128,7 +129,7 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
   })
   const { data: methodsData } = useQuery({
     queryFn: () =>
-      PaymentMethodsService.readPaymentMethods({ skip: 0, limit: 100 }),
+      PaymentMethodsService.readPaymentMethods({ skip: 0, limit: 1000 }),
     queryKey: ["payment-methods"],
   })
   const { data: settingsData } = useQuery({
@@ -534,30 +535,25 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
                       <span className="mb-1 block text-xs font-medium text-muted-foreground">
                         {isSupplierOp ? t("buy.supplier") : t("sell.customer")}
                       </span>
-                      <Select
-                        value={counterpartId ?? ""}
-                        onValueChange={(v) => {
-                          setCounterpartId(v)
+                      <CounterpartCombobox
+                        items={counterpartOptions.map((c) => ({
+                          id: c.id,
+                          razon_social: c.razon_social,
+                          documento: c.documento ?? null,
+                          saldo: c.saldo,
+                        }))}
+                        value={counterpartId}
+                        onChange={(id) => {
+                          setCounterpartId(id)
                           setAutoAmount(true)
                         }}
-                      >
-                        <SelectTrigger data-testid="doc-counterpart-select">
-                          <SelectValue
-                            placeholder={
-                              isSupplierOp
-                                ? t("buy.selectSupplier")
-                                : t("sell.selectCustomer")
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {counterpartOptions.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.razon_social}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder={
+                          isSupplierOp
+                            ? t("buy.selectSupplier")
+                            : t("sell.selectCustomer")
+                        }
+                        triggerTestId="doc-counterpart-select"
+                      />
                       {isCustomerOp && selectedCustomer && (
                         <p className="mt-1 text-xs text-muted-foreground">
                           {t("sell.balance", {

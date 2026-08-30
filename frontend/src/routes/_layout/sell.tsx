@@ -11,6 +11,7 @@ import type {
   ProductVariantPublic,
 } from "@/client"
 import { DocumentsService } from "@/client"
+import type { CounterpartComboboxControls } from "@/components/Common/CounterpartCombobox"
 import { round2, toPaymentCreates } from "@/components/Payments/paymentMath"
 import {
   SplitPaymentDialog,
@@ -44,6 +45,9 @@ export const Route = createFileRoute("/_layout/sell")({
     meta: [{ title: `${formatStatic("sell.title")} - tempos` }],
   }),
 })
+
+/** Payment shortcut keys, mapped by position to the quick methods. */
+const PAYMENT_FKEYS = ["F2", "F3", "F4", "F5", "F6"]
 
 function Sell() {
   const queryClient = useQueryClient()
@@ -85,6 +89,8 @@ function Sell() {
     qty?: number
   } | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  // customer combobox handle (Alt+C opens + focuses it)
+  const customerControlsRef = useRef<CounterpartComboboxControls | null>(null)
 
   // --- Configuration-driven behavior -------------------------------------
   // Ordered quick shortcuts; null (unset) keeps ALL methods in list order.
@@ -225,21 +231,6 @@ function Sell() {
     })
   }
 
-  /** F2: confirm with the FIRST quick shortcut; split dialog if none. */
-  const confirmWithFirstShortcut = () => {
-    const first = quickMethods[0]
-    if (!first) {
-      if (!baseDisabled) setSplitOpen(true)
-      return
-    }
-    if (first.marks_paid === false) {
-      if (quickCreditDisabled) return
-    } else if (baseDisabled) {
-      return
-    }
-    payWithMethod(first)
-  }
-
   /** Removes a line and keeps the selection on a sensible neighbor. */
   const handleRemoveLine = (index: number) => {
     removeLine(index)
@@ -339,9 +330,6 @@ function Sell() {
       } else if (e.key === "Delete") {
         e.preventDefault()
         handleRemoveLine(selectedLine)
-      } else if (e.key === "F2") {
-        e.preventDefault()
-        confirmWithFirstShortcut()
       }
     }
     keyHandlerRef.current = onKey
@@ -349,6 +337,42 @@ function Sell() {
 
   useEffect(() => {
     const listener = (e: KeyboardEvent) => keyHandlerRef.current(e)
+    window.addEventListener("keydown", listener)
+    return () => window.removeEventListener("keydown", listener)
+  }, [])
+
+  // --- Payment shortcuts (global) -----------------------------------------
+  // F2..F6 confirm the sale with the first five quick methods; Alt+C focuses
+  // the customer combobox. Registered once; a ref always points at the
+  // freshest handler closure. Decision: while ANY dialog is open (split
+  // payment, quantity, print, ...) the shortcuts are swallowed — the modal
+  // always wins over the payment keys.
+  const payKeysHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {})
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (document.querySelector('[role="dialog"]')) return
+      if (e.altKey && !e.ctrlKey && !e.metaKey && e.code === "KeyC") {
+        e.preventDefault()
+        customerControlsRef.current?.openAndFocus()
+        return
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const index = PAYMENT_FKEYS.indexOf(e.key)
+      if (index === -1) return
+      e.preventDefault()
+      const method = quickMethods[index]
+      if (!method) return
+      // Same gates as the quick buttons: reuse them, do not duplicate rules.
+      if (method.marks_paid === false ? quickCreditDisabled : baseDisabled)
+        return
+      payWithMethod(method)
+    }
+    payKeysHandlerRef.current = onKey
+  })
+
+  useEffect(() => {
+    const listener = (e: KeyboardEvent) => payKeysHandlerRef.current(e)
     window.addEventListener("keydown", listener)
     return () => window.removeEventListener("keydown", listener)
   }, [])
@@ -428,9 +452,10 @@ function Sell() {
           saleTypes={saleTypes}
           selectedCustomer={selectedCustomer}
           customerId={customerId}
+          customerControlsRef={customerControlsRef}
           onCustomerChange={(v) => {
             setCustomerTouched(true)
-            setCustomerId(v === "none" ? null : v)
+            setCustomerId(v)
           }}
           docTypeId={docTypeId}
           onDocTypeChange={setDocTypeId}
@@ -468,13 +493,7 @@ function Sell() {
               className="w-full"
               data-testid="split-payment-button"
               disabled={baseDisabled}
-              title={
-                !sessionOpen
-                  ? t("cash.registerClosedHint")
-                  : quickMethods.length === 0
-                    ? t("sell.quickPayment.f2HintPay")
-                    : undefined
-              }
+              title={!sessionOpen ? t("cash.registerClosedHint") : undefined}
               onClick={() => setSplitOpen(true)}
             >
               <SplitSquareHorizontal className="mr-2 h-4 w-4" />

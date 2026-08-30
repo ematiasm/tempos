@@ -1,5 +1,9 @@
-import type { ReactNode } from "react"
+import type { ReactNode, RefObject } from "react"
 import type { CustomerPublic, DocumentTypePublic } from "@/client"
+import {
+  CounterpartCombobox,
+  type CounterpartComboboxControls,
+} from "@/components/Common/CounterpartCombobox"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -17,7 +21,9 @@ interface SellSidebarProps {
   saleTypes: DocumentTypePublic[]
   selectedCustomer: CustomerPublic | null
   customerId: string | null
-  onCustomerChange: (customerId: string) => void
+  onCustomerChange: (customerId: string | null) => void
+  /** Imperative handle for the Alt+C customer shortcut. */
+  customerControlsRef?: RefObject<CounterpartComboboxControls | null>
   docTypeId: string | null
   onDocTypeChange: (docTypeId: string) => void
   date: string
@@ -41,6 +47,7 @@ export function SellSidebar({
   selectedCustomer,
   customerId,
   onCustomerChange,
+  customerControlsRef,
   docTypeId,
   onDocTypeChange,
   date,
@@ -66,24 +73,21 @@ export function SellSidebar({
           <span className="mb-1 block text-xs font-medium text-muted-foreground">
             {t("sell.customer")}
           </span>
-          <Select
-            value={customerId ?? ""}
-            onValueChange={(v) => {
-              onCustomerChange(v)
-            }}
-          >
-            <SelectTrigger data-testid="customer-select">
-              <SelectValue placeholder={t("sell.selectCustomer")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">{t("sell.noCustomer")}</SelectItem>
-              {customers.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.razon_social}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <CounterpartCombobox
+            items={customers.map((c) => ({
+              id: c.id,
+              razon_social: c.razon_social,
+              documento: c.documento ?? null,
+              saldo: c.saldo,
+            }))}
+            value={customerId}
+            onChange={onCustomerChange}
+            allowNone
+            noneLabel={t("sell.noCustomer")}
+            placeholder={t("sell.selectCustomer")}
+            triggerTestId="customer-select"
+            controlsRef={customerControlsRef}
+          />
           {selectedCustomer && Number(selectedCustomer.saldo) !== 0 && (
             <p className="mt-1 text-xs text-muted-foreground">
               {t("sell.balance", {

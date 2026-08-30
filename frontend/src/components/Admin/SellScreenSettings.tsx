@@ -56,7 +56,8 @@ function SellScreenSettings() {
     queryKey: ["business-settings"],
   })
   const { data: methodsData } = useQuery({
-    queryFn: () => PaymentMethodsService.readPaymentMethods(),
+    queryFn: () =>
+      PaymentMethodsService.readPaymentMethods({ skip: 0, limit: 1000 }),
     queryKey: ["payment-methods"],
   })
   const { data: typesData } = useQuery({

@@ -123,8 +123,11 @@ export const es = {
   "sell.quickPayment.customerRequired":
     "Seleccioná un cliente para vender a cuenta corriente",
   "sell.quickPayment.splitEntry": "Pago dividido",
-  "sell.quickPayment.f2Hint": "F2: confirmar la venta con este atajo",
-  "sell.quickPayment.f2HintPay": "F2: confirmar la venta",
+  "sell.quickPayment.fkeyHint": "Confirmar la venta con {key}",
+  "sell.shortcuts.pay": "cobrar",
+  "sell.shortcuts.customer": "cliente",
+  "sell.shortcuts.selectLine": "seleccionar",
+  "sell.shortcuts.adjustQty": "cantidad",
   "sell.useCredit": "Usar {credit} de crédito a favor",
   "sell.qtyModal.title": "Cantidad de {product}",
   "sell.qtyModal.hint": "Precio unitario: {price} por {uom}",
