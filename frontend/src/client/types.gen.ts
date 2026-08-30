@@ -980,6 +980,13 @@ export type SalesByPaymentRow = {
     monto: string;
 };
 
+export type SalesByUserRow = {
+    user_id: string;
+    user_name: string;
+    count: number;
+    total: string;
+};
+
 export type SalesPerDayRow = {
     fecha: string;
     count: number;
@@ -1920,6 +1927,13 @@ export type ReportsSalesByPaymentData = {
 };
 
 export type ReportsSalesByPaymentResponse = (Array<SalesByPaymentRow>);
+
+export type ReportsSalesByUserData = {
+    desde?: (string | null);
+    hasta?: (string | null);
+};
+
+export type ReportsSalesByUserResponse = (Array<SalesByUserRow>);
 
 export type ReportsMarginReportData = {
     desde?: (string | null);

@@ -13,6 +13,7 @@ const uid = () => Math.random().toString(36).substring(7)
 const TAB_LABELS = [
   "Ventas diarias",
   "Métodos de pago",
+  "Por cajero",
   "Margen",
   "Impuestos",
   "A reponer",

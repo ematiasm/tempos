@@ -5,6 +5,7 @@ import { MarginTab } from "@/components/Reports/MarginTab"
 import { MovementsTab } from "@/components/Reports/MovementsTab"
 import { ReorderTab } from "@/components/Reports/ReorderTab"
 import { SalesByPaymentTab } from "@/components/Reports/SalesByPaymentTab"
+import { SalesByUserTab } from "@/components/Reports/SalesByUserTab"
 import { SalesPerDayTab } from "@/components/Reports/SalesPerDayTab"
 import { VatTab } from "@/components/Reports/VatTab"
 import { Card, CardContent } from "@/components/ui/card"
@@ -43,6 +44,7 @@ function Reports() {
               {[
                 ["sales", t("reports.tabDaily")],
                 ["payment-methods", t("reports.tabPaymentMethods")],
+                ["by-user", t("reports.tabByUser")],
                 ["margin", t("reports.tabMargin")],
                 ["vat", t("reports.tabTaxes")],
                 ["reorder", t("reports.tabReorder")],
@@ -64,6 +66,9 @@ function Reports() {
               </TabsContent>
               <TabsContent value="payment-methods">
                 <SalesByPaymentTab />
+              </TabsContent>
+              <TabsContent value="by-user">
+                <SalesByUserTab />
               </TabsContent>
               <TabsContent value="margin">
                 <MarginTab />

@@ -2106,6 +2106,13 @@ class SalesByPaymentRow(BaseModel):
     monto: Decimal
 
 
+class SalesByUserRow(BaseModel):
+    user_id: uuid.UUID
+    user_name: str
+    count: int
+    total: Decimal
+
+
 class MarginRow(BaseModel):
     product_id: uuid.UUID
     name: str

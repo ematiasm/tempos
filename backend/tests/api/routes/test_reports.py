@@ -5,10 +5,12 @@ from decimal import Decimal
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
+from app import crud
 from app.core.config import settings
-from app.models import PaymentMethod
+from app.models import PaymentMethod, UserCreate
 from tests.utils.ledger import load_stock
-from tests.utils.utils import random_lower_string
+from tests.utils.user import user_authentication_headers
+from tests.utils.utils import random_email, random_lower_string
 
 
 def _create_financial_account(client: TestClient, headers: dict[str, str]) -> dict:
@@ -430,6 +432,75 @@ def test_sales_by_payment_groups_by_method_and_reconciles(
     assert r.status_code == 200, r.text
     sales_total = sum(Decimal(row["total"]) for row in r.json())
     assert sales_total == payment_total == Decimal("605.00")
+
+
+def test_sales_by_user_groups_by_creator(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    customer = _create_customer(client, superuser_token_headers)
+    product = _create_product(client, superuser_token_headers)
+    load_stock(client, superuser_token_headers, product["id"], "10")
+    method = _cash_method_id(db)
+
+    def _cashier(full_name: str) -> dict[str, str]:
+        email = random_email()
+        password = random_lower_string()
+        crud.create_user(
+            session=db,
+            user_create=UserCreate(
+                email=email,
+                password=password,
+                full_name=full_name,
+                is_superuser=True,
+            ),
+        )
+        return user_authentication_headers(
+            client=client, email=email, password=password
+        )
+
+    alice = _cashier("Alice Cashier")
+    bob = _cashier("Bob Cashier")
+
+    _create_sale(
+        client,
+        alice,
+        product["id"],
+        customer["id"],
+        method,
+        fecha="2024-07-05T12:00:00Z",
+    )
+    _create_sale(
+        client,
+        alice,
+        product["id"],
+        customer["id"],
+        method,
+        fecha="2024-07-06T12:00:00Z",
+    )
+    _create_sale(
+        client,
+        bob,
+        product["id"],
+        customer["id"],
+        method,
+        cantidad="3",
+        fecha="2024-07-07T12:00:00Z",
+    )
+
+    r = client.get(
+        f"{settings.API_V1_STR}/reports/sales-by-user/",
+        headers=superuser_token_headers,
+        params={"desde": "2024-07-01", "hasta": "2024-07-31"},
+    )
+    assert r.status_code == 200, r.text
+    rows = {row["user_name"]: row for row in r.json()}
+    assert rows["Alice Cashier"]["count"] == 2
+    assert rows["Alice Cashier"]["total"] == "484.00"
+    assert rows["Bob Cashier"]["count"] == 1
+    assert rows["Bob Cashier"]["total"] == "363.00"
+    # Reconciliation: per-user totals sum to the period's sales total.
+    user_total = sum(Decimal(row["total"]) for row in rows.values())
+    assert user_total == Decimal("847.00")
 
 
 def test_account_movements_filter_by_business_local_days(

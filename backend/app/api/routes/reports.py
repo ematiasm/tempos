@@ -23,9 +23,11 @@ from app.models import (
     Product,
     ReorderRow,
     SalesByPaymentRow,
+    SalesByUserRow,
     SalesPerDayRow,
     SupplierProduct,
     Tax,
+    User,
     VatRow,
 )
 
@@ -149,6 +151,47 @@ def sales_by_payment(
             )
         )
     rows.sort(key=lambda r: (-r.monto, r.method_name))
+    return rows
+
+
+@router.get(
+    "/sales-by-user",
+    response_model=list[SalesByUserRow],
+    dependencies=[require_permissions("report.view")],
+)
+def sales_by_user(
+    session: SessionDep,
+    desde: date | None = Query(default=None),
+    hasta: date | None = Query(default=None),
+) -> Any:
+    """Aggregate active sales (count, total) grouped by the creating user.
+
+    Uses the same active-sale basis as sales-per-day (same inclusive
+    business-local bounds), so per-user totals reconcile with the other
+    sales tabs. Average ticket and share of the grand total are derived
+    client-side.
+    """
+    dt_from, dt_to = crud.period_bounds(session, desde, hasta)
+    docs = _active_sales(session, desde=dt_from, hasta=dt_to)
+    users = {u.id: u.full_name or u.email for u in session.exec(select(User)).all()}
+
+    agg: dict[uuid.UUID, dict[str, Any]] = {}
+    for doc in docs:
+        acc = agg.setdefault(doc.user_id, {"count": 0, "total": Decimal("0")})
+        acc["count"] = int(acc["count"]) + 1
+        acc["total"] = Decimal(acc["total"]) + doc.total
+
+    rows = []
+    for user_id, acc in agg.items():
+        rows.append(
+            SalesByUserRow(
+                user_id=user_id,
+                user_name=users.get(user_id, str(user_id)),
+                count=int(acc["count"]),
+                total=_money(Decimal(acc["total"])),
+            )
+        )
+    rows.sort(key=lambda r: (-r.total, r.user_name))
     return rows
 
 

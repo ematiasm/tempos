@@ -5307,6 +5307,32 @@ export const SalesByPaymentRowSchema = {
     title: 'SalesByPaymentRow'
 } as const;
 
+export const SalesByUserRowSchema = {
+    properties: {
+        user_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'User Id'
+        },
+        user_name: {
+            type: 'string',
+            title: 'User Name'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        },
+        total: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Total'
+        }
+    },
+    type: 'object',
+    required: ['user_id', 'user_name', 'count', 'total'],
+    title: 'SalesByUserRow'
+} as const;
+
 export const SalesPerDayRowSchema = {
     properties: {
         fecha: {
