@@ -972,6 +972,14 @@ export type RoleUpdate = {
     permission_ids?: (Array<(string)> | null);
 };
 
+export type SalesByPaymentRow = {
+    method_id: string;
+    method_name: string;
+    marks_paid: boolean;
+    count: number;
+    monto: string;
+};
+
 export type SalesPerDayRow = {
     fecha: string;
     count: number;
@@ -1905,6 +1913,13 @@ export type ReportsSalesPerDayData = {
 };
 
 export type ReportsSalesPerDayResponse = (Array<SalesPerDayRow>);
+
+export type ReportsSalesByPaymentData = {
+    desde?: (string | null);
+    hasta?: (string | null);
+};
+
+export type ReportsSalesByPaymentResponse = (Array<SalesByPaymentRow>);
 
 export type ReportsMarginReportData = {
     desde?: (string | null);

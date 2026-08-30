@@ -2098,6 +2098,14 @@ class SalesPerDayRow(BaseModel):
     total: Decimal
 
 
+class SalesByPaymentRow(BaseModel):
+    method_id: uuid.UUID
+    method_name: str
+    marks_paid: bool
+    count: int
+    monto: Decimal
+
+
 class MarginRow(BaseModel):
     product_id: uuid.UUID
     name: str

@@ -14,12 +14,15 @@ from app.models import (
     DocumentLine,
     DocumentLineTax,
     DocumentOperation,
+    DocumentPayment,
     DocumentStatus,
     DocumentTax,
     DocumentType,
     MarginRow,
+    PaymentMethod,
     Product,
     ReorderRow,
+    SalesByPaymentRow,
     SalesPerDayRow,
     SupplierProduct,
     Tax,
@@ -95,6 +98,58 @@ def sales_per_day(
         row.descuento_total = _money(row.descuento_total + doc.descuento_total)
         row.total = _money(row.total + doc.total)
     return sorted(days.values(), key=lambda r: r.fecha)
+
+
+@router.get(
+    "/sales-by-payment",
+    response_model=list[SalesByPaymentRow],
+    dependencies=[require_permissions("report.view")],
+)
+def sales_by_payment(
+    session: SessionDep,
+    desde: date | None = Query(default=None),
+    hasta: date | None = Query(default=None),
+) -> Any:
+    """Aggregate the payments of active sales grouped by payment method.
+
+    Uses the same active-sale basis as sales-per-day (same inclusive
+    business-local bounds), so the method rows total the period's sales
+    total. Credit methods (``marks_paid`` False) appear as their own rows —
+    they are included so the grand total reconciles with sales-per-day.
+    """
+    dt_from, dt_to = crud.period_bounds(session, desde, hasta)
+    docs = _active_sales(session, desde=dt_from, hasta=dt_to)
+    doc_ids = [d.id for d in docs]
+    if not doc_ids:
+        return []
+    methods = {m.id: m for m in session.exec(select(PaymentMethod)).all()}
+
+    agg: dict[uuid.UUID, dict[str, Any]] = {}
+    for payment in session.exec(
+        select(DocumentPayment).where(col(DocumentPayment.document_id).in_(doc_ids))
+    ).all():
+        acc = agg.setdefault(
+            payment.payment_method_id, {"count": 0, "monto": Decimal("0")}
+        )
+        acc["count"] = int(acc["count"]) + 1
+        acc["monto"] = Decimal(acc["monto"]) + payment.monto
+
+    rows = []
+    for method_id, acc in agg.items():
+        method = methods.get(method_id)
+        if method is None:
+            continue
+        rows.append(
+            SalesByPaymentRow(
+                method_id=method_id,
+                method_name=method.name,
+                marks_paid=method.marks_paid,
+                count=int(acc["count"]),
+                monto=_money(Decimal(acc["monto"])),
+            )
+        )
+    rows.sort(key=lambda r: (-r.monto, r.method_name))
+    return rows
 
 
 @router.get(

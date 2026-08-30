@@ -212,6 +212,7 @@ export const es = {
   "reports.subtitle":
     "Ventas diarias, márgenes, impuestos, stock y posiciones de cuentas corrientes.",
   "reports.tabDaily": "Ventas diarias",
+  "reports.tabPaymentMethods": "Métodos de pago",
   "reports.tabMargin": "Margen",
   "reports.tabTaxes": "Impuestos",
   "reports.tabReorder": "A reponer",
@@ -231,6 +232,9 @@ export const es = {
   "reports.total": "Total",
   "reports.salesDays": "{sales} ventas / {days} días",
   "reports.grandTotal": "Total {total}",
+  "reports.payments": "Pagos",
+  "reports.onCredit": "A crédito",
+  "reports.paymentCount": "{count} pagos",
   "reports.avgTicket": "Ticket prom.",
   "reports.avgTicketTotal": "Ticket promedio {amount}",
   "reports.product": "Producto",

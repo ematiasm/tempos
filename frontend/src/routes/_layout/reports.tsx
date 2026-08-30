@@ -4,6 +4,7 @@ import { CashSessionsTab } from "@/components/Reports/CashSessionsTab"
 import { MarginTab } from "@/components/Reports/MarginTab"
 import { MovementsTab } from "@/components/Reports/MovementsTab"
 import { ReorderTab } from "@/components/Reports/ReorderTab"
+import { SalesByPaymentTab } from "@/components/Reports/SalesByPaymentTab"
 import { SalesPerDayTab } from "@/components/Reports/SalesPerDayTab"
 import { VatTab } from "@/components/Reports/VatTab"
 import { Card, CardContent } from "@/components/ui/card"
@@ -36,9 +37,12 @@ function Reports() {
       <Card>
         <CardContent className="p-0">
           <Tabs defaultValue="sales" className="w-full">
-            <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
+            {/* Horizontal scroll keeps every tab reachable on narrow
+                screens without wrapping or shrinking the triggers. */}
+            <TabsList className="w-full justify-start overflow-x-auto rounded-none border-b bg-transparent p-0">
               {[
                 ["sales", t("reports.tabDaily")],
+                ["payment-methods", t("reports.tabPaymentMethods")],
                 ["margin", t("reports.tabMargin")],
                 ["vat", t("reports.tabTaxes")],
                 ["reorder", t("reports.tabReorder")],
@@ -48,7 +52,7 @@ function Reports() {
                 <TabsTrigger
                   key={value}
                   value={value}
-                  className="h-11 rounded-none border-b-2 border-transparent px-4 pb-2 pt-3 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                  className="h-11 shrink-0 rounded-none border-b-2 border-transparent px-4 pb-2 pt-3 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent"
                 >
                   {label}
                 </TabsTrigger>
@@ -57,6 +61,9 @@ function Reports() {
             <div className="p-4 sm:p-6">
               <TabsContent value="sales">
                 <SalesPerDayTab />
+              </TabsContent>
+              <TabsContent value="payment-methods">
+                <SalesByPaymentTab />
               </TabsContent>
               <TabsContent value="margin">
                 <MarginTab />

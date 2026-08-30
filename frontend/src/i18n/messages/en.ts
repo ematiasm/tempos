@@ -213,6 +213,7 @@ export const en: Messages = {
   "reports.subtitle":
     "Daily sales, margins, taxes, stock and current-account positions.",
   "reports.tabDaily": "Daily sales",
+  "reports.tabPaymentMethods": "Payment methods",
   "reports.tabMargin": "Margin",
   "reports.tabTaxes": "Taxes",
   "reports.tabReorder": "To order",
@@ -232,6 +233,9 @@ export const en: Messages = {
   "reports.total": "Total",
   "reports.salesDays": "{sales} sales / {days} days",
   "reports.grandTotal": "Total {total}",
+  "reports.payments": "Payments",
+  "reports.onCredit": "On credit",
+  "reports.paymentCount": "{count} payments",
   "reports.avgTicket": "Avg. ticket",
   "reports.avgTicketTotal": "Average ticket {amount}",
   "reports.product": "Product",

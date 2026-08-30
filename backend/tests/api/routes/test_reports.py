@@ -11,6 +11,36 @@ from tests.utils.ledger import load_stock
 from tests.utils.utils import random_lower_string
 
 
+def _create_financial_account(client: TestClient, headers: dict[str, str]) -> dict:
+    r = client.post(
+        f"{settings.API_V1_STR}/financial-accounts/",
+        headers=headers,
+        json={"name": random_lower_string()[:15]},
+    )
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _create_card_method(
+    client: TestClient, headers: dict[str, str], account_id: str
+) -> dict:
+    r = client.post(
+        f"{settings.API_V1_STR}/payment-methods/",
+        headers=headers,
+        json={"name": "Tarjeta", "financial_account_id": account_id},
+    )
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _credit_method_id(db: Session) -> str:
+    method = db.exec(
+        select(PaymentMethod).where(PaymentMethod.marks_paid == False)  # noqa: E712
+    ).first()
+    assert method is not None, "Seeded credit payment method not found"
+    return str(method.id)
+
+
 def _create_uom(client: TestClient, headers: dict[str, str]) -> dict:
     r = client.post(
         f"{settings.API_V1_STR}/uoms/",
@@ -264,6 +294,142 @@ def test_sales_per_day_groups_by_business_timezone_with_inclusive_bounds(
         assert rows[0]["total"] == "484.00"
     finally:
         _set_timezone(client, superuser_token_headers, previous_tz)
+
+
+def _create_sale_with_payments(
+    client: TestClient,
+    headers: dict[str, str],
+    product_id: str,
+    customer_id: str,
+    payments: list[dict[str, str]],
+    *,
+    cantidad: str = "2",
+    precio_unit: str | None = None,
+    fecha: str | None = None,
+) -> dict:
+    payload: dict = {
+        "document_type_id": _doc_type_id(client, headers, "TCK"),
+        "contraparte_id": customer_id,
+        "lines": [{"product_id": product_id, "cantidad": cantidad}],
+        "payments": payments,
+    }
+    if precio_unit is not None:
+        payload["lines"][0]["precio_unit"] = precio_unit
+    if fecha is not None:
+        payload["fecha"] = fecha
+    r = client.post(f"{settings.API_V1_STR}/documents/", headers=headers, json=payload)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _void_document(
+    client: TestClient, headers: dict[str, str], document_id: str
+) -> dict:
+    r = client.post(
+        f"{settings.API_V1_STR}/documents/{document_id}/void",
+        headers=headers,
+        json={},
+    )
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_sales_by_payment_groups_by_method_and_reconciles(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    customer = _create_customer(client, superuser_token_headers)
+    product = _create_product(client, superuser_token_headers)
+    load_stock(client, superuser_token_headers, product["id"], "10")
+    cash_id = _cash_method_id(db)
+    credit_id = _credit_method_id(db)
+    bank = _create_financial_account(client, superuser_token_headers)
+    card = _create_card_method(client, superuser_token_headers, bank["id"])
+
+    # Sale 1 (242.00): cash 200 + credit 42 (a marks_paid=False method row).
+    sale1 = _create_sale_with_payments(
+        client,
+        superuser_token_headers,
+        product["id"],
+        customer["id"],
+        [
+            {"payment_method_id": cash_id, "monto": "200.00"},
+            {"payment_method_id": credit_id, "monto": "42.00"},
+        ],
+        fecha="2024-06-05T12:00:00Z",
+    )
+    assert Decimal(sale1["total"]) == Decimal("242.00")
+    # Sale 2 (363.00): fully paid by card.
+    _create_sale_with_payments(
+        client,
+        superuser_token_headers,
+        product["id"],
+        customer["id"],
+        [{"payment_method_id": card["id"], "monto": "363.00"}],
+        cantidad="3",
+        fecha="2024-06-06T12:00:00Z",
+    )
+    # Sale 3 (121.00): cash, then fully voided — its payment rows must be
+    # excluded from the report (the mirror NC's payment is dated outside the
+    # queried range, so it does not mask the exclusion either).
+    sale3 = _create_sale_with_payments(
+        client,
+        superuser_token_headers,
+        product["id"],
+        customer["id"],
+        [{"payment_method_id": cash_id, "monto": "121.00"}],
+        cantidad="1",
+        fecha="2024-06-07T12:00:00Z",
+    )
+    _void_document(client, superuser_token_headers, sale3["id"])
+
+    r = client.get(
+        f"{settings.API_V1_STR}/reports/sales-by-payment/",
+        headers=superuser_token_headers,
+        params={"desde": "2024-06-01", "hasta": "2024-06-30"},
+    )
+    assert r.status_code == 200, r.text
+    rows = {row["method_name"]: row for row in r.json()}
+
+    def method_row(name: str) -> dict:
+        row = rows[name]
+        return {
+            "method_name": row["method_name"],
+            "marks_paid": row["marks_paid"],
+            "count": row["count"],
+            "monto": row["monto"],
+        }
+
+    # Cash: sale 1's 200.00; sale 3's 121.00 is excluded (voided document).
+    assert method_row("Efectivo") == {
+        "method_name": "Efectivo",
+        "marks_paid": True,
+        "count": 1,
+        "monto": "200.00",
+    }
+    assert method_row("Tarjeta") == {
+        "method_name": "Tarjeta",
+        "marks_paid": True,
+        "count": 1,
+        "monto": "363.00",
+    }
+    assert method_row("Crédito") == {
+        "method_name": "Crédito",
+        "marks_paid": False,
+        "count": 1,
+        "monto": "42.00",
+    }
+    payment_total = sum(Decimal(row["monto"]) for row in rows.values())
+    assert payment_total == Decimal("605.00")
+
+    # The method rows total the same period's sales total (sales-per-day).
+    r = client.get(
+        f"{settings.API_V1_STR}/reports/sales-per-day/",
+        headers=superuser_token_headers,
+        params={"desde": "2024-06-01", "hasta": "2024-06-30"},
+    )
+    assert r.status_code == 200, r.text
+    sales_total = sum(Decimal(row["total"]) for row in r.json())
+    assert sales_total == payment_total == Decimal("605.00")
 
 
 def test_account_movements_filter_by_business_local_days(

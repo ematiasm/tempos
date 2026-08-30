@@ -5277,6 +5277,36 @@ export const RoleUpdateSchema = {
     title: 'RoleUpdate'
 } as const;
 
+export const SalesByPaymentRowSchema = {
+    properties: {
+        method_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Method Id'
+        },
+        method_name: {
+            type: 'string',
+            title: 'Method Name'
+        },
+        marks_paid: {
+            type: 'boolean',
+            title: 'Marks Paid'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        },
+        monto: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Monto'
+        }
+    },
+    type: 'object',
+    required: ['method_id', 'method_name', 'marks_paid', 'count', 'monto'],
+    title: 'SalesByPaymentRow'
+} as const;
+
 export const SalesPerDayRowSchema = {
     properties: {
         fecha: {
