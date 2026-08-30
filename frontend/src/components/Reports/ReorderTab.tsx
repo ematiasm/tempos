@@ -11,6 +11,7 @@ import {
   downloadCsv,
 } from "@/components/Reports/csv"
 import { ReportActions } from "@/components/Reports/ReportActions"
+import { ReportPrintDialog } from "@/components/Reports/ReportPrintDialog"
 import { money, qty } from "@/components/Reports/reportFormat"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -61,8 +62,12 @@ export function ReorderTab() {
     enabled: canView,
   })
   const rows = data ?? []
+  // With a supplier filter the backend's cost basis is that supplier's cost
+  // (the field stays `reference_cost`); the header mirrors the active basis.
+  const supplier = (suppliers?.data ?? []).find((s) => s.id === supplierId)
 
   // CSV export reuses the table's translated column names, in column order.
+  const costHeader = supplierId ? t("reports.cost") : t("reports.refCost")
   const headerLabels = [
     t("reports.product"),
     t("reports.sku"),
@@ -71,9 +76,10 @@ export function ReorderTab() {
     t("reports.min"),
     t("reports.max"),
     t("reports.toOrder"),
-    t("reports.refCost"),
+    costHeader,
     t("reports.estTotal"),
   ]
+  const [printOpen, setPrintOpen] = useState(false)
 
   const exportCsv = () =>
     downloadCsv(
@@ -202,14 +208,18 @@ export function ReorderTab() {
         </div>
         {!isLoading && rows.length > 0 && (
           <span className="text-sm text-muted-foreground pb-1">
-            {t("reports.itemsEst", {
+            {t("reports.itemsOrderEst", {
               count: rows.length,
               total: money(estimatedTotal, numberFormat),
             })}
           </span>
         )}
         <div className="ml-auto pb-1">
-          <ReportActions hasRows={rows.length > 0} onExportCsv={exportCsv} />
+          <ReportActions
+            hasRows={rows.length > 0}
+            onExportCsv={exportCsv}
+            onPrint={() => setPrintOpen(true)}
+          />
         </div>
       </div>
       <Card>
@@ -221,6 +231,36 @@ export function ReorderTab() {
           )}
         </CardContent>
       </Card>
+      <ReportPrintDialog
+        open={printOpen}
+        onOpenChange={setPrintOpen}
+        title={t("reports.tabReorder")}
+        period={supplier?.razon_social}
+        sections={[
+          {
+            headers: [
+              headerLabels[0],
+              headerLabels[1],
+              headerLabels[6],
+              headerLabels[7],
+              headerLabels[8],
+            ],
+            rows: rows.map((r) => [
+              r.name,
+              r.sku ?? "—",
+              qty(r.missing),
+              money(r.reference_cost, numberFormat),
+              money(r.estimated_cost, numberFormat),
+            ]),
+            totals: [
+              {
+                label: t("reports.orderEstLabel"),
+                value: money(estimatedTotal, numberFormat),
+              },
+            ],
+          },
+        ]}
+      />
     </div>
   )
 }

@@ -346,7 +346,11 @@ def reorder_report(
 
     Optionally filtered by category and by the suppliers that offer them.
     ``missing`` is how many units to reach the minimum; ``estimated_cost``
-    uses each product's reference supplier cost.
+    multiplies it by the row's cost basis: the filtered supplier's current
+    cost when ``supplier_id`` is given (the filter guarantees every returned
+    product has a ``SupplierProduct`` row for that supplier), the reference
+    supplier's cost otherwise. Response field names are unchanged — under a
+    supplier filter ``reference_cost`` carries that supplier's cost.
     """
     products = [
         p
@@ -355,26 +359,30 @@ def reorder_report(
     ]
     if category_id is not None:
         products = [p for p in products if p.category_id == category_id]
+    supplier_rows: list[SupplierProduct] = []
     if supplier_id is not None:
-        offered = {
-            sp.product_id
-            for sp in session.exec(
+        supplier_rows = list(
+            session.exec(
                 select(SupplierProduct).where(
                     col(SupplierProduct.supplier_id) == supplier_id
                 )
             ).all()
-        }
+        )
+        offered = {sp.product_id for sp in supplier_rows}
         products = [p for p in products if p.id in offered]
 
     category_names = _category_names(session, products)
-    reference_costs = {
-        sp.product_id: sp.costo_actual
-        for sp in session.exec(
-            select(SupplierProduct).where(
-                col(SupplierProduct.es_referencia) == True  # noqa: E712
-            )
-        ).all()
-    }
+    if supplier_id is not None:
+        cost_basis = {sp.product_id: sp.costo_actual for sp in supplier_rows}
+    else:
+        cost_basis = {
+            sp.product_id: sp.costo_actual
+            for sp in session.exec(
+                select(SupplierProduct).where(
+                    col(SupplierProduct.es_referencia) == True  # noqa: E712
+                )
+            ).all()
+        }
 
     rows = []
     for product in products:
@@ -384,7 +392,7 @@ def reorder_report(
             if minimum is not None
             else Decimal("0")
         )
-        cost = reference_costs.get(product.id)
+        cost = cost_basis.get(product.id)
         rows.append(
             ReorderRow(
                 id=product.id,

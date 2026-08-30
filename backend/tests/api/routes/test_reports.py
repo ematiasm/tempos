@@ -639,3 +639,66 @@ def test_reorder_includes_only_products_with_minimum_below(
     ids = {row["id"] for row in r.json()}
     assert product["id"] in ids  # 0 stock <= 10 minimum
     assert no_minimum["id"] not in ids  # no minimum -> never reorder
+
+
+def _create_supplier(client: TestClient, headers: dict[str, str]) -> dict:
+    r = client.post(
+        f"{settings.API_V1_STR}/suppliers/",
+        headers=headers,
+        json={"razon_social": random_lower_string()[:20], "condicion_fiscal": "RI"},
+    )
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_reorder_cost_basis_follows_supplier_filter(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    product = _create_product(client, superuser_token_headers, stock_minimo="10")
+    supplier_a = _create_supplier(client, superuser_token_headers)
+    supplier_b = _create_supplier(client, superuser_token_headers)
+
+    # The first registered pair becomes the reference supplier (auto-promoted).
+    for supplier, cost in ((supplier_a, "80.00"), (supplier_b, "95.00")):
+        r = client.post(
+            f"{settings.API_V1_STR}/supplier-products/",
+            headers=superuser_token_headers,
+            json={
+                "supplier_id": supplier["id"],
+                "product_id": product["id"],
+                "costo_actual": cost,
+            },
+        )
+        assert r.status_code == 200, r.text
+
+    reorder_url = f"{settings.API_V1_STR}/reports/reorder/"
+
+    # Without a supplier filter: the reference supplier's cost.
+    r = client.get(reorder_url, headers=superuser_token_headers)
+    assert r.status_code == 200, r.text
+    row = next(row for row in r.json() if row["id"] == product["id"])
+    assert row["reference_cost"] == "80.00"
+    assert row["estimated_cost"] == "800.00"  # 10 missing x 80.00
+
+    # Filtered by supplier B: the row's cost basis is THAT supplier's cost
+    # (field names unchanged; `reference_cost` carries B's cost).
+    r = client.get(
+        reorder_url,
+        headers=superuser_token_headers,
+        params={"supplier_id": supplier_b["id"]},
+    )
+    assert r.status_code == 200, r.text
+    row = next(row for row in r.json() if row["id"] == product["id"])
+    assert row["reference_cost"] == "95.00"
+    assert row["estimated_cost"] == "950.00"
+
+    # Filtered by supplier A (the reference supplier itself): same basis.
+    r = client.get(
+        reorder_url,
+        headers=superuser_token_headers,
+        params={"supplier_id": supplier_a["id"]},
+    )
+    assert r.status_code == 200, r.text
+    row = next(row for row in r.json() if row["id"] == product["id"])
+    assert row["reference_cost"] == "80.00"
+    assert row["estimated_cost"] == "800.00"
