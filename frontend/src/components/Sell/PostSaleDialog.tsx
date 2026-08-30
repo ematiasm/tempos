@@ -107,6 +107,48 @@ export function PostSaleDialog({
     setEmailInputOpen(true)
   }
 
+  // --- Post-sale keyboard flow ---------------------------------------------
+  // Enter / Escape start a new sale; P opens the print flow. The shortcuts
+  // yield to any nested surface (print overlay, email prompt) and P is
+  // ignored while typing, so the notes textarea never triggers a print.
+  useEffect(() => {
+    const isTypingTarget = (target: EventTarget | null): boolean => {
+      if (!(target instanceof HTMLElement)) return false
+      return (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT" ||
+        target.isContentEditable
+      )
+    }
+    // buttons/links keep their native Enter activation, which already routes
+    // to the focused action (new sale, print, save note, send email, ...)
+    const isActivatableTarget = (target: EventTarget | null): boolean =>
+      target instanceof HTMLElement &&
+      (target.tagName === "BUTTON" || target.tagName === "A")
+
+    const onKey = (e: KeyboardEvent) => {
+      if (printOpen || emailInputOpen) return
+      // safety net: a Radix dialog mounted anywhere wins over the shortcuts
+      if (document.querySelector('[role="dialog"]')) return
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.key === "Enter" || e.key === "Escape") {
+        if (isTypingTarget(e.target) || isActivatableTarget(e.target)) return
+        e.preventDefault()
+        onNewSale()
+        return
+      }
+      if (e.key === "p" || e.key === "P") {
+        if (isTypingTarget(e.target)) return
+        e.preventDefault()
+        setSavePdf(false)
+        setPrintOpen(true)
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [printOpen, emailInputOpen, onNewSale])
+
   return (
     <div
       data-testid="post-sale-dialog"
@@ -188,6 +230,7 @@ export function PostSaleDialog({
           variant="secondary"
           data-testid="post-sale-new-sale"
           onClick={onNewSale}
+          autoFocus
         >
           {t("sell.newSale")}
         </Button>

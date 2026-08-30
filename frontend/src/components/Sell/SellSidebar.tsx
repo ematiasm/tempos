@@ -135,6 +135,7 @@ export function SellSidebar({
           <Input
             type="number"
             step="0.01"
+            data-testid="sell-discount"
             value={discountTotal}
             onChange={(e) => onDiscountChange(Number(e.target.value) || 0)}
           />

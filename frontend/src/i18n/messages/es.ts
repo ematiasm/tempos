@@ -149,6 +149,8 @@ export const es = {
   "sell.postSale.notesPlaceholder": "Nota impresa en el comprobante (opcional)",
   "sell.postSale.saveNote": "Guardar nota",
   "sell.postSale.noteSaved": "Nota guardada",
+  "sell.cartRestored": "Venta en curso restaurada",
+  "sell.cartRestored.discard": "Descartar",
   "sell.notesLabel": "Nota (opcional)",
   "sell.onCreditHint":
     "El monto ({amount}) se registra en la cuenta corriente del cliente. No se cobra dinero.",

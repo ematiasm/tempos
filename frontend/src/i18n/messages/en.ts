@@ -151,6 +151,8 @@ export const en: Messages = {
   "sell.postSale.notesPlaceholder": "Note printed on the voucher (optional)",
   "sell.postSale.saveNote": "Save note",
   "sell.postSale.noteSaved": "Note saved",
+  "sell.cartRestored": "Sale in progress restored",
+  "sell.cartRestored.discard": "Discard",
   "sell.notesLabel": "Note (optional)",
   "sell.onCreditHint":
     "The amount ({amount}) is registered on the customer's current account. No money is collected.",

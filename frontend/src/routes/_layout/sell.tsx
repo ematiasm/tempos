@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { SplitSquareHorizontal } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { toast } from "sonner"
 
 import type {
   DocumentPaymentCreate,
@@ -30,8 +31,11 @@ import { useOpenCashSession } from "@/components/Sell/useOpenCashSession"
 import { useReferenceData } from "@/components/Sell/useReferenceData"
 import {
   clampQty,
+  clearCartSnapshot,
   computeTotals,
+  loadCartSnapshot,
   qtyStepFor,
+  saveCartSnapshot,
   useSellCart,
 } from "@/components/Sell/useSellCart"
 import { Button } from "@/components/ui/button"
@@ -63,6 +67,7 @@ function Sell() {
     updateLine,
     removeLine,
     reset: resetCart,
+    restore: restoreCartLines,
   } = useSellCart()
   const [customerId, setCustomerId] = useState<string | null>(null)
   // once the operator explicitly picks (or clears) a customer, the
@@ -92,6 +97,16 @@ function Sell() {
   // customer combobox handle (Alt+C opens + focuses it)
   const customerControlsRef = useRef<CounterpartComboboxControls | null>(null)
 
+  // --- Cart snapshot (sessionStorage) --------------------------------------
+  // Nothing is persisted before the restore pass runs, so a reload can never
+  // overwrite the stored snapshot with the pristine initial state.
+  const [hydrated, setHydrated] = useState(false)
+  // one-shot: keeps the restored document type safe from the fiscal-type
+  // suggestion that re-runs for the restored customer
+  const suppressSuggestRef = useRef<string | null>(null)
+  // always-fresh closure for the restore-toast discard action
+  const discardRef = useRef<() => void>(() => {})
+
   // --- Configuration-driven behavior -------------------------------------
   // Ordered quick shortcuts; null (unset) keeps ALL methods in list order.
   const quickMethods = useMemo(() => {
@@ -116,6 +131,10 @@ function Sell() {
       ? -Number(selectedCustomer.saldo)
       : 0
 
+  // Applies the configured default customer (or Consumidor Final) while the
+  // operator has not picked one. DECLARED BEFORE the restore effect on
+  // purpose: when reference data lands in the same commit as the restore,
+  // both write customerId and the restore's write must win the batch.
   useEffect(() => {
     if (customerTouched) return
     if (defaultCustomerId) {
@@ -134,12 +153,112 @@ function Sell() {
     defaultCustomerId,
   ])
 
+  // --- Cart snapshot restore (once, when reference data is settled) --------
+  // Reference data must be settled before restoring: the fiscal-type
+  // suggestion re-runs when saleTypes loads and would clobber the restored
+  // document type otherwise. The restored customer is validated here too —
+  // the gate below guarantees customers is already loaded.
+  useEffect(() => {
+    if (hydrated) return
+    if (customers.length === 0 || saleTypes.length === 0) return
+    setHydrated(true)
+    const snapshot = loadCartSnapshot()
+    if (!snapshot || snapshot.cart.length === 0) return
+    restoreCartLines(snapshot.cart)
+    if (snapshot.customerTouched) {
+      const restoredId = snapshot.customerId
+      if (restoredId && customers.some((c) => c.id === restoredId)) {
+        // the operator's pick still exists: it wins over the default the
+        // effect above applied within this same commit
+        setCustomerTouched(true)
+        setCustomerId(restoredId)
+      } else if (restoredId) {
+        // stale pick (customer deleted or deactivated): fall back to the
+        // configured default via the default-customer effect
+        setCustomerTouched(false)
+      } else {
+        // the operator explicitly cleared the customer: keep it cleared
+        setCustomerTouched(true)
+        setCustomerId(null)
+      }
+    }
+    if (snapshot.docTypeId) {
+      setDocTypeId(snapshot.docTypeId)
+      if (snapshot.customerId) {
+        suppressSuggestRef.current = snapshot.customerId
+      }
+    }
+    setDate(snapshot.date)
+    setDiscountTotal(snapshot.discountTotal)
+    setNotes(snapshot.notes)
+    toast.success(t("sell.cartRestored"), {
+      duration: 10000,
+      action: {
+        label: t("sell.cartRestored.discard"),
+        onClick: () => discardRef.current(),
+      },
+    })
+  }, [hydrated, customers, saleTypes, t, restoreCartLines])
+
+  // Discard: clear the snapshot and reset the sell state to its defaults.
+  // Re-bound every render so the toast action never closes over stale config.
+  useEffect(() => {
+    discardRef.current = () => {
+      clearCartSnapshot()
+      resetCart()
+      setCustomerId(null)
+      setCustomerTouched(false)
+      setDocTypeId(fixedDocTypeId)
+      setDate(new Date().toISOString().slice(0, 10))
+      setDiscountTotal(0)
+      setNotes("")
+      setSelectedLine(null)
+    }
+  })
+
+  // Persist the in-progress sale on every change once hydration is done; an
+  // empty cart clears the snapshot instead of storing a husk.
+  useEffect(() => {
+    if (!hydrated) return
+    if (cart.length === 0) {
+      clearCartSnapshot()
+      return
+    }
+    saveCartSnapshot({
+      version: 1,
+      cart,
+      customerId,
+      customerTouched,
+      docTypeId,
+      date,
+      discountTotal,
+      notes,
+    })
+  }, [
+    cart,
+    customerId,
+    customerTouched,
+    docTypeId,
+    date,
+    discountTotal,
+    notes,
+    hydrated,
+  ])
+
   useEffect(() => {
     if (fixedDocTypeId) setDocTypeId(fixedDocTypeId)
   }, [fixedDocTypeId])
 
   useEffect(() => {
     if (!customerId || fixedDocTypeId) return
+    // a restored document type survives the suggestion for that customer
+    if (
+      suppressSuggestRef.current &&
+      suppressSuggestRef.current === customerId
+    ) {
+      suppressSuggestRef.current = null
+      return
+    }
     let cancelled = false
     DocumentsService.suggestFiscalSaleType({ customerId }).then(
       (suggested) => {
@@ -194,6 +313,7 @@ function Sell() {
     },
     onSuccess: ({ doc, vuelto: saleVuelto }) => {
       showSuccessToast(t("sell.issued", { numero: doc.numero }))
+      clearCartSnapshot()
       setCreated(doc)
       setVuelto(saleVuelto)
       resetCart()

@@ -1238,6 +1238,106 @@ test.describe("Sell flow", () => {
     await expect(page.getByTestId("sale-vuelto")).toHaveCount(0)
   })
 
+  test("A reload mid-sale restores cart, customer and discount; discard resets", async ({
+    page,
+    request,
+  }) => {
+    const suffix = uid()
+    const name = `Producto E2E Reload ${suffix}`
+    const uoms = await getUoms(request)
+    const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
+    const product = await createProduct(request, {
+      name,
+      sku: `RLD-${suffix.toUpperCase()}`,
+      uom_id: uom.id,
+      costo_actual: 100,
+      margen_pct: 50,
+    })
+    await adjustStock(request, product.id, 5)
+    const customer = await createCustomer(request, `Cliente Reload ${suffix}`)
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(name)
+    await page.getByRole("button", { name: new RegExp(name) }).click()
+    await expect(page.getByTestId("cart-row")).toHaveCount(1)
+
+    await page.getByTestId("customer-select").click()
+    await page
+      .getByRole("option", { name: new RegExp(customer.razon_social) })
+      .click()
+    await page.getByTestId("sell-discount").fill("25")
+
+    await page.reload()
+
+    // everything the operator chose survives the reload: the lines, the
+    // picked customer (NOT reset to the configured default) and the discount
+    await expect(page.getByTestId("cart-row")).toHaveCount(1)
+    await expect(page.getByTestId("cart-row")).toContainText(name)
+    await expect(page.getByTestId("customer-select")).toContainText(
+      `Cliente Reload ${suffix}`,
+    )
+    await expect(page.getByTestId("sell-discount")).toHaveValue("25")
+    await expect(page.getByText("Venta en curso restaurada")).toBeVisible()
+
+    // the discard action empties the cart, resets the customer to the
+    // default and clears the snapshot
+    await page.getByRole("button", { name: "Descartar" }).click()
+    await expect(page.getByTestId("cart-row")).toHaveCount(0)
+    await expect(page.getByTestId("customer-select")).toContainText(
+      "Consumidor Final",
+    )
+    await expect(page.getByTestId("sell-discount")).toHaveValue("0")
+    await expect
+      .poll(() =>
+        page.evaluate(() => sessionStorage.getItem("tempos/sell/cart/v1")),
+      )
+      .toBe(null)
+  })
+
+  test("Post-sale Enter starts a new sale and refocuses the search", async ({
+    page,
+  }) => {
+    await searchAndAdd(page)
+    await payQuick(page, "Efectivo")
+    await expect(page.getByTestId("post-sale-dialog")).toBeVisible()
+
+    await page.keyboard.press("Enter")
+
+    await expect(page.getByTestId("post-sale-dialog")).toHaveCount(0)
+    await expect(page.getByTestId("product-search")).toBeFocused()
+  })
+
+  test("Post-sale P opens the print flow and Escape inside it does not start a new sale", async ({
+    page,
+  }) => {
+    await searchAndAdd(page)
+    await payQuick(page, "Efectivo")
+    await expect(page.getByTestId("post-sale-dialog")).toBeVisible()
+
+    // typing P in the notes textarea must never open the print flow
+    await page.getByTestId("post-sale-note").press("P")
+    await expect(page.locator("[data-print-format]")).toHaveCount(0)
+    await expect(page.getByTestId("post-sale-note")).toHaveValue("P")
+    await page.getByTestId("post-sale-note").blur()
+
+    // P outside any input opens the print flow
+    const overlay = page.locator("[data-print-format]")
+    await page.keyboard.press("p")
+    await expect(overlay).toBeVisible()
+
+    // Escape inside the print overlay is inert: no new sale, overlay stays
+    await page.keyboard.press("Escape")
+    await expect(overlay).toBeVisible()
+    await expect(page.getByTestId("post-sale-dialog")).toBeVisible()
+
+    // closing the overlay hands control back: Escape now starts the new sale
+    await page.getByRole("button", { name: "Cerrar", exact: true }).click()
+    await expect(overlay).toHaveCount(0)
+    await page.keyboard.press("Escape")
+    await expect(page.getByTestId("post-sale-dialog")).toHaveCount(0)
+    await expect(page.getByTestId("product-search")).toBeFocused()
+  })
+
   test("The note action PATCHes the document and prints on the voucher", async ({
     page,
     request,
