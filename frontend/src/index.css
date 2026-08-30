@@ -140,10 +140,13 @@
     visibility: hidden;
   }
   #voucher-print,
-  #voucher-print * {
+  #voucher-print *,
+  #report-print,
+  #report-print * {
     visibility: visible;
   }
-  #voucher-print {
+  #voucher-print,
+  #report-print {
     position: absolute;
     inset: 0 auto auto 0;
     width: 100%;

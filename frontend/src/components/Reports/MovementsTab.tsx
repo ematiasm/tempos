@@ -4,8 +4,16 @@ import { useEffect, useState } from "react"
 import type { AccountMovementPublic } from "@/client"
 import { AccountMovementsService, FinancialAccountsService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
+import {
+  csvDate,
+  csvFilename,
+  csvMoney,
+  downloadCsv,
+} from "@/components/Reports/csv"
 import { safeTimeZone, thisMonthRange } from "@/components/Reports/datePresets"
+import { ReportActions } from "@/components/Reports/ReportActions"
 import { ReportDateRange } from "@/components/Reports/ReportDateRange"
+import { ReportPrintDialog } from "@/components/Reports/ReportPrintDialog"
 import { type DateRangeValue, money } from "@/components/Reports/reportFormat"
 import { useBusinessSettings } from "@/components/Sell/useBusinessSettings"
 import { Badge } from "@/components/ui/badge"
@@ -74,40 +82,73 @@ export function MovementsTab({ initialAccountId }: MovementsTabProps) {
   const rows = data?.data ?? []
   const accountName = accounts?.data.find((a) => a.id === accountId)?.name
 
+  // CSV export and the printable view reuse the table's translated column
+  // names, in column order.
+  const headerLabels = [
+    t("reports.date"),
+    t("reports.account"),
+    t("reports.document"),
+    t("reports.method"),
+    t("reports.counterpart"),
+    t("reports.type"),
+    t("reports.amount"),
+    t("reports.status"),
+  ]
+  const [printOpen, setPrintOpen] = useState(false)
+
+  // Exports exactly the rows the gated query loaded (this endpoint is fetched
+  // with limit: 200, so a range with more movements under-exports by design
+  // of the query window, never silently more than what is on screen).
+  const exportCsv = () =>
+    downloadCsv(
+      csvFilename("movimientos", range.desde, range.hasta),
+      headerLabels,
+      rows.map((r) => [
+        csvDate(r.fecha),
+        r.account_name ?? "",
+        r.document_numero ?? "",
+        r.payment_method_name ?? "",
+        r.counterpart_name ?? "",
+        r.tipo ?? "",
+        csvMoney(r.monto),
+        r.conciliado ? t("reports.conciliated") : t("reports.pending"),
+      ]),
+    )
+
   const columns: ColumnDef<AccountMovementPublic>[] = [
     {
       accessorKey: "fecha",
-      header: t("reports.date"),
+      header: headerLabels[0],
       cell: ({ row }) => (row.original.fecha ?? "").slice(0, 10),
     },
     {
       accessorKey: "account_name",
-      header: t("reports.account"),
+      header: headerLabels[1],
       cell: ({ row }) => row.original.account_name ?? "—",
     },
     {
       accessorKey: "document_numero",
-      header: t("reports.document"),
+      header: headerLabels[2],
       cell: ({ row }) => row.original.document_numero ?? "—",
     },
     {
       accessorKey: "payment_method_name",
-      header: t("reports.method"),
+      header: headerLabels[3],
       cell: ({ row }) => row.original.payment_method_name ?? "—",
     },
     {
       accessorKey: "counterpart_name",
-      header: t("reports.counterpart"),
+      header: headerLabels[4],
       cell: ({ row }) => row.original.counterpart_name ?? "—",
     },
     {
       accessorKey: "tipo",
-      header: t("reports.type"),
+      header: headerLabels[5],
       cell: ({ row }) => <Badge variant="secondary">{row.original.tipo}</Badge>,
     },
     {
       accessorKey: "monto",
-      header: t("reports.amount"),
+      header: headerLabels[6],
       cell: ({ row }) => (
         <span
           className={cn(
@@ -123,7 +164,7 @@ export function MovementsTab({ initialAccountId }: MovementsTabProps) {
     },
     {
       accessorKey: "conciliado",
-      header: t("reports.status"),
+      header: headerLabels[7],
       cell: ({ row }) =>
         row.original.conciliado ? (
           <Badge variant="outline">{t("reports.conciliated")}</Badge>
@@ -140,6 +181,10 @@ export function MovementsTab({ initialAccountId }: MovementsTabProps) {
   const outflows = rows
     .filter((r) => Number(r.monto) < 0)
     .reduce((acc, r) => acc + Number(r.monto), 0)
+  const periodLabel = [range.desde, range.hasta]
+    .filter(Boolean)
+    .map(csvDate)
+    .join(" — ")
 
   return (
     <div className="flex flex-col gap-4">
@@ -183,6 +228,13 @@ export function MovementsTab({ initialAccountId }: MovementsTabProps) {
             </span>
           </div>
         )}
+        <div className="ml-auto pb-1">
+          <ReportActions
+            hasRows={rows.length > 0}
+            onExportCsv={exportCsv}
+            onPrint={() => setPrintOpen(true)}
+          />
+        </div>
       </div>
       <Card>
         <CardContent className="p-0">
@@ -193,6 +245,41 @@ export function MovementsTab({ initialAccountId }: MovementsTabProps) {
           )}
         </CardContent>
       </Card>
+      <ReportPrintDialog
+        open={printOpen}
+        onOpenChange={setPrintOpen}
+        title={t("reports.tabMovements")}
+        period={periodLabel}
+        sections={[
+          {
+            headers: headerLabels,
+            rows: rows.map((r) => [
+              csvDate(r.fecha),
+              r.account_name ?? "—",
+              r.document_numero ?? "—",
+              r.payment_method_name ?? "—",
+              r.counterpart_name ?? "—",
+              r.tipo ?? "—",
+              money(r.monto, numberFormat),
+              r.conciliado ? t("reports.conciliated") : t("reports.pending"),
+            ]),
+            totals: [
+              {
+                label: t("reports.inflows"),
+                value: money(inflows, numberFormat),
+              },
+              {
+                label: t("reports.outflows"),
+                value: money(outflows, numberFormat),
+              },
+              {
+                label: t("reports.netTotal"),
+                value: money(total, numberFormat),
+              },
+            ],
+          },
+        ]}
+      />
     </div>
   )
 }

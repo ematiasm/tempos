@@ -4,6 +4,13 @@ import { useState } from "react"
 import type { ReorderRow } from "@/client"
 import { CategoriesService, ReportsService, SuppliersService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
+import {
+  csvFilename,
+  csvMoney,
+  csvNumber,
+  downloadCsv,
+} from "@/components/Reports/csv"
+import { ReportActions } from "@/components/Reports/ReportActions"
 import { money, qty } from "@/components/Reports/reportFormat"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -55,21 +62,51 @@ export function ReorderTab() {
   })
   const rows = data ?? []
 
+  // CSV export reuses the table's translated column names, in column order.
+  const headerLabels = [
+    t("reports.product"),
+    t("reports.sku"),
+    t("reports.category"),
+    t("reports.onHand"),
+    t("reports.min"),
+    t("reports.max"),
+    t("reports.toOrder"),
+    t("reports.refCost"),
+    t("reports.estTotal"),
+  ]
+
+  const exportCsv = () =>
+    downloadCsv(
+      csvFilename("a-reponer"),
+      headerLabels,
+      rows.map((r) => [
+        r.name,
+        r.sku ?? "",
+        r.category_name ?? "",
+        csvNumber(r.stock_current),
+        csvNumber(r.stock_minimo),
+        csvNumber(r.stock_maximo),
+        csvNumber(r.missing),
+        csvMoney(r.reference_cost),
+        csvMoney(r.estimated_cost),
+      ]),
+    )
+
   const columns: ColumnDef<ReorderRow>[] = [
-    { accessorKey: "name", header: t("reports.product") },
+    { accessorKey: "name", header: headerLabels[0] },
     {
       accessorKey: "sku",
-      header: t("reports.sku"),
+      header: headerLabels[1],
       cell: ({ row }) => row.original.sku ?? "—",
     },
     {
       accessorKey: "category_name",
-      header: t("reports.category"),
+      header: headerLabels[2],
       cell: ({ row }) => row.original.category_name ?? "—",
     },
     {
       accessorKey: "stock_current",
-      header: t("reports.onHand"),
+      header: headerLabels[3],
       cell: ({ row }) => (
         <span className="font-medium text-red-600">
           {qty(row.original.stock_current)}
@@ -78,27 +115,27 @@ export function ReorderTab() {
     },
     {
       accessorKey: "stock_minimo",
-      header: t("reports.min"),
+      header: headerLabels[4],
       cell: ({ row }) => qty(row.original.stock_minimo),
     },
     {
       accessorKey: "stock_maximo",
-      header: t("reports.max"),
+      header: headerLabels[5],
       cell: ({ row }) => qty(row.original.stock_maximo),
     },
     {
       accessorKey: "missing",
-      header: t("reports.toOrder"),
+      header: headerLabels[6],
       cell: ({ row }) => qty(row.original.missing),
     },
     {
       accessorKey: "reference_cost",
-      header: t("reports.refCost"),
+      header: headerLabels[7],
       cell: ({ row }) => money(row.original.reference_cost, numberFormat),
     },
     {
       accessorKey: "estimated_cost",
-      header: t("reports.estTotal"),
+      header: headerLabels[8],
       cell: ({ row }) => (
         <span className="font-medium">
           {money(row.original.estimated_cost, numberFormat)}
@@ -171,6 +208,9 @@ export function ReorderTab() {
             })}
           </span>
         )}
+        <div className="ml-auto pb-1">
+          <ReportActions hasRows={rows.length > 0} onExportCsv={exportCsv} />
+        </div>
       </div>
       <Card>
         <CardContent className="p-0">
