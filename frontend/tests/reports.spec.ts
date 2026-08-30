@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test"
-import { adjustStock, createProduct, createSale, getUoms } from "./utils/api"
+import {
+  adjustStock,
+  createCustomer,
+  createProduct,
+  createSale,
+  getUoms,
+} from "./utils/api"
 import { findRowInPages } from "./utils/table"
 
 const uid = () => Math.random().toString(36).substring(7)
@@ -47,7 +53,17 @@ test.describe("Reports", () => {
       price: 150,
     })
     saleNumero = paid.numero
-    await createSale(request, { productId: saleProduct.id, paid: false })
+    // An unpaid sale needs a regular customer: 'Consumidor Final' can never
+    // carry a balance (consumidor_final_no_credit).
+    const creditCustomer = await createCustomer(
+      request,
+      `Cliente Rep Crédito ${uid()}`,
+    )
+    await createSale(request, {
+      productId: saleProduct.id,
+      customerId: creditCustomer.id,
+      paid: false,
+    })
   })
 
   test("All report tabs are available", async ({ page }) => {

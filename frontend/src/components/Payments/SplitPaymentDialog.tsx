@@ -62,6 +62,13 @@ interface SplitPaymentDialogProps {
   creditInFavor: number
   mode: SplitPaymentMode
   party: SplitPaymentParty
+  /**
+   * When true the counterpart must never carry a balance (the seeded
+   * 'Consumidor Final'): credit (marks_paid = false) methods are not offered
+   * and, in document mode, the composition must be covered exactly — no
+   * pending remainder and no on-account excess either.
+   */
+  blockCredit?: boolean
   /** Rows to start from; defaults to one row covering the whole target. */
   initialRows?: SplitRowInput[]
   /** Favor to start from; defaults to the whole credit in favor when there is one. */
@@ -112,6 +119,7 @@ export function SplitPaymentDialog({
   creditInFavor,
   mode,
   party,
+  blockCredit = false,
   initialRows,
   initialFavorApplied,
   pending,
@@ -128,8 +136,16 @@ export function SplitPaymentDialog({
   const [useCredit, setUseCredit] = useState(false)
 
   const methodIndex = useMemo(() => buildMethodIndex(methods), [methods])
+  // With credit blocked the operator can only pick methods that mark paid.
+  const selectableMethods = useMemo(
+    () =>
+      blockCredit ? methods.filter((m) => m.marks_paid !== false) : methods,
+    [methods, blockCredit],
+  )
   const defaultMethodId =
-    methods.find((m) => m.marks_paid !== false)?.id ?? methods[0]?.id ?? null
+    selectableMethods.find((m) => m.marks_paid !== false)?.id ??
+    selectableMethods[0]?.id ??
+    null
 
   useEffect(() => {
     if (!open) return
@@ -184,18 +200,26 @@ export function SplitPaymentDialog({
     ? t("errors.payment_exceeds_total")
     : metrics.creditExceeded
       ? t("errors.credit_exceeds_total")
-      : counter && metrics.uncovered
+      : metrics.uncovered && (counter || blockCredit)
         ? t("payments.split.uncovered", {
             amount: money(metrics.remaining, numberFormat),
           })
-        : null
+        : !counter && blockCredit && metrics.overpaid > 0
+          ? t("errors.consumidor_final_no_credit")
+          : null
 
   const canConfirm =
     !pending &&
     !metrics.nonCashOverpaid &&
     !metrics.creditExceeded &&
     // A counter sale must be fully covered; a document may leave a balance.
-    (!counter || (!metrics.uncovered && rows.length > 0))
+    (!counter || (!metrics.uncovered && rows.length > 0)) &&
+    // Credit blocked (Consumidor Final): in document mode the composition
+    // must be covered exactly — no pending remainder and no on-account
+    // excess; the backend would reject the document outright otherwise.
+    // Counter mode is unaffected: cash rows are capped and the vuelto is
+    // never posted.
+    (counter || !blockCredit || (!metrics.uncovered && metrics.overpaid <= 0))
 
   const confirm = () => {
     const effective = counter
@@ -236,7 +260,7 @@ export function SplitPaymentDialog({
                   <SelectValue placeholder={t("payments.split.method")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {methods.map((m) => (
+                  {selectableMethods.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
                       {m.name}
                     </SelectItem>
@@ -333,7 +357,10 @@ export function SplitPaymentDialog({
           )}
           {onAccount > 0 &&
             !metrics.nonCashOverpaid &&
-            !metrics.creditExceeded && (
+            !metrics.creditExceeded &&
+            // Blocked for balance-free counterparts: the feedback above
+            // explains it instead of advertising the forbidden credit.
+            !(blockCredit && !counter) && (
               <p
                 className="text-xs text-emerald-600"
                 data-testid="split-on-account"

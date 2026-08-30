@@ -106,6 +106,20 @@ def update_customer(
                 status_code=400,
                 detail="A customer with this document already exists",
             )
+    # The seeded 'Consumidor Final' customer is identified by name (no DB
+    # flag): renaming it would break every protection keyed on that name.
+    if (
+        customer.razon_social == CONSUMIDOR_FINAL_NAME
+        and "razon_social" in data
+        and data["razon_social"] != CONSUMIDOR_FINAL_NAME
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "consumidor_final_rename",
+                "message": "The 'Consumidor Final' customer cannot be renamed",
+            },
+        )
     if (
         customer.razon_social == CONSUMIDOR_FINAL_NAME
         and data.get("is_active") is False

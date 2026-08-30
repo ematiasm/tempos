@@ -53,6 +53,54 @@ def test_consumidor_final_is_seeded_and_protected(
     assert "cannot be deactivated" in r.json()["detail"]
 
 
+def test_consumidor_final_cannot_be_renamed(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """The seeded 'Consumidor Final' customer cannot be renamed: every
+    protection (no balance, no delete, no deactivation) keys on its name."""
+    r = client.get(
+        f"{settings.API_V1_STR}/customers/",
+        headers=superuser_token_headers,
+        params={"limit": 1000},
+    )
+    assert r.status_code == 200
+    cf = next(
+        (c for c in r.json()["data"] if c["razon_social"] == "Consumidor Final"), None
+    )
+    assert cf is not None
+
+    r = client.patch(
+        f"{settings.API_V1_STR}/customers/{cf['id']}",
+        headers=superuser_token_headers,
+        json={"razon_social": random_lower_string()[:20]},
+    )
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "consumidor_final_rename"
+
+    # the name is untouched afterwards
+    r = client.get(
+        f"{settings.API_V1_STR}/customers/{cf['id']}",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+    assert r.json()["razon_social"] == "Consumidor Final"
+
+
+def test_rename_normal_customer_succeeds(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """Regression: the rename protection is CF-scoped."""
+    customer = _create_customer(client, superuser_token_headers)
+    new_name = random_lower_string()[:20]
+    r = client.patch(
+        f"{settings.API_V1_STR}/customers/{customer['id']}",
+        headers=superuser_token_headers,
+        json={"razon_social": new_name},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["razon_social"] == new_name
+
+
 def test_create_and_read_customer(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:

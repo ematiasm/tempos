@@ -13,6 +13,7 @@ import type {
 } from "@/client"
 import { DocumentsService } from "@/client"
 import type { CounterpartComboboxControls } from "@/components/Common/CounterpartCombobox"
+import { CONSUMIDOR_FINAL_NAME } from "@/components/Common/conditionOptions"
 import { round2, toPaymentCreates } from "@/components/Payments/paymentMath"
 import {
   SplitPaymentDialog,
@@ -130,6 +131,20 @@ function Sell() {
     selectedCustomer && Number(selectedCustomer.saldo) < 0
       ? -Number(selectedCustomer.saldo)
       : 0
+  // The seeded 'Consumidor Final' must never carry a balance: when it is the
+  // selected customer, credit (marks_paid = false) methods are removed from
+  // the quick bar (and its F-keys) and the split dialog blocks credit and any
+  // uncovered remainder — the backend rule (consumidor_final_no_credit) stays
+  // the authority.
+  const isConsumidorFinal =
+    selectedCustomer?.razon_social === CONSUMIDOR_FINAL_NAME
+  const sellableQuickMethods = useMemo(
+    () =>
+      isConsumidorFinal
+        ? quickMethods.filter((m) => m.marks_paid !== false)
+        : quickMethods,
+    [quickMethods, isConsumidorFinal],
+  )
 
   // Applies the configured default customer (or Consumidor Final) while the
   // operator has not picked one. DECLARED BEFORE the restore effect on
@@ -481,7 +496,7 @@ function Sell() {
       const index = PAYMENT_FKEYS.indexOf(e.key)
       if (index === -1) return
       e.preventDefault()
-      const method = quickMethods[index]
+      const method = sellableQuickMethods[index]
       if (!method) return
       // Same gates as the quick buttons: reuse them, do not duplicate rules.
       if (method.marks_paid === false ? quickCreditDisabled : baseDisabled)
@@ -593,7 +608,7 @@ function Sell() {
         >
           <div className="flex flex-col gap-3">
             <QuickPaymentBar
-              methods={quickMethods}
+              methods={sellableQuickMethods}
               disabledForPaid={baseDisabled}
               disabledForCredit={quickCreditDisabled}
               onPay={payWithMethod}
@@ -631,6 +646,7 @@ function Sell() {
         creditInFavor={creditInFavor}
         mode="counter"
         party="customer"
+        blockCredit={isConsumidorFinal}
         pending={createMutation.isPending}
         onConfirm={(result: SplitPaymentResult) => {
           setSplitOpen(false)

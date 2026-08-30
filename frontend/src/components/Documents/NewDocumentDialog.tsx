@@ -26,6 +26,7 @@ import {
   SuppliersService,
 } from "@/client"
 import { CounterpartCombobox } from "@/components/Common/CounterpartCombobox"
+import { CONSUMIDOR_FINAL_NAME } from "@/components/Common/conditionOptions"
 import { PrintVoucherDialog } from "@/components/Documents/VoucherPrint"
 import {
   type SplitPayment,
@@ -176,6 +177,17 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
     ? Number(selectedSupplier?.saldo ?? 0)
     : Number(selectedCustomer?.saldo ?? 0)
   const creditInFavor = counterpartSaldo < 0 ? -counterpartSaldo : 0
+  // The seeded 'Consumidor Final' must never carry a balance: on a
+  // credit-direction customer document (customer + signo_caja > 0) credit
+  // methods are not offered and the payment must cover the total exactly
+  // (backend rule: consumidor_final_no_credit).
+  const blockCredit =
+    isCustomerOp &&
+    (selectedType?.signo_caja ?? 0) > 0 &&
+    selectedCustomer?.razon_social === CONSUMIDOR_FINAL_NAME
+  const selectableMethods = blockCredit
+    ? methods.filter((m) => m.marks_paid !== false)
+    : methods
 
   const { data: pairCostsData } = useQuery({
     queryFn: () =>
@@ -224,6 +236,15 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
     methods,
     settingsData,
   ])
+
+  // A credit method picked before the counterpart became Consumidor Final
+  // must not survive: reset it to the default marks_paid method.
+  useEffect(() => {
+    if (!blockCredit || !methodId) return
+    if (methods.find((m) => m.id === methodId)?.marks_paid === false) {
+      if (defaultMethod) setMethodId(defaultMethod.id)
+    }
+  }, [blockCredit, methodId, methods, defaultMethod])
 
   const { subtotal, perceptions, total } = useMemo(() => {
     let s = 0
@@ -408,6 +429,9 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
     !typeId ||
     cart.length === 0 ||
     (selectedType?.tipo_contraparte != null && !counterpartId) ||
+    // Consumidor Final cannot carry a balance: the payment must cover the
+    // total exactly (no credit method, no under- or over-coverage).
+    (blockCredit && (onCredit || round2(amount) !== round2(total))) ||
     createMutation.isPending
 
   const counterpartOptions = isSupplierOp ? suppliers : customers
@@ -826,7 +850,7 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
                               />
                             </SelectTrigger>
                             <SelectContent>
-                              {methods.map((m) => (
+                              {selectableMethods.map((m) => (
                                 <SelectItem key={m.id} value={m.id}>
                                   {m.name}
                                 </SelectItem>
@@ -912,6 +936,7 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
                     creditInFavor={creditInFavor}
                     mode="document"
                     party={isSupplierOp ? "supplier" : "customer"}
+                    blockCredit={blockCredit}
                     initialRows={split?.rows}
                     initialFavorApplied={split?.favorApplied}
                     pending={createMutation.isPending}

@@ -748,6 +748,10 @@ export const en: Messages = {
     "No payment method is configured as a cash drawer (cash)",
   "errors.credit_exceeds_total": "Credit exceeds the remaining sale total",
   "errors.payment_exceeds_total": "Payment exceeds the sale total",
+  "errors.consumidor_final_no_credit":
+    "The 'Consumidor Final' customer cannot carry a balance",
+  "errors.consumidor_final_rename":
+    "The 'Consumidor Final' customer cannot be renamed",
   "errors.document_email_failed": "The voucher email could not be sent",
   "errors.email_not_enabled": "Email sending is disabled",
   "errors.document_email_missing_address": "The document has no email address",

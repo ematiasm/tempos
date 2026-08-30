@@ -6,7 +6,11 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from app.core.config import settings
-from app.models import PaymentMethod
+from app.models import (
+    CONSUMIDOR_FINAL_NAME,
+    Customer,
+    PaymentMethod,
+)
 from tests.utils.ledger import load_stock
 from tests.utils.utils import random_lower_string
 
@@ -342,6 +346,33 @@ def test_receipt_overpayment_creates_credit_in_favor(
         ]
         == 0
     )
+
+
+def test_receipt_consumidor_final_on_account_credit_rejected(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """A receipt for the seeded 'Consumidor Final' customer cannot leave
+    on-account credit: with no outstanding documents the whole total would
+    become credit in its favor (saldo must stay 0 forever)."""
+    cf = db.exec(
+        select(Customer).where(Customer.razon_social == CONSUMIDOR_FINAL_NAME)
+    ).one()
+    r = client.post(
+        f"{settings.API_V1_STR}/payments/",
+        headers=superuser_token_headers,
+        json={
+            "contraparte_type": "customer",
+            "contraparte_id": str(cf.id),
+            "payments": [
+                {"payment_method_id": _cash_method_id(db), "monto": "100.00"}
+            ],
+        },
+    )
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "consumidor_final_no_credit"
+    assert _customer_saldo(
+        client, superuser_token_headers, str(cf.id)
+    ) == Decimal("0.00")
 
 
 def test_supplier_receipt_pays_oldest_purchase(

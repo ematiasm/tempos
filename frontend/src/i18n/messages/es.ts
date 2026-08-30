@@ -766,6 +766,10 @@ export const es = {
   "errors.credit_exceeds_total":
     "El crédito supera el total restante de la venta",
   "errors.payment_exceeds_total": "El pago supera el total de la venta",
+  "errors.consumidor_final_no_credit":
+    "El cliente 'Consumidor Final' no admite saldo ni crédito",
+  "errors.consumidor_final_rename":
+    "El cliente 'Consumidor Final' no puede renombrarse",
   "errors.document_email_failed": "No se pudo enviar el email del comprobante",
   "errors.email_not_enabled": "El envío de emails está deshabilitado",
   "errors.document_email_missing_address":

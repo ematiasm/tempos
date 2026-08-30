@@ -12,6 +12,8 @@ from app.core.config import settings
 from app.models import (
     AccountMovement,
     AccountMovementType,
+    CONSUMIDOR_FINAL_NAME,
+    Customer,
     PaymentMethod,
     Role,
     SupplierAccountMovement,
@@ -105,6 +107,13 @@ def _cash_method_id(db: Session) -> str:
     ).first()
     assert method is not None, "Seeded cash payment method not found"
     return str(method.id)
+
+
+def _consumidor_final_id(db: Session) -> str:
+    customer = db.exec(
+        select(Customer).where(Customer.razon_social == CONSUMIDOR_FINAL_NAME)
+    ).one()
+    return str(customer.id)
 
 
 def _create_doc(client: TestClient, headers: dict[str, str], payload: dict) -> dict:
@@ -336,6 +345,177 @@ def test_full_cash_overpay_stays_permissive(
     assert _customer_saldo_str(client, superuser_token_headers, customer["id"]) == (
         "-200.00"
     )
+
+
+def test_consumidor_final_unpaid_remainder_rejected(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """A CF sale with an unpaid remainder is rejected: it must never owe."""
+    cf_id = _consumidor_final_id(db)
+    product = _create_product(client, superuser_token_headers)
+    tck = _doc_type_id(client, superuser_token_headers, "TCK")
+    payload = {
+        "document_type_id": tck,
+        "contraparte_id": cf_id,
+        "lines": [
+            {
+                "product_id": product["id"],
+                "cantidad": "1",
+                "precio_unit": "1000.00",
+                "tax_ids": [],
+            }
+        ],
+        "payments": [{"payment_method_id": _cash_method_id(db), "monto": "800.00"}],
+    }
+    count_before = _documents_count(client, superuser_token_headers)
+    r = client.post(
+        f"{settings.API_V1_STR}/documents/",
+        headers=superuser_token_headers,
+        json=payload,
+    )
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "consumidor_final_no_credit"
+    assert _documents_count(client, superuser_token_headers) == count_before
+    assert _customer_saldo_str(client, superuser_token_headers, cf_id) in (
+        "0.00",
+        "0",
+    )
+
+
+def test_consumidor_final_credit_row_rejected(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """A CF sale paid through a credit (marks_paid = false) method is
+    rejected even when the row covers the whole total."""
+    cf_id = _consumidor_final_id(db)
+    product = _create_product(client, superuser_token_headers)
+    credit_method = db.exec(
+        select(PaymentMethod).where(PaymentMethod.name == "Crédito")
+    ).first()
+    assert credit_method is not None, "Seeded credit payment method not found"
+    tck = _doc_type_id(client, superuser_token_headers, "TCK")
+    payload = {
+        "document_type_id": tck,
+        "contraparte_id": cf_id,
+        "lines": [
+            {
+                "product_id": product["id"],
+                "cantidad": "1",
+                "precio_unit": "1000.00",
+                "tax_ids": [],
+            }
+        ],
+        "payments": [
+            {"payment_method_id": str(credit_method.id), "monto": "1000.00"}
+        ],
+    }
+    r = client.post(
+        f"{settings.API_V1_STR}/documents/",
+        headers=superuser_token_headers,
+        json=payload,
+    )
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "consumidor_final_no_credit"
+    assert _customer_saldo_str(client, superuser_token_headers, cf_id) in (
+        "0.00",
+        "0",
+    )
+
+
+def test_consumidor_final_full_cash_sale_keeps_saldo_zero(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """A fully paid cash sale for CF succeeds and its saldo stays 0."""
+    cf_id = _consumidor_final_id(db)
+    product = _create_product(client, superuser_token_headers)
+    tck = _doc_type_id(client, superuser_token_headers, "TCK")
+    payload = {
+        "document_type_id": tck,
+        "contraparte_id": cf_id,
+        "lines": [
+            {
+                "product_id": product["id"],
+                "cantidad": "1",
+                "precio_unit": "1000.00",
+                "tax_ids": [],
+            }
+        ],
+        "payments": [{"payment_method_id": _cash_method_id(db), "monto": "1000.00"}],
+    }
+    doc = _create_doc(client, superuser_token_headers, payload)
+    assert doc["total"] == "1000.00"
+    assert _customer_saldo_str(client, superuser_token_headers, cf_id) in (
+        "0.00",
+        "0",
+    )
+
+
+def test_consumidor_final_cash_overpay_rejected(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """A cash overpay on a CF sale is rejected: the excess would book as
+    credit in favor, which CF must never carry."""
+    cf_id = _consumidor_final_id(db)
+    product = _create_product(client, superuser_token_headers)
+    tck = _doc_type_id(client, superuser_token_headers, "TCK")
+    payload = {
+        "document_type_id": tck,
+        "contraparte_id": cf_id,
+        "lines": [
+            {
+                "product_id": product["id"],
+                "cantidad": "1",
+                "precio_unit": "1000.00",
+                "tax_ids": [],
+            }
+        ],
+        "payments": [{"payment_method_id": _cash_method_id(db), "monto": "1200.00"}],
+    }
+    r = client.post(
+        f"{settings.API_V1_STR}/documents/",
+        headers=superuser_token_headers,
+        json=payload,
+    )
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "consumidor_final_no_credit"
+    assert _customer_saldo_str(client, superuser_token_headers, cf_id) in (
+        "0.00",
+        "0",
+    )
+
+
+def test_non_cf_credit_sale_still_allowed(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Regression: the no-credit rule is CF-scoped — a regular customer can
+    still buy fully on credit."""
+    customer = _create_customer(client, superuser_token_headers)
+    product = _create_product(client, superuser_token_headers)
+    credit_method = db.exec(
+        select(PaymentMethod).where(PaymentMethod.name == "Crédito")
+    ).first()
+    assert credit_method is not None, "Seeded credit payment method not found"
+    tck = _doc_type_id(client, superuser_token_headers, "TCK")
+    payload = {
+        "document_type_id": tck,
+        "contraparte_id": customer["id"],
+        "lines": [
+            {
+                "product_id": product["id"],
+                "cantidad": "1",
+                "precio_unit": "1000.00",
+                "tax_ids": [],
+            }
+        ],
+        "payments": [
+            {"payment_method_id": str(credit_method.id), "monto": "1000.00"}
+        ],
+    }
+    doc = _create_doc(client, superuser_token_headers, payload)
+    assert doc["total"] == "1000.00"
+    assert _customer_saldo_str(
+        client, superuser_token_headers, customer["id"]
+    ) in ("1000.00", "1000")
 
 
 def test_purchase_split_payment_multiple_methods_and_debt(

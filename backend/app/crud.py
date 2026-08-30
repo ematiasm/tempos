@@ -11,6 +11,7 @@ from sqlmodel import Session, col, delete, func, select
 
 from app.core.security import get_password_hash, verify_password
 from app.models import (
+    CONSUMIDOR_FINAL_NAME,
     FISCAL_SALE_TYPE_NAMES,
     AccountMovement,
     AccountMovementType,
@@ -377,6 +378,9 @@ def _create_document_in_tx(
     if not doc_type or not doc_type.is_active:
         raise BusinessError("document_type_not_found", "Document type not found")
 
+    # Locked counterpart row (only set for counterpart-bearing types); kept
+    # hoisted so later validations reuse the locked instance.
+    counterpart: Customer | Supplier | None = None
     if doc_type.tipo_contraparte is None:
         if document_in.contraparte_id is not None:
             raise BusinessError(
@@ -393,7 +397,6 @@ def _create_document_in_tx(
         # stale saldo snapshot (double-consuming credit in favor) and race
         # their outstanding-document allocations. Lock order is always
         # counterpart -> DocumentSequence (no deadlock cycles).
-        counterpart: Customer | Supplier | None
         if doc_type.tipo_contraparte == CounterpartType.CUSTOMER:
             counterpart = session.get(
                 Customer, document_in.contraparte_id, with_for_update=True
@@ -609,6 +612,22 @@ def _create_document_in_tx(
         )
     # Full cash overpay stays permissive: the excess is on-account semantics
     # (credit in favor), matching the receipt behavior.
+    # Exception — the seeded 'Consumidor Final' customer must never carry a
+    # balance: on a credit-direction customer sale (customer + signo_caja > 0)
+    # it may neither owe (credit rows or unpaid remainder) nor overpay into
+    # credit in favor. Its limite_credito = 0 means UNLIMITED credit in this
+    # schema, so keeping its saldo at zero requires this explicit rule.
+    if (
+        doc_type.tipo_contraparte == CounterpartType.CUSTOMER
+        and doc_type.signo_caja > 0
+        and counterpart is not None
+        and counterpart.razon_social == CONSUMIDOR_FINAL_NAME
+        and (total > paid_total or paid_total > total)
+    ):
+        raise BusinessError(
+            "consumidor_final_no_credit",
+            "The 'Consumidor Final' customer cannot carry a balance",
+        )
     favor_monto = Decimal("0")
     favor_allocations: list[tuple[Document, Decimal]] = []
     if (
@@ -1736,6 +1755,18 @@ def create_receipt(
             )
         )
         remaining -= portion
+    # The seeded 'Consumidor Final' customer must never carry a balance: any
+    # unallocated remainder would stay on account as credit in its favor
+    # (with no outstanding documents that is the whole receipt total).
+    if (
+        party == CounterpartType.CUSTOMER
+        and counterpart.razon_social == CONSUMIDOR_FINAL_NAME
+        and remaining > 0
+    ):
+        raise BusinessError(
+            "consumidor_final_no_credit",
+            "The 'Consumidor Final' customer cannot carry a balance",
+        )
     session.flush()
 
     _financial_movements_hook(session=session, document=document)
