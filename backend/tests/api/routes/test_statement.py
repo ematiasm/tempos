@@ -669,7 +669,6 @@ def test_statement_email_success_supplier(
 def test_statement_email_smtp_failure_maps_to_business_error(
     client: TestClient,
     superuser_token_headers: dict[str, str],
-    db: Session,
     smtp_on,  # noqa: ARG001
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -755,7 +754,7 @@ def test_statement_document_pagado_pendiente(
 
 
 def test_statement_note_rows_have_no_paid_pending(
-    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+    client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
     """A credit note is not "paid": pendiente is None (UI renders a dash)."""
     product = _create_product(client, superuser_token_headers)
