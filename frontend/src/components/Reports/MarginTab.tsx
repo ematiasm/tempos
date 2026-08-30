@@ -14,11 +14,12 @@ import {
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
-import { useT } from "@/i18n"
+import { useLocale, useT } from "@/i18n"
 import { hasPermission } from "@/lib/permissions"
 
 export function MarginTab() {
   const t = useT()
+  const { numberFormat } = useLocale()
   const { user } = useAuth()
   // GET /reports/margin requires report.view; without it the query does not
   // fire and the tab renders its empty state (no 403 toast).
@@ -46,19 +47,19 @@ export function MarginTab() {
     {
       accessorKey: "revenue",
       header: t("reports.revenue"),
-      cell: ({ row }) => money(row.original.revenue),
+      cell: ({ row }) => money(row.original.revenue, numberFormat),
     },
     {
       accessorKey: "cost",
       header: t("reports.cost"),
-      cell: ({ row }) => money(row.original.cost),
+      cell: ({ row }) => money(row.original.cost, numberFormat),
     },
     {
       accessorKey: "margin",
       header: t("reports.margin"),
       cell: ({ row }) => (
         <span className={Number(row.original.margin) < 0 ? "text-red-600" : ""}>
-          {money(row.original.margin)}
+          {money(row.original.margin, numberFormat)}
         </span>
       ),
     },
@@ -77,7 +78,9 @@ export function MarginTab() {
         <ReportDateRange value={range} onChange={setRange} />
         {!isLoading && rows.length > 0 && (
           <span className="text-sm text-muted-foreground">
-            {t("reports.totalMargin", { margin: money(totalMargin) })}
+            {t("reports.totalMargin", {
+              margin: money(totalMargin, numberFormat),
+            })}
           </span>
         )}
       </div>

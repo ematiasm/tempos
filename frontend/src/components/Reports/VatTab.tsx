@@ -14,11 +14,12 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
-import { useT } from "@/i18n"
+import { useLocale, useT } from "@/i18n"
 import { hasPermission } from "@/lib/permissions"
 
 export function VatTab() {
   const t = useT()
+  const { numberFormat } = useLocale()
   const { user } = useAuth()
   // GET /reports/vat requires report.view; without it the query does not
   // fire and the tab renders its empty state (no 403 toast).
@@ -50,7 +51,7 @@ export function VatTab() {
       cell: ({ row }) =>
         row.original.is_percent
           ? pct(row.original.rate)
-          : money(row.original.rate),
+          : money(row.original.rate, numberFormat),
     },
     {
       accessorKey: "applies_to",
@@ -62,13 +63,15 @@ export function VatTab() {
     {
       accessorKey: "base",
       header: t("reports.base"),
-      cell: ({ row }) => money(row.original.base),
+      cell: ({ row }) => money(row.original.base, numberFormat),
     },
     {
       accessorKey: "monto",
       header: t("reports.amount"),
       cell: ({ row }) => (
-        <span className="font-medium">{money(row.original.monto)}</span>
+        <span className="font-medium">
+          {money(row.original.monto, numberFormat)}
+        </span>
       ),
     },
     { accessorKey: "count", header: t("reports.entries") },
@@ -82,7 +85,7 @@ export function VatTab() {
         <ReportDateRange value={range} onChange={setRange} />
         {!isLoading && rows.length > 0 && (
           <span className="text-sm text-muted-foreground">
-            {t("reports.totalTaxes", { amount: money(totalTax) })}
+            {t("reports.totalTaxes", { amount: money(totalTax, numberFormat) })}
           </span>
         )}
       </div>

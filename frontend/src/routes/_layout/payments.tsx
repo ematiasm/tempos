@@ -12,7 +12,7 @@ import PendingUsers from "@/components/Pending/PendingUsers"
 import { money } from "@/components/Reports/reportFormat"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { formatStatic, useT } from "@/i18n"
+import { formatStatic, useLocale, useT } from "@/i18n"
 
 const RECEIPT_PREFIXES = ["RC", "RP"]
 
@@ -42,6 +42,7 @@ interface ReceiptRow {
 
 function PaymentsContent() {
   const t = useT()
+  const { numberFormat } = useLocale()
   const { data: documents } = useSuspenseQuery(getDocumentsQueryOptions())
   const [search, setSearch] = useState("")
   const [receiptOpen, setReceiptOpen] = useState(false)
@@ -136,7 +137,9 @@ function PaymentsContent() {
               accessorKey: "total",
               header: t("payments.totalColumn"),
               cell: ({ row }) => (
-                <span className="font-mono">{money(row.original.total)}</span>
+                <span className="font-mono">
+                  {money(row.original.total, numberFormat)}
+                </span>
               ),
             },
             {

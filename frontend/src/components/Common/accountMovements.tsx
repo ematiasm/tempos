@@ -10,6 +10,7 @@ import {
 } from "@/client"
 import { money } from "@/components/Reports/reportFormat"
 import type { useT } from "@/i18n"
+import type { NumberFormat } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export type AccountMovementType = "customer" | "supplier"
@@ -79,6 +80,7 @@ export function useMovementRows(
 
 export function movementColumns(
   t: ReturnType<typeof useT>,
+  numberFormat: NumberFormat,
 ): ColumnDef<MovementRow>[] {
   return [
     {
@@ -112,7 +114,7 @@ export function movementColumns(
                 : "",
           )}
         >
-          {money(row.original.monto)}
+          {money(row.original.monto, numberFormat)}
         </span>
       ),
     },
@@ -121,7 +123,7 @@ export function movementColumns(
       header: t("currentAccount.balance"),
       cell: ({ row }) => (
         <span className="font-mono text-sm font-medium">
-          {money(row.original.saldo)}
+          {money(row.original.saldo, numberFormat)}
         </span>
       ),
     },

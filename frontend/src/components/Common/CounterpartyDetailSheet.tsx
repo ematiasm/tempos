@@ -22,7 +22,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useT } from "@/i18n"
+import { useLocale, useT } from "@/i18n"
 import { cn } from "@/lib/utils"
 
 interface CounterpartyDetailSheetProps {
@@ -56,6 +56,7 @@ export function CounterpartyDetailSheet({
   onOpenChange,
 }: CounterpartyDetailSheetProps) {
   const t = useT()
+  const { numberFormat } = useLocale()
   const { data, isLoading } = useAccountMovements(
     counterpart?.id ?? "",
     type,
@@ -145,7 +146,7 @@ export function CounterpartyDetailSheet({
                 value={
                   Number(creditLimit) === 0
                     ? t("customers.noLimit")
-                    : money(creditLimit)
+                    : money(creditLimit, numberFormat)
                 }
               />
             )}
@@ -164,14 +165,14 @@ export function CounterpartyDetailSheet({
                 saldo < 0 && "text-green-600",
               )}
             >
-              {money(saldo)}
+              {money(saldo, numberFormat)}
             </span>
             {creditLimit != null && (
               <span className="text-xs text-muted-foreground">
                 {t("customers.creditLimit")}:{" "}
                 {Number(creditLimit) === 0
                   ? t("customers.noLimit")
-                  : money(creditLimit)}
+                  : money(creditLimit, numberFormat)}
               </span>
             )}
           </CardContent>
@@ -222,7 +223,10 @@ export function CounterpartyDetailSheet({
             </p>
           ) : (
             <div className="mt-2">
-              <DataTable columns={movementColumns(t)} data={rows} />
+              <DataTable
+                columns={movementColumns(t, numberFormat)}
+                data={rows}
+              />
             </div>
           )}
         </div>

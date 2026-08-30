@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useT } from "@/i18n"
+import { useLocale, useT } from "@/i18n"
 
 interface AccountMovementsDialogProps {
   counterpart: CustomerPublic | SupplierPublic
@@ -32,6 +32,7 @@ export function AccountMovementsDialog({
   onClose,
 }: AccountMovementsDialogProps) {
   const t = useT()
+  const { numberFormat } = useLocale()
   const [open, setOpen] = useState(false)
 
   const { data, isLoading } = useAccountMovements(counterpart.id, type, open)
@@ -63,11 +64,12 @@ export function AccountMovementsDialog({
             <DialogTitle>{t("currentAccount.title")}</DialogTitle>
             <DialogDescription>
               {counterpart.razon_social} · {t("currentAccount.balance")}:{" "}
-              {money(counterpart.saldo)}
+              {money(counterpart.saldo, numberFormat)}
               {creditLimit != null && (
                 <>
                   {" "}
-                  · {t("currentAccount.creditLimit")}: {money(creditLimit)}
+                  · {t("currentAccount.creditLimit")}:{" "}
+                  {money(creditLimit, numberFormat)}
                 </>
               )}
             </DialogDescription>
@@ -79,7 +81,7 @@ export function AccountMovementsDialog({
               {t("currentAccount.empty")}
             </p>
           ) : (
-            <DataTable columns={movementColumns(t)} data={rows} />
+            <DataTable columns={movementColumns(t, numberFormat)} data={rows} />
           )}
         </DialogContent>
       </Dialog>

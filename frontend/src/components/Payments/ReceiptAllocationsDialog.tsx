@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useT } from "@/i18n"
+import { useLocale, useT } from "@/i18n"
 
 interface ReceiptAllocationsDialogProps {
   receiptId: string | null
@@ -28,6 +28,7 @@ export function ReceiptAllocationsDialog({
   onOpenChange,
 }: ReceiptAllocationsDialogProps) {
   const t = useT()
+  const { numberFormat } = useLocale()
   const { data, isLoading } = useQuery({
     queryFn: () =>
       PaymentsService.readReceiptAllocations({
@@ -85,7 +86,9 @@ export function ReceiptAllocationsDialog({
                 accessorKey: "monto",
                 header: t("currentAccount.amount"),
                 cell: ({ row }) => (
-                  <span className="font-mono">{money(row.original.monto)}</span>
+                  <span className="font-mono">
+                    {money(row.original.monto, numberFormat)}
+                  </span>
                 ),
               },
             ]}

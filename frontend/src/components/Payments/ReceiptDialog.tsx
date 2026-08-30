@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import useCustomToast from "@/hooks/useCustomToast"
-import { useT } from "@/i18n"
+import { useLocale, useT } from "@/i18n"
 import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 
@@ -55,6 +55,7 @@ export function ReceiptDialog({
   onCreated,
 }: ReceiptDialogProps) {
   const t = useT()
+  const { numberFormat } = useLocale()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
@@ -298,7 +299,7 @@ export function ReceiptDialog({
                           Number(doc.pendiente) > 0 && "text-destructive",
                         )}
                       >
-                        {money(Number(doc.pendiente))}
+                        {money(Number(doc.pendiente), numberFormat)}
                       </span>
                     </li>
                   ))}
@@ -316,7 +317,9 @@ export function ReceiptDialog({
               <Label>{t("payments.amount")}</Label>
               <span className="text-xs text-muted-foreground">
                 {t("payments.totalOutstanding")}:{" "}
-                <span className="font-mono">{money(totalOutstanding)}</span>
+                <span className="font-mono">
+                  {money(totalOutstanding, numberFormat)}
+                </span>
               </span>
             </div>
             <Input

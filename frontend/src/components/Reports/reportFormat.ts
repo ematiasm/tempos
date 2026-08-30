@@ -2,7 +2,7 @@ import { formatMoney, type NumberFormat } from "@/lib/format"
 
 export const money = (
   value: string | number | null | undefined,
-  format: NumberFormat = "en",
+  format: NumberFormat,
 ): string =>
   value == null || value === "" ? "—" : `$${formatMoney(Number(value), format)}`
 
