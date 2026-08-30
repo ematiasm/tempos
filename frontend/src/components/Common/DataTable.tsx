@@ -55,6 +55,9 @@ export function DataTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel:
       mode === "client" ? getPaginationRowModel() : undefined,
+    // Keep the user's current page across refetches (window focus, query
+    // invalidation); the default snaps back to page 1 on data changes.
+    autoResetPageIndex: false,
   })
 
   const sentinelRef = useRef<HTMLDivElement>(null)
