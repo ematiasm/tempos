@@ -4,6 +4,7 @@ import { useState } from "react"
 import type { MarginRow } from "@/client"
 import { ReportsService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
+import { safeTimeZone, thisMonthRange } from "@/components/Reports/datePresets"
 import { ReportDateRange } from "@/components/Reports/ReportDateRange"
 import {
   type DateRangeValue,
@@ -11,6 +12,7 @@ import {
   pct,
   qty,
 } from "@/components/Reports/reportFormat"
+import { useBusinessSettings } from "@/components/Sell/useBusinessSettings"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
@@ -21,10 +23,16 @@ export function MarginTab() {
   const t = useT()
   const { numberFormat } = useLocale()
   const { user } = useAuth()
+  const { settings } = useBusinessSettings()
   // GET /reports/margin requires report.view; without it the query does not
   // fire and the tab renders its empty state (no 403 toast).
   const canView = hasPermission(user, "report.view")
-  const [range, setRange] = useState<DateRangeValue>({})
+  // Defaults to the current month on first render only (business timezone
+  // when the setting is already loaded, browser-local otherwise). The state
+  // initializer runs once, so user edits are never overwritten.
+  const [range, setRange] = useState<DateRangeValue>(() =>
+    thisMonthRange(safeTimeZone(settings?.timezone)),
+  )
 
   const { data, isLoading } = useQuery({
     queryFn: () =>

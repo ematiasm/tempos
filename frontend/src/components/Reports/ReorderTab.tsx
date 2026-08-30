@@ -82,6 +82,11 @@ export function ReorderTab() {
       cell: ({ row }) => qty(row.original.stock_minimo),
     },
     {
+      accessorKey: "stock_maximo",
+      header: t("reports.max"),
+      cell: ({ row }) => qty(row.original.stock_maximo),
+    },
+    {
       accessorKey: "missing",
       header: t("reports.toOrder"),
       cell: ({ row }) => qty(row.original.missing),

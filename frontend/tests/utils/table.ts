@@ -15,7 +15,8 @@ export const findRowInPages = async (page: Page, text: string) => {
     const row = page.getByRole("row").filter({ hasText: text })
     if ((await row.count()) > 0) return row
     const next = page.getByRole("button", { name: "Go to next page" })
-    if (!(await next.isEnabled())) break
+    // No pagination control at all (small table): nothing left to walk.
+    if ((await next.count()) === 0 || !(await next.isEnabled())) break
     await next.click()
   }
   return page.getByRole("row").filter({ hasText: text })

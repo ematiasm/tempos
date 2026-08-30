@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router"
 import { BarChart3 } from "lucide-react"
 import { CashSessionsTab } from "@/components/Reports/CashSessionsTab"
 import { CurrentAccountsTab } from "@/components/Reports/CurrentAccountsTab"
-import { LowStockTab } from "@/components/Reports/LowStockTab"
 import { MarginTab } from "@/components/Reports/MarginTab"
 import { MovementsTab } from "@/components/Reports/MovementsTab"
 import { ReorderTab } from "@/components/Reports/ReorderTab"
@@ -43,7 +42,6 @@ function Reports() {
                 ["sales", t("reports.tabDaily")],
                 ["margin", t("reports.tabMargin")],
                 ["vat", t("reports.tabTaxes")],
-                ["stock", t("reports.tabLowStock")],
                 ["reorder", t("reports.tabReorder")],
                 ["movements", t("reports.tabMovements")],
                 ["balances", t("reports.tabBalances")],
@@ -67,9 +65,6 @@ function Reports() {
               </TabsContent>
               <TabsContent value="vat">
                 <VatTab />
-              </TabsContent>
-              <TabsContent value="stock">
-                <LowStockTab />
               </TabsContent>
               <TabsContent value="reorder">
                 <ReorderTab />

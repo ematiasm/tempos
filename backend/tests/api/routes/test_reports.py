@@ -321,25 +321,6 @@ def test_account_movements_filter_by_business_local_days(
         _set_timezone(client, superuser_token_headers, previous_tz)
 
 
-def test_low_stock_lists_active_products_below_minimum(
-    client: TestClient, superuser_token_headers: dict[str, str]
-) -> None:
-    below_min = _create_product(client, superuser_token_headers, stock_minimo="10")
-    active_no_stock = _create_product(client, superuser_token_headers)
-    inactive = _create_product(
-        client, superuser_token_headers, stock_minimo="10", is_active=False
-    )
-
-    r = client.get(
-        f"{settings.API_V1_STR}/reports/low-stock/", headers=superuser_token_headers
-    )
-    assert r.status_code == 200, r.text
-    ids = {row["id"] for row in r.json()}
-    assert below_min["id"] in ids  # 0 stock == 0 <= 10
-    assert active_no_stock["id"] in ids  # 0 stock always flagged
-    assert inactive["id"] not in ids  # inactive filtered out
-
-
 def test_margin_report_uses_cost_snapshot(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:

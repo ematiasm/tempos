@@ -4,8 +4,10 @@ import { useState } from "react"
 import type { SalesPerDayRow } from "@/client"
 import { ReportsService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
+import { safeTimeZone, thisMonthRange } from "@/components/Reports/datePresets"
 import { ReportDateRange } from "@/components/Reports/ReportDateRange"
 import { type DateRangeValue, money } from "@/components/Reports/reportFormat"
+import { useBusinessSettings } from "@/components/Sell/useBusinessSettings"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
@@ -16,10 +18,16 @@ export function SalesPerDayTab() {
   const t = useT()
   const { numberFormat } = useLocale()
   const { user } = useAuth()
+  const { settings } = useBusinessSettings()
   // GET /reports/sales-per-day requires report.view; without it the query
   // does not fire and the tab renders its empty state (no 403 toast).
   const canView = hasPermission(user, "report.view")
-  const [range, setRange] = useState<DateRangeValue>({})
+  // Defaults to the current month on first render only (business timezone
+  // when the setting is already loaded, browser-local otherwise). The state
+  // initializer runs once, so user edits are never overwritten.
+  const [range, setRange] = useState<DateRangeValue>(() =>
+    thisMonthRange(safeTimeZone(settings?.timezone)),
+  )
 
   const { data, isLoading } = useQuery({
     queryFn: () =>
@@ -58,10 +66,20 @@ export function SalesPerDayTab() {
         </span>
       ),
     },
+    {
+      // Average ticket for the day; hidden when the day has no sales.
+      id: "avg_ticket",
+      header: t("reports.avgTicket"),
+      cell: ({ row }) =>
+        row.original.count > 0
+          ? money(Number(row.original.total) / row.original.count, numberFormat)
+          : "—",
+    },
   ]
 
   const grandTotal = rows.reduce((acc, r) => acc + Number(r.total), 0)
   const totalSales = rows.reduce((acc, r) => acc + r.count, 0)
+  const avgTicket = totalSales > 0 ? grandTotal / totalSales : null
 
   return (
     <div className="flex flex-col gap-4">
@@ -72,6 +90,13 @@ export function SalesPerDayTab() {
             <span>
               {t("reports.salesDays", { sales: totalSales, days: rows.length })}
             </span>
+            {avgTicket != null && (
+              <span>
+                {t("reports.avgTicketTotal", {
+                  amount: money(avgTicket, numberFormat),
+                })}
+              </span>
+            )}
             <span className="font-semibold text-foreground">
               {t("reports.grandTotal", {
                 total: money(grandTotal, numberFormat),

@@ -2098,16 +2098,6 @@ class SalesPerDayRow(BaseModel):
     total: Decimal
 
 
-class LowStockRow(BaseModel):
-    id: uuid.UUID
-    name: str
-    sku: str | None = None
-    category_name: str | None = None
-    stock_current: Decimal
-    stock_minimo: Decimal | None = None
-    stock_maximo: Decimal | None = None
-
-
 class MarginRow(BaseModel):
     product_id: uuid.UUID
     name: str

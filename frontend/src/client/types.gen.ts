@@ -590,16 +590,6 @@ export type ItemUpdate = {
 
 export type LocalePreference = 'es' | 'en';
 
-export type LowStockRow = {
-    id: string;
-    name: string;
-    sku?: (string | null);
-    category_name?: (string | null);
-    stock_current: string;
-    stock_minimo?: (string | null);
-    stock_maximo?: (string | null);
-};
-
 export type MarginRow = {
     product_id: string;
     name: string;
@@ -1915,8 +1905,6 @@ export type ReportsSalesPerDayData = {
 };
 
 export type ReportsSalesPerDayResponse = (Array<SalesPerDayRow>);
-
-export type ReportsLowStockResponse = (Array<LowStockRow>);
 
 export type ReportsMarginReportData = {
     desde?: (string | null);

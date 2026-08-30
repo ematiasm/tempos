@@ -17,7 +17,6 @@ from app.models import (
     DocumentStatus,
     DocumentTax,
     DocumentType,
-    LowStockRow,
     MarginRow,
     Product,
     ReorderRow,
@@ -96,31 +95,6 @@ def sales_per_day(
         row.descuento_total = _money(row.descuento_total + doc.descuento_total)
         row.total = _money(row.total + doc.total)
     return sorted(days.values(), key=lambda r: r.fecha)
-
-
-@router.get(
-    "/low-stock",
-    response_model=list[LowStockRow],
-    dependencies=[require_permissions("report.view")],
-)
-def low_stock(session: SessionDep) -> Any:
-    """Active products at or below their minimum (or with no stock)."""
-    products = _low_products(session)
-    category_names = _category_names(session, products)
-    return [
-        LowStockRow(
-            id=product.id,
-            name=product.name,
-            sku=product.sku,
-            category_name=category_names.get(product.category_id)
-            if product.category_id
-            else None,
-            stock_current=product.stock_current,
-            stock_minimo=product.stock_minimo,
-            stock_maximo=product.stock_maximo,
-        )
-        for product in products
-    ]
 
 
 @router.get(
@@ -331,15 +305,6 @@ def reorder_report(
             )
         )
     return rows
-
-
-def _low_products(session: SessionDep) -> list[Product]:
-    return [
-        p
-        for p in session.exec(select(Product).where(Product.is_active)).all()
-        if p.stock_current <= 0
-        or (p.stock_minimo is not None and p.stock_current <= p.stock_minimo)
-    ]
 
 
 def _category_names(

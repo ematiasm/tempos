@@ -8,7 +8,6 @@ const TAB_LABELS = [
   "Ventas diarias",
   "Margen",
   "Impuestos",
-  "Stock bajo",
   "A reponer",
   "Movimientos",
   "Cuentas corrientes",
@@ -69,9 +68,11 @@ test.describe("Reports", () => {
     await expect(page.getByText(/Total \$[\d,]+\.\d{2}/)).toBeVisible()
   })
 
-  test("Low stock lists the product below its minimum", async ({ page }) => {
+  // LowStock was merged into Reponer: the same below-minimum product must
+  // still be listed through the reorder tab.
+  test("Reponer lists the product below its minimum", async ({ page }) => {
     await page.goto("/reports")
-    await page.getByRole("tab", { name: "Stock bajo" }).click()
+    await page.getByRole("tab", { name: "A reponer" }).click()
 
     await expect(await findRowInPages(page, lowStockName)).toBeVisible()
   })

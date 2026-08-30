@@ -4,8 +4,10 @@ import { useEffect, useState } from "react"
 import type { AccountMovementPublic } from "@/client"
 import { AccountMovementsService, FinancialAccountsService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
+import { safeTimeZone, thisMonthRange } from "@/components/Reports/datePresets"
 import { ReportDateRange } from "@/components/Reports/ReportDateRange"
 import { type DateRangeValue, money } from "@/components/Reports/reportFormat"
+import { useBusinessSettings } from "@/components/Sell/useBusinessSettings"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -30,11 +32,17 @@ export function MovementsTab({ initialAccountId }: MovementsTabProps) {
   const t = useT()
   const { numberFormat } = useLocale()
   const { user } = useAuth()
+  const { settings } = useBusinessSettings()
   // Both endpoints (financial accounts and account movements) require
   // finance.read; without it the queries do not fire and the tab renders its
   // empty state (no 403 toast).
   const canRead = hasPermission(user, "finance.read")
-  const [range, setRange] = useState<DateRangeValue>({})
+  // Defaults to the current month on first render only (business timezone
+  // when the setting is already loaded, browser-local otherwise). The state
+  // initializer runs once, so user edits are never overwritten.
+  const [range, setRange] = useState<DateRangeValue>(() =>
+    thisMonthRange(safeTimeZone(settings?.timezone)),
+  )
   const [accountId, setAccountId] = useState<string | undefined>(
     initialAccountId,
   )
