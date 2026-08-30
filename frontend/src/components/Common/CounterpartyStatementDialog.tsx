@@ -139,7 +139,13 @@ function StatementDocumentRow({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-sm font-medium">
+          <span className="w-28 text-right font-mono text-sm text-muted-foreground">
+            {doc.kind === "nota" ? "—" : money(doc.pagado, numberFormat)}
+          </span>
+          <span className="w-28 text-right font-mono text-sm text-muted-foreground">
+            {doc.kind === "nota" ? "—" : money(doc.pendiente, numberFormat)}
+          </span>
+          <span className="w-28 text-right font-mono text-sm font-medium">
             {money(doc.total, numberFormat)}
           </span>
           <ChevronDown
@@ -366,6 +372,12 @@ function StatementPrintContent({
                   {t("counterparty.statement.type")}
                 </th>
                 <th className="py-2 text-right font-semibold">
+                  {t("counterparty.statement.paid")}
+                </th>
+                <th className="py-2 text-right font-semibold">
+                  {t("counterparty.statement.pending")}
+                </th>
+                <th className="py-2 text-right font-semibold">
                   {t("common.total")}
                 </th>
               </tr>
@@ -378,6 +390,16 @@ function StatementPrintContent({
                     <td className="py-2 pr-2">{formatDate(doc.fecha)}</td>
                     <td className="py-2 pr-2">{doc.type_name}</td>
                     <td className="py-2 text-right">
+                      {doc.kind === "nota"
+                        ? "—"
+                        : money(doc.pagado, numberFormat)}
+                    </td>
+                    <td className="py-2 text-right">
+                      {doc.kind === "nota"
+                        ? "—"
+                        : money(doc.pendiente, numberFormat)}
+                    </td>
+                    <td className="py-2 text-right">
                       {money(doc.total, numberFormat)}
                     </td>
                   </tr>
@@ -386,7 +408,7 @@ function StatementPrintContent({
                       key={`${doc.id}-${line.product_id}-${index}`}
                       className="border-b border-dotted border-black/40 text-xs"
                     >
-                      <td className="py-1 pr-2 pl-5" colSpan={3}>
+                      <td className="py-1 pr-2 pl-5" colSpan={5}>
                         {line.product_name ?? "—"} · {qty(line.cantidad)} ×{" "}
                         {money(line.precio_unit, numberFormat)}
                       </td>
@@ -659,6 +681,21 @@ export function CounterpartyStatementDialog({
                   </p>
                 ) : (
                   <div className="rounded-lg border">
+                    <div className="flex items-center justify-between gap-2 border-b px-3 py-1.5 text-xs text-muted-foreground">
+                      <span>{t("counterparty.statement.document")}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="w-28 text-right">
+                          {t("counterparty.statement.paid")}
+                        </span>
+                        <span className="w-28 text-right">
+                          {t("counterparty.statement.pending")}
+                        </span>
+                        <span className="w-28 text-right">
+                          {t("common.total")}
+                        </span>
+                        <span className="w-4" aria-hidden />
+                      </div>
+                    </div>
                     {documents.map((doc) => (
                       <StatementDocumentRow
                         key={doc.id}

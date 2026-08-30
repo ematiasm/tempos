@@ -9,9 +9,13 @@ from app.api.deps import PaginationDep, SessionDep, require_permissions
 from app.models import (
     AccountMovement,
     AccountMovementPublic,
+    CounterpartType,
+    Customer,
     Document,
     FinancialAccount,
     Page,
+    PaymentMethod,
+    Supplier,
 )
 
 router = APIRouter(prefix="/account-movements", tags=["account-movements"])
@@ -20,28 +24,77 @@ router = APIRouter(prefix="/account-movements", tags=["account-movements"])
 def _decorate(
     session: SessionDep, movements: list[AccountMovement]
 ) -> list[AccountMovementPublic]:
-    """Resolve account names and document numbers with two bulk queries."""
+    """Resolve display names with bulk queries.
+
+    Accounts, payment methods and document numbers come straight from their
+    tables; the counterpart name is resolved through each movement's document
+    (``contraparte_type``/``contraparte_id`` → Customer/Supplier
+    ``razon_social``).
+    """
     account_ids = {m.financial_account_id for m in movements}
     document_ids = {m.document_id for m in movements if m.document_id}
+    payment_method_ids = {m.payment_method_id for m in movements if m.payment_method_id}
     account_names = {
         a.id: a.name
         for a in session.exec(
             select(FinancialAccount).where(col(FinancialAccount.id).in_(account_ids))
         ).all()
     }
-    numbers = {
-        d.id: d.numero
+    method_names = {
+        pm.id: pm.name
+        for pm in session.exec(
+            select(PaymentMethod).where(col(PaymentMethod.id).in_(payment_method_ids))
+        ).all()
+    }
+    docs = {
+        d.id: d
         for d in session.exec(
             select(Document).where(col(Document.id).in_(document_ids))
+        ).all()
+    }
+    numbers = {d.id: d.numero for d in docs.values()}
+    customer_ids = {
+        d.contraparte_id
+        for d in docs.values()
+        if d.contraparte_type == CounterpartType.CUSTOMER and d.contraparte_id
+    }
+    supplier_ids = {
+        d.contraparte_id
+        for d in docs.values()
+        if d.contraparte_type == CounterpartType.SUPPLIER and d.contraparte_id
+    }
+    customer_names = {
+        c.id: c.razon_social
+        for c in session.exec(
+            select(Customer).where(col(Customer.id).in_(customer_ids))
+        ).all()
+    }
+    supplier_names = {
+        s.id: s.razon_social
+        for s in session.exec(
+            select(Supplier).where(col(Supplier.id).in_(supplier_ids))
         ).all()
     }
     publics = []
     for movement in movements:
         public = AccountMovementPublic.model_validate(movement)
         public.account_name = account_names.get(movement.financial_account_id)
+        public.payment_method_name = (
+            method_names.get(movement.payment_method_id)
+            if movement.payment_method_id
+            else None
+        )
         public.document_numero = (
             numbers.get(movement.document_id) if movement.document_id else None
         )
+        counterpart_name = None
+        doc = docs.get(movement.document_id) if movement.document_id else None
+        if doc is not None and doc.contraparte_id is not None:
+            if doc.contraparte_type == CounterpartType.CUSTOMER:
+                counterpart_name = customer_names.get(doc.contraparte_id)
+            elif doc.contraparte_type == CounterpartType.SUPPLIER:
+                counterpart_name = supplier_names.get(doc.contraparte_id)
+        public.counterpart_name = counterpart_name
         publics.append(public)
     return publics
 

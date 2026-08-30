@@ -114,6 +114,28 @@ def _create_sale(
     return r.json()
 
 
+def _create_sale_with_payments(
+    client: TestClient,
+    headers: dict[str, str],
+    product_id: str,
+    customer_id: str,
+    payments: list[dict[str, str]],
+) -> dict:
+    load_stock(client, headers, product_id, "1")
+    r = client.post(
+        f"{settings.API_V1_STR}/documents/",
+        headers=headers,
+        json={
+            "document_type_id": _doc_type_id(client, headers, "TCK"),
+            "contraparte_id": customer_id,
+            "lines": [{"product_id": product_id, "cantidad": "1"}],
+            "payments": payments,
+        },
+    )
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
 def _create_purchase(
     client: TestClient, headers: dict[str, str], product_id: str, supplier_id: str
 ) -> dict:
@@ -647,7 +669,6 @@ def test_statement_email_success_supplier(
 def test_statement_email_smtp_failure_maps_to_business_error(
     client: TestClient,
     superuser_token_headers: dict[str, str],
-    db: Session,
     smtp_on,  # noqa: ARG001
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -673,3 +694,80 @@ def test_statement_email_smtp_failure_maps_to_business_error(
     )
     assert statement["totals"]["saldo_actual"] == "121.00"
     assert len(statement["documents"]) == 1
+
+
+def test_statement_document_pagado_pendiente(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Debt-direction rows carry pagado/pendiente; the formula matches
+    ``outstanding_documents`` (favor_monto + marks_paid payments + amounts
+    settled by active receipts)."""
+    product = _create_product(client, superuser_token_headers)
+    customer = _create_customer(client, superuser_token_headers, email=random_email())
+
+    # Fully-paid cash sale: everything settled, nothing pending.
+    cash_sale = _create_sale_with_payments(
+        client,
+        superuser_token_headers,
+        product["id"],
+        customer["id"],
+        [{"payment_method_id": _cash_method_id(db), "monto": "121.00"}],
+    )
+
+    # Partial credit sale: 21.00 cash now, 100.00 on the current account.
+    credit_sale = _create_sale_with_payments(
+        client,
+        superuser_token_headers,
+        product["id"],
+        customer["id"],
+        [{"payment_method_id": _cash_method_id(db), "monto": "21.00"}],
+    )
+
+    statement = _get_statement(
+        client, superuser_token_headers, "customer", customer["id"]
+    )
+    cash_row = _doc_by_numero(statement, cash_sale["numero"])
+    assert cash_row["total"] == "121.00"
+    assert cash_row["pagado"] == "121.00"
+    assert cash_row["pendiente"] == "0.00"
+
+    credit_row = _doc_by_numero(statement, credit_sale["numero"])
+    assert credit_row["total"] == "121.00"
+    assert credit_row["pagado"] == "21.00"
+    assert credit_row["pendiente"] == "100.00"
+
+    # Settle the remainder with an RC receipt: the allocation closes it out.
+    _create_receipt(
+        client,
+        superuser_token_headers,
+        "customer",
+        customer["id"],
+        _cash_method_id(db),
+        "100.00",
+    )
+    statement = _get_statement(
+        client, superuser_token_headers, "customer", customer["id"]
+    )
+    credit_row = _doc_by_numero(statement, credit_sale["numero"])
+    assert credit_row["pagado"] == "121.00"
+    assert credit_row["pendiente"] == "0.00"
+
+
+def test_statement_note_rows_have_no_paid_pending(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """A credit note is not "paid": pendiente is None (UI renders a dash)."""
+    product = _create_product(client, superuser_token_headers)
+    customer = _create_customer(client, superuser_token_headers, email=random_email())
+    voided_sale = _create_sale(
+        client, superuser_token_headers, product["id"], customer["id"]
+    )
+    nc = _void_document(client, superuser_token_headers, voided_sale["id"])
+
+    statement = _get_statement(
+        client, superuser_token_headers, "customer", customer["id"]
+    )
+    nc_row = _doc_by_numero(statement, nc["numero"])
+    assert nc_row["kind"] == "nota"
+    assert nc_row["pagado"] == "0"
+    assert nc_row["pendiente"] is None
