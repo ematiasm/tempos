@@ -61,6 +61,7 @@ def _create_product(
     client: TestClient,
     headers: dict[str, str],
     *,
+    name: str | None = None,
     costo: str = "100.00",
     margen: str = "21.00",
     stock_minimo: str | None = None,
@@ -69,7 +70,7 @@ def _create_product(
 ) -> dict:
     uom = _create_uom(client, headers)
     payload: dict = {
-        "name": random_lower_string()[:20],
+        "name": name if name is not None else random_lower_string()[:20],
         "uom_id": uom["id"],
         "margen_pct": margen,
         "costo_actual": costo,
@@ -639,6 +640,33 @@ def test_reorder_includes_only_products_with_minimum_below(
     ids = {row["id"] for row in r.json()}
     assert product["id"] in ids  # 0 stock <= 10 minimum
     assert no_minimum["id"] not in ids  # no minimum -> never reorder
+
+
+def test_reorder_orders_rows_alphabetically(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    # Insertion order (z, a, m) differs from alphabetical order; the random
+    # suffixes keep the names distinct from any pre-existing rows.
+    names = [
+        "z" + random_lower_string()[:8],
+        "a" + random_lower_string()[:8],
+        "m" + random_lower_string()[:8],
+    ]
+    created = [
+        _create_product(
+            client, superuser_token_headers, name=name, stock_minimo="10"
+        )
+        for name in names
+    ]
+    ids = {product["id"] for product in created}
+
+    r = client.get(
+        f"{settings.API_V1_STR}/reports/reorder/", headers=superuser_token_headers
+    )
+    assert r.status_code == 200, r.text
+    returned_names = [row["name"] for row in r.json() if row["id"] in ids]
+    assert len(returned_names) == len(names)
+    assert sorted(returned_names) == returned_names
 
 
 def _create_supplier(client: TestClient, headers: dict[str, str]) -> dict:

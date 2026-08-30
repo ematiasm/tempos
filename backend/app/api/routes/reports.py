@@ -354,7 +354,11 @@ def reorder_report(
     """
     products = [
         p
-        for p in session.exec(select(Product).where(Product.is_active)).all()
+        for p in session.exec(
+            select(Product)
+            .where(Product.is_active)
+            .order_by(col(Product.name), col(Product.id))
+        ).all()
         if p.stock_minimo is not None and p.stock_current <= p.stock_minimo
     ]
     if category_id is not None:
