@@ -142,11 +142,14 @@
   #voucher-print,
   #voucher-print *,
   #report-print,
-  #report-print * {
+  #report-print *,
+  #cash-session-print,
+  #cash-session-print * {
     visibility: visible;
   }
   #voucher-print,
-  #report-print {
+  #report-print,
+  #cash-session-print {
     position: absolute;
     inset: 0 auto auto 0;
     width: 100%;
