@@ -567,3 +567,10 @@ This is the high-level module map, complete for the current implementation.
   `app/core/backup.py`, `restore_worker.py`); they are functional and exposed
   under the admin "Backups" tab, but are not part of the tempos business
   domain (see module map above).
+- Every `alembic revision --autogenerate` spuriously emits a DROP for the
+  hand-written partial unique index `uq_cashregistersession_single_open`
+  (it lives only in an old migration, not in SQLModel metadata). Hand-remove
+  that operation from every generated migration before applying it.
+- Backend scripts need `uv run bash scripts/...` (bare `coverage`/`mypy` are
+  not on the PATH); dev-disk fills during e2e rebuilds — `docker builder
+  prune` frees space.
