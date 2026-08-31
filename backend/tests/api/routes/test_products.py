@@ -769,7 +769,14 @@ def test_list_products_filters_by_q_and_is_ordered(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
     uom = _create_uom(client, superuser_token_headers)
-    names = ["Zulu Alpha Product", "Alpha Bravo Product", "Middle Gamma Product"]
+    # Unique family token: the shared dev DB contains e2e debris, so the
+    # ordering assertion must only cover rows this test controls.
+    family = random_lower_string()[:8]
+    names = [
+        f"{family} zulu product",
+        f"{family} alpha product",
+        f"{family} middle gamma product",
+    ]
     skus = ["SKU-ZZZ-1", "SKU-AAA-1", "SKU-MMM-1"]
     ids = []
     for name, sku in zip(names, skus, strict=True):
@@ -793,7 +800,7 @@ def test_list_products_filters_by_q_and_is_ordered(
     r = client.get(
         f"{settings.API_V1_STR}/products/",
         headers=superuser_token_headers,
-        params={"q": "bravo", "limit": 100},
+        params={"q": "alpha", "limit": 100},
     )
     assert r.status_code == 200, r.text
     data = r.json()["data"]
@@ -825,13 +832,15 @@ def test_list_products_filters_by_q_and_is_ordered(
     assert r.json()["count"] == 1
     assert r.json()["data"][0]["id"] == ids[2]
 
-    # deterministic ordering by name
+    # deterministic ordering by name (scoped to this test's family)
     r = client.get(
         f"{settings.API_V1_STR}/products/",
         headers=superuser_token_headers,
-        params={"q": "product", "limit": 100},
+        params={"q": family, "limit": 100},
     )
-    names = [p["name"].lower() for p in r.json()["data"]]
+    data = r.json()["data"]
+    assert r.json()["count"] == 3
+    names = [p["name"] for p in data]
     assert names == sorted(names)
 
 
