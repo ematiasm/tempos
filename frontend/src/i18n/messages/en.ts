@@ -720,6 +720,8 @@ export const en: Messages = {
   "errors.customer_not_found": "Customer not found",
   "errors.supplier_not_found": "Supplier not found",
   "errors.product_not_found": "Product not found",
+  "errors.stock_maximo_below_minimo":
+    "The maximum stock cannot be lower than the minimum",
   "errors.variant_not_found": "Variant not found in this product",
   "errors.quantity_must_be_positive":
     "Line quantity must be positive for this operation",

@@ -65,6 +65,7 @@ def _create_product(
     costo: str = "100.00",
     margen: str = "21.00",
     stock_minimo: str | None = None,
+    stock_maximo: str | None = None,
     tax_ids: list[str] | None = None,
     is_active: bool = True,
 ) -> dict:
@@ -79,6 +80,8 @@ def _create_product(
     }
     if stock_minimo is not None:
         payload["stock_minimo"] = stock_minimo
+    if stock_maximo is not None:
+        payload["stock_maximo"] = stock_maximo
     r = client.post(
         f"{settings.API_V1_STR}/products/",
         headers=headers,
@@ -730,3 +733,51 @@ def test_reorder_cost_basis_follows_supplier_filter(
     row = next(row for row in r.json() if row["id"] == product["id"])
     assert row["reference_cost"] == "80.00"
     assert row["estimated_cost"] == "800.00"
+
+
+def test_reorder_fills_to_stock_maximo(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """Min-max policy: the minimum triggers the listing, the quantity fills
+    up to the maximum (missing = stock_maximo - stock_current)."""
+    product = _create_product(
+        client,
+        superuser_token_headers,
+        stock_minimo="5",
+        stock_maximo="20",
+    )
+    supplier = _create_supplier(client, superuser_token_headers)
+    r = client.post(
+        f"{settings.API_V1_STR}/supplier-products/",
+        headers=superuser_token_headers,
+        json={
+            "supplier_id": supplier["id"],
+            "product_id": product["id"],
+            "costo_actual": "10.00",
+        },
+    )
+    assert r.status_code == 200, r.text
+
+    # Current stock 2 (below the minimum of 5) -> missing = 20 - 2 = 18.
+    load_stock(client, superuser_token_headers, product["id"], "2")
+
+    reorder_url = f"{settings.API_V1_STR}/reports/reorder/"
+    r = client.get(reorder_url, headers=superuser_token_headers)
+    assert r.status_code == 200, r.text
+    row = next(row for row in r.json() if row["id"] == product["id"])
+    assert row["missing"] == "18.00"
+    # Reference cost basis (auto-promoted first pair) times the fill-to-max
+    # quantity.
+    assert row["reference_cost"] == "10.00"
+    assert row["estimated_cost"] == "180.00"
+
+    # Filtered by the supplier: the row's cost basis is that supplier's cost.
+    r = client.get(
+        reorder_url,
+        headers=superuser_token_headers,
+        params={"supplier_id": supplier["id"]},
+    )
+    assert r.status_code == 200, r.text
+    row = next(row for row in r.json() if row["id"] == product["id"])
+    assert row["missing"] == "18.00"
+    assert row["estimated_cost"] == "180.00"

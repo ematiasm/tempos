@@ -2049,8 +2049,15 @@ export class ReportsService {
      * Products at/below their minimum, ready to reorder.
      *
      * Optionally filtered by category and by the suppliers that offer them.
-     * ``missing`` is how many units to reach the minimum; ``estimated_cost``
-     * uses each product's reference supplier cost.
+     * Min-max policy: the minimum only triggers the listing (a product is
+     * returned while ``stock_current`` is at/below ``stock_minimo``), while
+     * ``missing`` is how many units to fill the stock up to the maximum;
+     * ``estimated_cost`` multiplies it by the row's cost basis: the filtered
+     * supplier's current cost when ``supplier_id`` is given (the filter
+     * guarantees every returned product has a ``SupplierProduct`` row for that
+     * supplier), the reference supplier's cost otherwise. Response field names
+     * are unchanged — under a supplier filter ``reference_cost`` carries that
+     * supplier's cost.
      * @param data The data for the request.
      * @param data.supplierId
      * @param data.categoryId

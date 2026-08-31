@@ -731,6 +731,8 @@ export const es = {
   "errors.customer_not_found": "Cliente no encontrado",
   "errors.supplier_not_found": "Proveedor no encontrado",
   "errors.product_not_found": "Producto no encontrado",
+  "errors.stock_maximo_below_minimo":
+    "El stock máximo no puede ser menor que el mínimo",
   "errors.variant_not_found": "Variante no encontrada en este producto",
   "errors.quantity_must_be_positive":
     "La cantidad de la línea debe ser positiva para esta operación",

@@ -94,6 +94,94 @@ def test_create_product_invalid_uom(
     assert "Unit of measure not found" in r.json()["detail"]
 
 
+def test_create_product_maximo_below_minimo_rejected(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    uom = _create_uom(client, superuser_token_headers)
+    payload = _build_product_payload(uom["id"])
+    payload["stock_minimo"] = "5"
+    payload["stock_maximo"] = "3"
+    r = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json=payload,
+    )
+    assert r.status_code == 400
+    detail = r.json()["detail"]
+    assert detail["code"] == "stock_maximo_below_minimo"
+
+
+def test_create_product_missing_maximo_defaults_to_minimo(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    uom = _create_uom(client, superuser_token_headers)
+    payload = _build_product_payload(uom["id"])
+    payload["stock_minimo"] = "10"
+    r = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json=payload,
+    )
+    assert r.status_code == 200, r.text
+    created = r.json()
+    # The effective maximo auto-fills with the minimum (order-up-to-min).
+    assert created["stock_minimo"] == "10.000"
+    assert created["stock_maximo"] == "10.000"
+
+
+def test_update_product_enforces_maximo_ge_minimo(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    uom = _create_uom(client, superuser_token_headers)
+    payload = _build_product_payload(uom["id"])
+    payload["stock_minimo"] = "10"
+    r = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json=payload,
+    )
+    assert r.status_code == 200, r.text
+    created = r.json()
+    assert created["stock_maximo"] == "10.000"
+    pid = created["id"]
+
+    # An explicit maximo below the minimum is rejected.
+    r = client.patch(
+        f"{settings.API_V1_STR}/products/{pid}",
+        headers=superuser_token_headers,
+        json={"stock_maximo": "5"},
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"]["code"] == "stock_maximo_below_minimo"
+
+    # Raising the minimum above the current maximum is rejected too.
+    r = client.patch(
+        f"{settings.API_V1_STR}/products/{pid}",
+        headers=superuser_token_headers,
+        json={"stock_minimo": "15"},
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"]["code"] == "stock_maximo_below_minimo"
+
+    # A PATCH without stock_maximo leaves the effective value untouched.
+    r = client.patch(
+        f"{settings.API_V1_STR}/products/{pid}",
+        headers=superuser_token_headers,
+        json={"is_active": False},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["stock_maximo"] == "10.000"
+
+    # Raising the maximum is fine.
+    r = client.patch(
+        f"{settings.API_V1_STR}/products/{pid}",
+        headers=superuser_token_headers,
+        json={"stock_maximo": "20"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["stock_maximo"] == "20.000"
+
+
 def test_update_product_recomputes_precio_venta(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:

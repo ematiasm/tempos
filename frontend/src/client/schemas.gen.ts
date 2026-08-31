@@ -4410,12 +4410,10 @@ export const ProductCreateSchema = {
                 {
                     type: 'string',
                     pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
-                },
-                {
-                    type: 'null'
                 }
             ],
-            title: 'Stock Maximo'
+            title: 'Stock Maximo',
+            default: '0'
         },
         allow_price_edit_in_sale: {
             type: 'boolean',
@@ -4627,15 +4625,8 @@ export const ProductPublicSchema = {
             title: 'Stock Minimo'
         },
         stock_maximo: {
-            anyOf: [
-                {
-                    type: 'string',
-                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
-                },
-                {
-                    type: 'null'
-                }
-            ],
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
             title: 'Stock Maximo'
         },
         allow_price_edit_in_sale: {
@@ -4680,7 +4671,7 @@ export const ProductPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'name', 'uom_id', 'is_active', 'margen_pct', 'costo_actual', 'precio_venta', 'stock_current', 'allow_price_edit_in_sale'],
+    required: ['id', 'name', 'uom_id', 'is_active', 'margen_pct', 'costo_actual', 'precio_venta', 'stock_current', 'stock_maximo', 'allow_price_edit_in_sale'],
     title: 'ProductPublic'
 } as const;
 
@@ -5042,15 +5033,8 @@ export const ReorderRowSchema = {
             title: 'Stock Minimo'
         },
         stock_maximo: {
-            anyOf: [
-                {
-                    type: 'string',
-                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
-                },
-                {
-                    type: 'null'
-                }
-            ],
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
             title: 'Stock Maximo'
         },
         missing: {
@@ -5091,7 +5075,7 @@ export const ReorderRowSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'name', 'stock_current'],
+    required: ['id', 'name', 'stock_current', 'stock_maximo'],
     title: 'ReorderRow'
 } as const;
 

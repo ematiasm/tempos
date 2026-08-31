@@ -345,12 +345,15 @@ def reorder_report(
     """Products at/below their minimum, ready to reorder.
 
     Optionally filtered by category and by the suppliers that offer them.
-    ``missing`` is how many units to reach the minimum; ``estimated_cost``
-    multiplies it by the row's cost basis: the filtered supplier's current
-    cost when ``supplier_id`` is given (the filter guarantees every returned
-    product has a ``SupplierProduct`` row for that supplier), the reference
-    supplier's cost otherwise. Response field names are unchanged — under a
-    supplier filter ``reference_cost`` carries that supplier's cost.
+    Min-max policy: the minimum only triggers the listing (a product is
+    returned while ``stock_current`` is at/below ``stock_minimo``), while
+    ``missing`` is how many units to fill the stock up to the maximum;
+    ``estimated_cost`` multiplies it by the row's cost basis: the filtered
+    supplier's current cost when ``supplier_id`` is given (the filter
+    guarantees every returned product has a ``SupplierProduct`` row for that
+    supplier), the reference supplier's cost otherwise. Response field names
+    are unchanged — under a supplier filter ``reference_cost`` carries that
+    supplier's cost.
     """
     products = [
         p
@@ -390,12 +393,11 @@ def reorder_report(
 
     rows = []
     for product in products:
-        minimum = product.stock_minimo
-        missing = (
-            _money(max(minimum - product.stock_current, Decimal("0")))
-            if minimum is not None
-            else Decimal("0")
-        )
+        # Min-max policy: fill up to the maximum; the minimum only decides
+        # whether the product is listed. stock_maximo is NOT NULL (migration
+        # backfilled it), so no None-handling is needed here.
+        maximum = product.stock_maximo
+        missing = _money(max(maximum - product.stock_current, Decimal("0")))
         cost = cost_basis.get(product.id)
         rows.append(
             ReorderRow(
@@ -407,7 +409,7 @@ def reorder_report(
                 if product.category_id
                 else None,
                 stock_current=product.stock_current,
-                stock_minimo=minimum,
+                stock_minimo=product.stock_minimo,
                 stock_maximo=product.stock_maximo,
                 missing=missing,
                 reference_cost=cost,

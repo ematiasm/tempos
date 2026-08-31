@@ -51,19 +51,30 @@ import { useT } from "@/i18n"
 import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 
-const detailsSchema = z.object({
-  name: z.string().min(1, { message: "El nombre es obligatorio" }),
-  sku: z.string().optional().or(z.literal("")),
-  category_id: z.string().optional().or(z.literal("")),
-  uom_id: z.string().min(1, { message: "La unidad es obligatoria" }),
-  description: z.string().optional().or(z.literal("")),
-  margen_pct: z.string().min(1, { message: "El margen es obligatorio" }),
-  costo_actual: z.string().min(1, { message: "El costo es obligatorio" }),
-  stock_minimo: z.string().optional().or(z.literal("")),
-  stock_maximo: z.string().optional().or(z.literal("")),
-  is_active: z.boolean(),
-  allow_price_edit_in_sale: z.boolean(),
-})
+const detailsSchema = z
+  .object({
+    name: z.string().min(1, { message: "El nombre es obligatorio" }),
+    sku: z.string().optional().or(z.literal("")),
+    category_id: z.string().optional().or(z.literal("")),
+    uom_id: z.string().min(1, { message: "La unidad es obligatoria" }),
+    description: z.string().optional().or(z.literal("")),
+    margen_pct: z.string().min(1, { message: "El margen es obligatorio" }),
+    costo_actual: z.string().min(1, { message: "El costo es obligatorio" }),
+    stock_minimo: z.string().optional().or(z.literal("")),
+    stock_maximo: z.string().optional().or(z.literal("")),
+    is_active: z.boolean(),
+    allow_price_edit_in_sale: z.boolean(),
+  })
+  .refine(
+    (data) => {
+      if (!data.stock_minimo || !data.stock_maximo) return true
+      return parseFloat(data.stock_maximo) >= parseFloat(data.stock_minimo)
+    },
+    {
+      message: "El máximo no puede ser menor que el mínimo",
+      path: ["stock_maximo"],
+    },
+  )
 
 type DetailsFormData = z.infer<typeof detailsSchema>
 
@@ -144,7 +155,7 @@ const ProductDetailSheet = ({
       margen_pct: String(product.margen_pct),
       costo_actual: String(product.costo_actual),
       stock_minimo: product.stock_minimo ?? "",
-      stock_maximo: product.stock_maximo ?? "",
+      stock_maximo: product.stock_maximo,
       is_active: product.is_active,
       allow_price_edit_in_sale: product.allow_price_edit_in_sale,
     })
@@ -173,8 +184,15 @@ const ProductDetailSheet = ({
       }
       if (data.stock_minimo)
         requestBody.stock_minimo = parseFloat(data.stock_minimo)
-      if (data.stock_maximo)
+      if (data.stock_maximo) {
         requestBody.stock_maximo = parseFloat(data.stock_maximo)
+      } else {
+        // The maximum is required by the API: fill up to the minimum
+        // (order-up-to-min), or 0 when there is no minimum either.
+        requestBody.stock_maximo = data.stock_minimo
+          ? parseFloat(data.stock_minimo)
+          : 0
+      }
       return ProductsService.updateProduct({
         productId: product.id,
         requestBody,

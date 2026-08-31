@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
@@ -34,6 +35,18 @@ from app.models import (
 )
 
 router = APIRouter(prefix="/products", tags=["products"])
+
+
+def _ensure_stock_maximo(minimo: Decimal | None, maximo: Decimal) -> None:
+    """The maximum is permanent and must not fall below the minimum."""
+    if minimo is not None and maximo < minimo:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "stock_maximo_below_minimo",
+                "message": "stock_maximo cannot be lower than stock_minimo",
+            },
+        )
 
 
 @router.get(
@@ -214,6 +227,18 @@ def create_product(*, session: SessionDep, product_in: ProductCreate) -> Any:
         raise HTTPException(status_code=400, detail="Unit of measure not found")
     if product_in.category_id and not session.get(Category, product_in.category_id):
         raise HTTPException(status_code=400, detail="Category not found")
+    # stock_maximo is permanent: an absent value auto-fills with the minimum
+    # (order-up-to-min semantics) or with 0 when there is no minimum either.
+    if "stock_maximo" in product_in.model_fields_set:
+        maximo = product_in.stock_maximo
+    else:
+        maximo = (
+            product_in.stock_minimo
+            if product_in.stock_minimo is not None
+            else Decimal("0")
+        )
+    _ensure_stock_maximo(product_in.stock_minimo, maximo)
+    product_in.stock_maximo = maximo
     product = crud.create_product(session=session, product_in=product_in)
     return product
 
@@ -245,6 +270,20 @@ def update_product(
         raise HTTPException(status_code=400, detail="Unit of measure not found")
     if data.get("category_id") and not session.get(Category, data["category_id"]):
         raise HTTPException(status_code=400, detail="Category not found")
+    # stock_maximo is permanent: an explicit null (legacy "clear it") keeps
+    # the current value, an absent one leaves the row untouched, and the
+    # effective pair must not end up with maximo below minimo (the DB CHECK
+    # constraint is the final net).
+    if "stock_maximo" in data and data["stock_maximo"] is None:
+        product_in.stock_maximo = product.stock_maximo
+    effective_minimo = (
+        product_in.stock_minimo if "stock_minimo" in data else product.stock_minimo
+    )
+    effective_maximo = (
+        product_in.stock_maximo if "stock_maximo" in data else product.stock_maximo
+    )
+    if effective_maximo is not None:
+        _ensure_stock_maximo(effective_minimo, effective_maximo)
     product = crud.update_product(
         session=session, db_product=product, product_in=product_in
     )

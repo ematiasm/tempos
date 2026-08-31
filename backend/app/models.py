@@ -308,8 +308,12 @@ class ProductBase(SQLModel):
         default=None,
         sa_type=Numeric(12, 3),  # type: ignore
     )
-    stock_maximo: Decimal | None = Field(
-        default=None,
+    # Permanent (NOT NULL) fill-to level for the min-max reorder policy:
+    # the listing trigger is stock_minimo, the reorder quantity fills up to
+    # stock_maximo. The product routes auto-fill an absent value with the
+    # minimum (or 0) and reject an explicit value below it.
+    stock_maximo: Decimal = Field(
+        default=Decimal("0"),
         sa_type=Numeric(12, 3),  # type: ignore
     )
     # Exception flag: when the global sell_block_price_edit is on, only
@@ -340,6 +344,9 @@ class ProductUpdate(SQLModel):
         default=None,
         sa_type=Numeric(12, 3),  # type: ignore
     )
+    # Optional on PATCH: an absent value keeps the current one (the field is
+    # permanent on the table); the route rejects a value below the effective
+    # stock_minimo.
     stock_maximo: Decimal | None = Field(
         default=None,
         sa_type=Numeric(12, 3),  # type: ignore
@@ -1514,7 +1521,7 @@ class ProductPublic(SQLModel):
     precio_venta: Decimal
     stock_current: Decimal
     stock_minimo: Decimal | None = None
-    stock_maximo: Decimal | None = None
+    stock_maximo: Decimal
     allow_price_edit_in_sale: bool
     created_at: datetime | None = None
     taxes: list[TaxPublic] = []
@@ -2143,7 +2150,7 @@ class ReorderRow(BaseModel):
     category_name: str | None = None
     stock_current: Decimal
     stock_minimo: Decimal | None = None
-    stock_maximo: Decimal | None = None
+    stock_maximo: Decimal
     missing: Decimal | None = None
     reference_cost: Decimal | None = None
     estimated_cost: Decimal | None = None

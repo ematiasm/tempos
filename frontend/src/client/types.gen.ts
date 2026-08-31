@@ -835,7 +835,7 @@ export type ProductCreate = {
     margen_pct?: (number | string);
     costo_actual?: (number | string);
     stock_minimo?: (number | string | null);
-    stock_maximo?: (number | string | null);
+    stock_maximo?: (number | string);
     allow_price_edit_in_sale?: boolean;
     tax_ids?: Array<(string)>;
 };
@@ -876,7 +876,7 @@ export type ProductPublic = {
     precio_venta: string;
     stock_current: string;
     stock_minimo?: (string | null);
-    stock_maximo?: (string | null);
+    stock_maximo: string;
     allow_price_edit_in_sale: boolean;
     created_at?: (string | null);
     taxes?: Array<TaxPublic>;
@@ -933,7 +933,7 @@ export type ReorderRow = {
     category_name?: (string | null);
     stock_current: string;
     stock_minimo?: (string | null);
-    stock_maximo?: (string | null);
+    stock_maximo: string;
     missing?: (string | null);
     reference_cost?: (string | null);
     estimated_cost?: (string | null);

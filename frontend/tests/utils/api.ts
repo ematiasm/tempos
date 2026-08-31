@@ -63,7 +63,7 @@ export interface ApiProduct {
   precio_venta: string
   stock_current: string
   stock_minimo: string | null
-  stock_maximo: string | null
+  stock_maximo: string
   is_active: boolean
 }
 
@@ -133,7 +133,11 @@ export const createProduct = async (
     margen_pct: data.margen_pct ?? 50,
     costo_actual: data.costo_actual ?? 100,
     stock_minimo: data.stock_minimo ?? null,
-    stock_maximo: data.stock_maximo ?? null,
+    // Omitted when absent: the backend auto-fills it with the minimum
+    // (order-up-to-min); an explicit null is now rejected.
+    ...(data.stock_maximo !== undefined
+      ? { stock_maximo: data.stock_maximo }
+      : {}),
     is_active: true,
     allow_price_edit_in_sale: data.allow_price_edit_in_sale ?? false,
     tax_ids: data.tax_ids ?? [],
