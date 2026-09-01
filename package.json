@@ -11,7 +11,7 @@
     "test:ui": "bun run --filter frontend test:ui"
   },
   "dependencies": {
-    "intl-messageformat": "^11.2.13",
-    "react-intl": "^10.1.20"
+    "intl-messageformat": "^11.2.14",
+    "react-intl": "^10.1.23"
   }
 }
