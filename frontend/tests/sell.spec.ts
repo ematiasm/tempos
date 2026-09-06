@@ -2011,4 +2011,184 @@ test.describe("Sell flow", () => {
     await expect(rows.nth(1).getByRole("spinbutton").nth(0)).toBeEnabled()
     await expect(rows.nth(1).getByRole("spinbutton").nth(0)).toHaveValue("150")
   })
+
+  test("Below-cost sale asks for confirmation before issuing", async ({
+    page,
+    request,
+  }) => {
+    await api.patch(request, "/business-settings/", {
+      warn_below_cost: true,
+    })
+    await expect
+      .poll(async () =>
+        api
+          .getOne<{ warn_below_cost: boolean }>(request, "/business-settings/")
+          .then((s) => s.warn_below_cost),
+      )
+      .toBe(true)
+
+    const suffix = uid()
+    const uoms = await getUoms(request)
+    const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
+    const name = `Producto E2E Bajo Costo ${suffix}`
+    const product = await createProduct(request, {
+      name,
+      sku: `PBC-${suffix.toUpperCase()}`,
+      uom_id: uom.id,
+      costo_actual: 100,
+      margen_pct: 50,
+      allow_price_edit_in_sale: true,
+    })
+    await adjustStock(request, product.id, 100)
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(name)
+    await page.getByRole("button", { name: new RegExp(name) }).click()
+    const row = page.getByTestId("cart-row").filter({ hasText: name })
+    await expect(row).toBeVisible()
+
+    // 150 -> 50: below the 100 cost, the badge appears on the line
+    await row.getByRole("spinbutton").nth(0).fill("50")
+    await expect(row.getByText("Bajo costo", { exact: true })).toBeVisible()
+
+    await payQuick(page, "Efectivo")
+
+    // the confirmation dialog lists the below-cost line
+    const dialog = page.getByTestId("below-cost-dialog")
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByText(name)).toBeVisible()
+
+    // cancel keeps the cart intact and issues nothing
+    await page.getByTestId("below-cost-cancel").click()
+    await expect(dialog).toHaveCount(0)
+    await expect(page.getByTestId("sale-success-numero")).toHaveCount(0)
+    await expect(row).toBeVisible()
+
+    // confirming again re-opens the gate, then "sell anyway" issues it
+    await payQuick(page, "Efectivo")
+    await expect(dialog).toBeVisible()
+    await page.getByTestId("below-cost-confirm").click()
+    const numero = page.getByTestId("sale-success-numero")
+    await expect(numero).toBeVisible()
+    expect((await numero.textContent())?.trim() ?? "").toMatch(/^\d{4}-FC-/)
+
+    // restore the shared setting for the rest of the suite
+    await api.patch(request, "/business-settings/", {
+      warn_below_cost: false,
+    })
+  })
+
+  test("Line discount that drops the price below cost asks for confirmation", async ({
+    page,
+    request,
+  }) => {
+    await api.patch(request, "/business-settings/", {
+      warn_below_cost: true,
+    })
+    await expect
+      .poll(async () =>
+        api
+          .getOne<{ warn_below_cost: boolean }>(request, "/business-settings/")
+          .then((s) => s.warn_below_cost),
+      )
+      .toBe(true)
+
+    const suffix = uid()
+    const uoms = await getUoms(request)
+    const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
+    const name = `Producto E2E Dcto Linea ${suffix}`
+    // cost 100 + 50% margin -> price 150; price editing stays locked on purpose
+    const product = await createProduct(request, {
+      name,
+      sku: `PDL-${suffix.toUpperCase()}`,
+      uom_id: uom.id,
+      costo_actual: 100,
+      margen_pct: 50,
+    })
+    await adjustStock(request, product.id, 100)
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(name)
+    await page.getByRole("button", { name: new RegExp(name) }).click()
+    const row = page.getByTestId("cart-row").filter({ hasText: name })
+    await expect(row).toBeVisible()
+
+    // at full price there is no warning
+    await expect(row.getByText("Bajo costo", { exact: true })).toHaveCount(0)
+
+    // a 67% line discount lands the effective price (49.5) below the cost
+    await row.getByRole("spinbutton").nth(2).fill("67")
+    await expect(row.getByText("Bajo costo", { exact: true })).toBeVisible()
+
+    await payQuick(page, "Efectivo")
+
+    const dialog = page.getByTestId("below-cost-dialog")
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByText(name)).toBeVisible()
+    await page.getByTestId("below-cost-confirm").click()
+    const numero = page.getByTestId("sale-success-numero")
+    await expect(numero).toBeVisible()
+    expect((await numero.textContent())?.trim() ?? "").toMatch(/^\d{4}-FC-/)
+
+    // restore the shared setting for the rest of the suite
+    await api.patch(request, "/business-settings/", {
+      warn_below_cost: false,
+    })
+  })
+
+  test("Document discount that sinks the whole sale below cost asks for confirmation", async ({
+    page,
+    request,
+  }) => {
+    await api.patch(request, "/business-settings/", {
+      warn_below_cost: true,
+    })
+    await expect
+      .poll(async () =>
+        api
+          .getOne<{ warn_below_cost: boolean }>(request, "/business-settings/")
+          .then((s) => s.warn_below_cost),
+      )
+      .toBe(true)
+
+    const suffix = uid()
+    const uoms = await getUoms(request)
+    const uom = uoms.find((u) => u.name === "unidad") ?? uoms[0]
+    const name = `Producto E2E Dcto Global ${suffix}`
+    const product = await createProduct(request, {
+      name,
+      sku: `PDG-${suffix.toUpperCase()}`,
+      uom_id: uom.id,
+      costo_actual: 100,
+      margen_pct: 50,
+    })
+    await adjustStock(request, product.id, 100)
+
+    await page.goto("/sell")
+    await page.getByTestId("product-search").fill(name)
+    await page.getByRole("button", { name: new RegExp(name) }).click()
+    const row = page.getByTestId("cart-row").filter({ hasText: name })
+    await expect(row).toBeVisible()
+    // the line itself is fine at 150
+    await expect(row.getByText("Bajo costo", { exact: true })).toHaveCount(0)
+
+    // a 60 document discount puts revenue (90) under the total cost (100)
+    await page.getByTestId("sell-discount").fill("60")
+    await payQuick(page, "Efectivo")
+
+    const dialog = page.getByTestId("below-cost-dialog")
+    await expect(dialog).toBeVisible()
+    // only the document summary row shows; no per-line rows
+    await expect(dialog.getByTestId("below-cost-doc-row")).toBeVisible()
+    await expect(dialog.getByText(name)).toHaveCount(0)
+    await page.getByTestId("below-cost-confirm").click()
+    const numero = page.getByTestId("sale-success-numero")
+    await expect(numero).toBeVisible()
+    expect((await numero.textContent())?.trim() ?? "").toMatch(/^\d{4}-FC-/)
+
+    // restore the shared setting for the rest of the suite
+    await api.patch(request, "/business-settings/", {
+      warn_below_cost: false,
+    })
+  })
 })

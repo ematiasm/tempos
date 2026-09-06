@@ -55,10 +55,12 @@ export function CartTable({
               line.qty * line.unitPrice * (1 - line.discountPct / 100),
             )
             const lowStock = line.qty > stock
-            // priced below the product's current cost (warn-only, never blocks)
+            // priced below the product's current cost after the line
+            // discount (warn-only, never blocks)
             const belowCost =
               warnBelowCost &&
-              line.unitPrice < Number(line.product.costo_actual)
+              line.unitPrice * (1 - line.discountPct / 100) <
+                Number(line.product.costo_actual)
             const selected = index === selectedIndex
             return (
               <tr

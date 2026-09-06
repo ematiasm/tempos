@@ -19,6 +19,7 @@ import {
   SplitPaymentDialog,
   type SplitPaymentResult,
 } from "@/components/Payments/SplitPaymentDialog"
+import { BelowCostDialog } from "@/components/Sell/BelowCostDialog"
 import { CartActionBar } from "@/components/Sell/CartActionBar"
 import { CartTable } from "@/components/Sell/CartTable"
 import { CashRegisterBar } from "@/components/Sell/CashRegisterBar"
@@ -91,6 +92,13 @@ function Sell() {
   const [discountTotal, setDiscountTotal] = useState(0)
   const [notes, setNotes] = useState("")
   const [splitOpen, setSplitOpen] = useState(false)
+  const [belowCostOpen, setBelowCostOpen] = useState(false)
+  // Sale captured behind the below-cost confirmation dialog; issued only on
+  // the operator's explicit "confirm anyway".
+  const [pendingSale, setPendingSale] = useState<{
+    payments: DocumentPaymentCreate[]
+    vuelto: number
+  } | null>(null)
   const [creditWarning, setCreditWarning] = useState(false)
   const [created, setCreated] = useState<DocumentPublic | null>(null)
   const [vuelto, setVuelto] = useState(0)
@@ -331,6 +339,36 @@ function Sell() {
     [cart, discountTotal],
   )
 
+  // Cart lines whose effective unit price (after the line discount) is below
+  // the product's current cost (only when the warn_below_cost setting is
+  // enabled): they gate the sale behind a confirmation dialog before the
+  // document is created.
+  const belowCostLines = useMemo(
+    () =>
+      warnBelowCost
+        ? cart.filter(
+            (l) =>
+              l.unitPrice * (1 - l.discountPct / 100) <
+              Number(l.product.costo_actual),
+          )
+        : [],
+    [cart, warnBelowCost],
+  )
+
+  // Document-level check: even when no single line is below cost, a global
+  // discount can push the whole sale under the total cost (warn-only).
+  const docBelowCost = useMemo(() => {
+    if (!warnBelowCost || cart.length === 0) return null
+    const cost = cart.reduce(
+      (acc, l) => acc + Number(l.product.costo_actual) * l.qty,
+      0,
+    )
+    const revenue = subtotal - discountTotal
+    return revenue < cost
+      ? { revenue: round2(revenue), cost: round2(cost) }
+      : null
+  }, [warnBelowCost, cart, subtotal, discountTotal])
+
   const createMutation = useMutation({
     mutationFn: ({
       payments,
@@ -387,15 +425,25 @@ function Sell() {
   const quickCreditDisabled =
     !sessionOpen || cart.length === 0 || !docTypeId || createMutation.isPending
 
+  /** Issues the sale, or first asks for confirmation when any cart line is
+   * priced below cost (line discount included) or the whole sale lands below
+   * the total cost after the document discount (warn-only: the operator may
+   * always continue). */
+  const issueSale = (payments: DocumentPaymentCreate[], vuelto: number) => {
+    if (belowCostLines.length > 0 || docBelowCost) {
+      setPendingSale({ payments, vuelto })
+      setBelowCostOpen(true)
+      return
+    }
+    createMutation.mutate({ payments, vuelto })
+  }
+
   const payWithMethod = (method: PaymentMethodPublic) => {
     if (method.marks_paid === false && !customerId) {
       setCreditWarning(true)
       return
     }
-    createMutation.mutate({
-      payments: [{ payment_method_id: method.id, monto: total }],
-      vuelto: 0,
-    })
+    issueSale([{ payment_method_id: method.id, monto: total }], 0)
   }
 
   /** Removes a line and keeps the selection on a sensible neighbor. */
@@ -790,10 +838,23 @@ function Sell() {
         pending={createMutation.isPending}
         onConfirm={(result: SplitPaymentResult) => {
           setSplitOpen(false)
-          createMutation.mutate({
-            payments: toPaymentCreates(result.rows),
-            vuelto: result.vuelto,
-          })
+          issueSale(toPaymentCreates(result.rows), result.vuelto)
+        }}
+      />
+
+      <BelowCostDialog
+        open={belowCostOpen}
+        lines={belowCostLines}
+        docBelow={docBelowCost}
+        pending={createMutation.isPending}
+        onConfirm={() => {
+          setBelowCostOpen(false)
+          if (pendingSale) createMutation.mutate(pendingSale)
+          setPendingSale(null)
+        }}
+        onOpenChange={(open) => {
+          setBelowCostOpen(open)
+          if (!open) setPendingSale(null)
         }}
       />
 
