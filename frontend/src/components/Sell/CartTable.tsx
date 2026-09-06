@@ -17,6 +17,8 @@ interface CartTableProps {
   onSelectLine: (index: number) => void
   /** Global sell_block_price_edit setting; per-product flag still unlocks. */
   blockPriceEdit: boolean
+  /** UI-only, non-blocking warning when a line's price is below product cost. */
+  warnBelowCost?: boolean
 }
 
 export function CartTable({
@@ -26,6 +28,7 @@ export function CartTable({
   selectedIndex,
   onSelectLine,
   blockPriceEdit,
+  warnBelowCost = false,
 }: CartTableProps) {
   const t = useT()
   const { numberFormat } = useLocale()
@@ -52,6 +55,10 @@ export function CartTable({
               line.qty * line.unitPrice * (1 - line.discountPct / 100),
             )
             const lowStock = line.qty > stock
+            // priced below the product's current cost (warn-only, never blocks)
+            const belowCost =
+              warnBelowCost &&
+              line.unitPrice < Number(line.product.costo_actual)
             const selected = index === selectedIndex
             return (
               <tr
@@ -63,6 +70,14 @@ export function CartTable({
               >
                 <td className="px-3 py-2">
                   <span className="font-medium">{line.product.name}</span>
+                  {belowCost && (
+                    <Badge
+                      variant="outline"
+                      className="ml-1 text-[10px] text-amber-600"
+                    >
+                      {t("sell.belowCost")}
+                    </Badge>
+                  )}
                   {line.variant && (
                     <div className="flex gap-1">
                       {line.variant.sku_suffix && (

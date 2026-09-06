@@ -56,6 +56,7 @@ import {
 } from "@/components/Admin/financialAccountColumns"
 import GeneralSettings from "@/components/Admin/GeneralSettings"
 import PrintingSettings from "@/components/Admin/PrintingSettings"
+import ProductsSettings from "@/components/Admin/ProductsSettings"
 import {
   getColumns as getPaymentMethodColumns,
   type PaymentMethodTableData,
@@ -604,6 +605,7 @@ function Admin() {
       <Tabs defaultValue="general">
         <TabsList className="flex flex-wrap h-auto">
           <TabsTrigger value="general">{t("admin.tabGeneral")}</TabsTrigger>
+          <TabsTrigger value="products">{t("admin.tabProducts")}</TabsTrigger>
           <TabsTrigger value="users-roles">
             {t("admin.tabUsersRoles")}
           </TabsTrigger>
@@ -627,6 +629,9 @@ function Admin() {
         </TabsList>
         <TabsContent value="general">
           <GeneralSettings />
+        </TabsContent>
+        <TabsContent value="products">
+          <ProductsSettings />
         </TabsContent>
         <TabsContent value="users-roles">
           <UsersAndRolesTab />

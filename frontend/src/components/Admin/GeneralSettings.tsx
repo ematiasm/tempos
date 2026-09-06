@@ -12,7 +12,6 @@ import {
   type TaxCondition,
 } from "@/client"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Form,
   FormControl,
@@ -47,13 +46,10 @@ const formSchema = z.object({
     .or(z.literal("")),
   cuit: z.string().optional(),
   condicion_fiscal: z.enum(["RI", "Monotributo", "Exento", "Consumidor Final"]),
-  allow_negative_stock: z.boolean(),
-  enable_variants: z.boolean(),
   default_iva: z.string().optional().or(z.literal("")),
   timezone: z.string().min(1, { message: "Timezone is required" }),
   payment_method_default_id: z.string().optional(),
   number_format: z.enum(["es", "en"]),
-  stock_policy: z.enum(["block", "warn"]),
   default_locale: z.enum(["es", "en"]),
 })
 
@@ -114,13 +110,10 @@ function GeneralSettings() {
       cuit: settings?.cuit ?? "",
       condicion_fiscal:
         (settings?.condicion_fiscal as TaxCondition) ?? "Consumidor Final",
-      allow_negative_stock: settings?.allow_negative_stock ?? false,
-      enable_variants: settings?.enable_variants ?? false,
       default_iva: settings?.default_iva?.toString() ?? "",
       timezone: settings?.timezone ?? "America/Argentina/Buenos_Aires",
       payment_method_default_id: settings?.payment_method_default_id ?? "",
       number_format: settings?.number_format ?? "en",
-      stock_policy: settings?.stock_policy ?? "warn",
       default_locale: settings?.default_locale ?? "en",
     },
     values: settings
@@ -131,13 +124,10 @@ function GeneralSettings() {
           email: settings.email ?? "",
           cuit: settings.cuit ?? "",
           condicion_fiscal: settings.condicion_fiscal as TaxCondition,
-          allow_negative_stock: settings.allow_negative_stock,
-          enable_variants: settings.enable_variants,
           default_iva: settings.default_iva?.toString() ?? "",
           timezone: settings.timezone,
           payment_method_default_id: settings.payment_method_default_id ?? "",
           number_format: settings.number_format,
-          stock_policy: settings.stock_policy,
           default_locale: settings.default_locale,
         }
       : undefined,
@@ -152,12 +142,9 @@ function GeneralSettings() {
         email: data.email || null,
         cuit: data.cuit || null,
         condicion_fiscal: data.condicion_fiscal,
-        allow_negative_stock: data.allow_negative_stock,
-        enable_variants: data.enable_variants,
         timezone: data.timezone,
         payment_method_default_id: data.payment_method_default_id || null,
         number_format: data.number_format,
-        stock_policy: data.stock_policy,
         default_locale: data.default_locale,
       }
       if (data.default_iva) {
@@ -416,63 +403,31 @@ function GeneralSettings() {
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="number_format"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("admin.general.numberFormat")}</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={!isEditing}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="es">1.234,56</SelectItem>
-                        <SelectItem value="en">1,234.56</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="stock_policy"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("admin.general.stockPolicy")}</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={!isEditing}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="block">
-                          {t("admin.general.stockPolicyBlock")}
-                        </SelectItem>
-                        <SelectItem value="warn">
-                          {t("admin.general.stockPolicyWarn")}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="number_format"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("admin.general.numberFormat")}</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={!isEditing}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="es">1.234,56</SelectItem>
+                      <SelectItem value="en">1,234.56</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
@@ -586,56 +541,6 @@ function GeneralSettings() {
                 className="hidden"
                 accept="image/png,image/jpeg,image/webp,image/svg+xml"
                 onChange={(e) => handleLogoUpload(e.target.files?.[0])}
-              />
-            </div>
-
-            <div className="flex flex-col gap-4 pt-2">
-              <FormField
-                control={form.control}
-                name="allow_negative_stock"
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        disabled={!isEditing}
-                      />
-                    </FormControl>
-                    <div>
-                      <FormLabel className="font-normal">
-                        {t("admin.general.allowNegativeStock")}
-                      </FormLabel>
-                      <p className="text-sm text-muted-foreground">
-                        {t("admin.general.allowNegativeStockHint")}
-                      </p>
-                    </div>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="enable_variants"
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        disabled={!isEditing}
-                      />
-                    </FormControl>
-                    <div>
-                      <FormLabel className="font-normal">
-                        {t("admin.general.enableVariants")}
-                      </FormLabel>
-                      <p className="text-sm text-muted-foreground">
-                        {t("admin.general.enableVariantsHint")}
-                      </p>
-                    </div>
-                  </FormItem>
-                )}
               />
             </div>
           </div>

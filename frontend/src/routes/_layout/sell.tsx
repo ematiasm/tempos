@@ -124,6 +124,8 @@ function Sell() {
   // configured customer is missing or inactive.
   const defaultCustomerId = settings?.sell_default_customer_id ?? null
   const blockPriceEdit = settings?.sell_block_price_edit ?? true
+  // UI-only, non-blocking warning shown on cart lines priced below cost.
+  const warnBelowCost = settings?.warn_below_cost ?? false
   const hideDate = settings?.sell_hide_date ?? false
 
   const selectedCustomer = customers.find((c) => c.id === customerId) ?? null
@@ -553,6 +555,7 @@ function Sell() {
                 selectedIndex={selectedLine}
                 onSelectLine={setSelectedLine}
                 blockPriceEdit={blockPriceEdit}
+                warnBelowCost={warnBelowCost}
               />
               {selectedLine !== null && cart[selectedLine] && (
                 <CartActionBar

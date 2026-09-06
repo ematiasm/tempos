@@ -885,6 +885,38 @@ export const BusinessSettingsPublicSchema = {
         stock_policy: {
             '$ref': '#/components/schemas/StockPolicy'
         },
+        default_margen_pct: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Default Margen Pct'
+        },
+        warn_below_cost: {
+            type: 'boolean',
+            title: 'Warn Below Cost'
+        },
+        require_barcode: {
+            type: 'boolean',
+            title: 'Require Barcode'
+        },
+        default_uom_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Default Uom Id'
+        },
         default_locale: {
             '$ref': '#/components/schemas/LocalePreference'
         },
@@ -961,7 +993,7 @@ export const BusinessSettingsPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants', 'timezone', 'number_format', 'stock_policy', 'default_locale', 'default_print_format', 'sell_block_price_edit', 'sell_hide_date'],
+    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants', 'timezone', 'number_format', 'stock_policy', 'warn_below_cost', 'require_barcode', 'default_locale', 'default_print_format', 'sell_block_price_edit', 'sell_hide_date'],
     title: 'BusinessSettingsPublic'
 } as const;
 
@@ -1117,6 +1149,55 @@ export const BusinessSettingsUpdateSchema = {
                     type: 'null'
                 }
             ]
+        },
+        default_margen_pct: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Default Margen Pct'
+        },
+        warn_below_cost: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Warn Below Cost'
+        },
+        require_barcode: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Require Barcode'
+        },
+        default_uom_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Default Uom Id'
         },
         default_locale: {
             anyOf: [

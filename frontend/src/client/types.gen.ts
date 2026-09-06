@@ -150,6 +150,10 @@ export type BusinessSettingsPublic = {
     number_format: NumberFormat;
     logo_path?: (string | null);
     stock_policy: StockPolicy;
+    default_margen_pct?: (string | null);
+    warn_below_cost: boolean;
+    require_barcode: boolean;
+    default_uom_id?: (string | null);
     default_locale: LocalePreference;
     default_print_format: PrintFormat;
     voucher_footer?: (string | null);
@@ -175,6 +179,10 @@ export type BusinessSettingsUpdate = {
     payment_method_default_id?: (string | null);
     number_format?: (NumberFormat | null);
     stock_policy?: (StockPolicy | null);
+    default_margen_pct?: (number | string | null);
+    warn_below_cost?: (boolean | null);
+    require_barcode?: (boolean | null);
+    default_uom_id?: (string | null);
     default_locale?: (LocalePreference | null);
     default_print_format?: (PrintFormat | null);
     voucher_footer?: (string | null);

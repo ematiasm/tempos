@@ -13,6 +13,7 @@ import {
   UomsService,
 } from "@/client"
 import { buildCategoryRows } from "@/components/Admin/categoryColumns"
+import { useBusinessSettings } from "@/components/Sell/useBusinessSettings"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -82,9 +83,13 @@ const AddProduct = () => {
   const [newBarcode, setNewBarcode] = useState("")
   const [barcodes, setBarcodes] = useState<string[]>([])
   const [selectedTaxIds, setSelectedTaxIds] = useState<string[]>([])
+  const [barcodeError, setBarcodeError] = useState(false)
   const taxesTouchedRef = useRef(false)
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
+  const { settings } = useBusinessSettings()
+  // UI-only product defaults (client-side prefills; the backend never enforces)
+  const requireBarcode = settings?.require_barcode ?? false
 
   const { data: uomsData } = useQuery({
     queryFn: () => UomsService.readUoms({ skip: 0, limit: 100 }),
@@ -131,6 +136,20 @@ const AddProduct = () => {
       allow_price_edit_in_sale: false,
     },
   })
+
+  // Prefill the configured default margin and unit of measure each time the
+  // dialog opens (form.reset() on close restores the static defaults).
+  const defaultMargenPct = settings?.default_margen_pct
+  const defaultUomId = settings?.default_uom_id
+  useEffect(() => {
+    if (!isOpen) return
+    if (defaultMargenPct != null) {
+      form.setValue("margen_pct", String(defaultMargenPct))
+    }
+    if (defaultUomId) {
+      form.setValue("uom_id", defaultUomId)
+    }
+  }, [isOpen, defaultMargenPct, defaultUomId, form])
 
   const costoStr = form.watch("costo_actual")
   const margenStr = form.watch("margen_pct")
@@ -182,6 +201,7 @@ const AddProduct = () => {
       setNewBarcode("")
       setSelectedTaxIds([])
       taxesTouchedRef.current = false
+      setBarcodeError(false)
       setTab("details")
       setIsOpen(false)
     },
@@ -192,7 +212,17 @@ const AddProduct = () => {
     },
   })
 
-  const onSubmit = (data: FormData) => mutation.mutate(data)
+  const onSubmit = (data: FormData) => {
+    // UI-only rule: when the setting is on, a product needs at least one
+    // barcode. The backend deliberately does not enforce this.
+    if (requireBarcode && barcodes.length === 0) {
+      setBarcodeError(true)
+      setTab("barcodes")
+      showErrorToast(t("products.barcodeRequired"))
+      return
+    }
+    mutation.mutate(data)
+  }
 
   const toggleTax = (taxId: string, checked: boolean) => {
     taxesTouchedRef.current = true
@@ -214,6 +244,7 @@ const AddProduct = () => {
     }
     setBarcodes([...barcodes, code])
     setNewBarcode("")
+    setBarcodeError(false)
   }
 
   return (
@@ -227,6 +258,7 @@ const AddProduct = () => {
           setNewBarcode("")
           setSelectedTaxIds([])
           taxesTouchedRef.current = false
+          setBarcodeError(false)
           setTab("details")
         }
       }}
@@ -516,6 +548,11 @@ const AddProduct = () => {
                   <p className="text-sm text-muted-foreground">
                     {t("products.barcodesAddHint")}
                   </p>
+                  {barcodeError && (
+                    <p className="text-sm text-destructive">
+                      {t("products.barcodeRequired")}
+                    </p>
+                  )}
                   <div className="flex gap-2">
                     <Input
                       placeholder={t("products.barcodePlaceholder")}

@@ -279,6 +279,88 @@ def test_sell_quick_method_ids_preserves_order(
     assert r.status_code == 200, r.text
 
 
+def test_fresh_settings_have_product_defaults(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    r = client.get(
+        f"{settings.API_V1_STR}/business-settings/", headers=superuser_token_headers
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["default_margen_pct"] is None
+    assert body["warn_below_cost"] is False
+    assert body["require_barcode"] is False
+    assert body["default_uom_id"] is None
+
+
+def test_product_defaults_round_trip(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    r = client.post(
+        f"{settings.API_V1_STR}/uoms/",
+        headers=superuser_token_headers,
+        json={"name": "Test UoM Settings", "abbreviation": "tus", "decimal_places": 0},
+    )
+    assert r.status_code == 200, r.text
+    uom = r.json()
+
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={
+            "default_margen_pct": 35.5,
+            "warn_below_cost": True,
+            "require_barcode": True,
+            "default_uom_id": uom["id"],
+        },
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert float(body["default_margen_pct"]) == 35.5
+    assert body["warn_below_cost"] is True
+    assert body["require_barcode"] is True
+    assert body["default_uom_id"] == uom["id"]
+
+    # values persist on a fresh read
+    r = client.get(
+        f"{settings.API_V1_STR}/business-settings/", headers=superuser_token_headers
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert float(body["default_margen_pct"]) == 35.5
+    assert body["warn_below_cost"] is True
+    assert body["require_barcode"] is True
+    assert body["default_uom_id"] == uom["id"]
+
+    # restore defaults, then remove the helper uom
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={
+            "default_margen_pct": None,
+            "warn_below_cost": False,
+            "require_barcode": False,
+            "default_uom_id": None,
+        },
+    )
+    assert r.status_code == 200, r.text
+    r = client.delete(
+        f"{settings.API_V1_STR}/uoms/{uom['id']}", headers=superuser_token_headers
+    )
+    assert r.status_code == 200
+
+
+def test_product_defaults_reject_invalid_uuid(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={"default_uom_id": "not-a-uuid"},
+    )
+    assert r.status_code == 422
+
+
 def test_upload_and_delete_logo(
     client: TestClient, superuser_token_headers: dict[str, str], tmp_path, monkeypatch
 ) -> None:

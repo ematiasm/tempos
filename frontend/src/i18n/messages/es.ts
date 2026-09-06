@@ -102,6 +102,7 @@ export const es = {
   "sell.discPct": "Dto %",
   "sell.lineTotal": "Total",
   "sell.stockHint": "stock {stock}",
+  "sell.belowCost": "Bajo costo",
   "sell.customer": "Cliente",
   "sell.selectCustomer": "Seleccionar cliente",
   "sell.balance": "Saldo: {balance}",
@@ -564,6 +565,8 @@ export const es = {
   "products.noBarcodes":
     "Todavía no se agregaron códigos de barras (opcional).",
   "products.barcodeDuplicate": "El código de barras ya fue agregado",
+  "products.barcodeRequired":
+    "Agregá al menos un código de barras para crear el producto",
   "products.created": "Producto creado correctamente",
   "products.updated": "Producto actualizado correctamente",
   "products.taxesUpdated": "Impuestos actualizados correctamente",
@@ -814,6 +817,7 @@ export const es = {
   "admin.subtitle":
     "Configurá tu negocio, usuarios, roles y datos maestros del catálogo",
   "admin.tabGeneral": "General",
+  "admin.tabProducts": "Productos",
   "admin.tabUsersRoles": "Usuarios y Roles",
   "admin.tabCategories": "Categorías",
   "admin.tabUnits": "Unidades",
@@ -824,6 +828,33 @@ export const es = {
   "admin.tabPrinting": "Impresión",
   "admin.tabSellScreen": "Pantalla de venta",
   "admin.tabBackups": "Backups",
+  "admin.products.title": "Productos",
+  "admin.products.subtitle":
+    "Políticas de stock y valores por defecto al crear productos",
+  "admin.products.defaultMarginPct": "Margen por defecto (%)",
+  "admin.products.defaultMarginPctHint": "Se precarga al crear un producto",
+  "admin.products.defaultUom": "Unidad de medida por defecto",
+  "admin.products.noDefault": "Sin preferencia",
+  "admin.products.stockPolicy": "Stock insuficiente",
+  "admin.products.stockPolicyBlock":
+    "Bloquear la venta cuando no alcanza el stock",
+  "admin.products.stockPolicyWarn":
+    "Permitir la venta y advertir cuando no alcanza el stock",
+  "admin.products.allowNegativeStock": "Permitir stock negativo",
+  "admin.products.allowNegativeStockHint":
+    "Permitir que los productos bajen de cero stock",
+  "admin.products.enableVariants": "Habilitar variantes de producto",
+  "admin.products.enableVariantsHint":
+    "Permitir que los productos tengan variantes (p. ej. color, talle)",
+  "admin.products.requireBarcode": "Exigir código de barras",
+  "admin.products.requireBarcodeHint":
+    "Solo en la interfaz: exigir al menos un código de barras para crear un producto",
+  "admin.products.warnBelowCost":
+    "Advertir cuando el precio esté por debajo del costo",
+  "admin.products.warnBelowCostHint":
+    "Solo en la interfaz: muestra un aviso no bloqueante en la pantalla de venta",
+  "admin.products.saved": "Configuración de productos guardada",
+  "admin.products.saveChanges": "Guardar cambios",
   "admin.printing.title": "Impresión",
   "admin.printing.subtitle":
     "Formato de comprobantes por defecto y textos imprimibles",
@@ -1188,22 +1219,11 @@ export const es = {
   "admin.general.address": "Dirección",
   "admin.general.addressPlaceholder": "Calle, Ciudad, Provincia",
   "admin.general.defaultIva": "Tasa de IVA por defecto (%)",
-  "admin.general.allowNegativeStock": "Permitir stock negativo",
-  "admin.general.allowNegativeStockHint":
-    "Permitir que los productos bajen de cero stock",
-  "admin.general.enableVariants": "Habilitar variantes de producto",
-  "admin.general.enableVariantsHint":
-    "Permitir que los productos tengan variantes (p. ej. color, talle)",
   "admin.general.timezone": "Zona horaria",
   "admin.general.selectTimezone": "Seleccionar zona horaria",
   "admin.general.timezoneHint":
     "Se usa para la programación de backups y las fechas de los archivos de respaldo",
   "admin.general.numberFormat": "Formato de número",
-  "admin.general.stockPolicy": "Stock insuficiente",
-  "admin.general.stockPolicyBlock":
-    "Bloquear la venta cuando no alcanza el stock",
-  "admin.general.stockPolicyWarn":
-    "Permitir la venta y advertir cuando no alcanza el stock",
   "admin.general.defaultLocale": "Idioma por defecto",
   "admin.general.localeEs": "Español",
   "admin.general.localeEn": "English",

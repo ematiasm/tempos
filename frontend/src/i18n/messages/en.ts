@@ -105,6 +105,7 @@ export const en: Messages = {
   "sell.discPct": "Disc %",
   "sell.lineTotal": "Total",
   "sell.stockHint": "stock {stock}",
+  "sell.belowCost": "Below cost",
   "sell.customer": "Customer",
   "sell.selectCustomer": "Select customer",
   "sell.balance": "Balance: {balance}",
@@ -558,6 +559,7 @@ export const en: Messages = {
   "products.barcodePlaceholder": "Scan or type barcode",
   "products.noBarcodes": "No barcodes added yet (optional).",
   "products.barcodeDuplicate": "Barcode already added",
+  "products.barcodeRequired": "Add at least one barcode to create the product",
   "products.created": "Product created successfully",
   "products.updated": "Product updated successfully",
   "products.taxesUpdated": "Taxes updated successfully",
@@ -795,6 +797,7 @@ export const en: Messages = {
   "admin.subtitle":
     "Configure your business, users, roles and master catalog data",
   "admin.tabGeneral": "General",
+  "admin.tabProducts": "Products",
   "admin.tabUsersRoles": "Users and Roles",
   "admin.tabCategories": "Categories",
   "admin.tabUnits": "Units",
@@ -805,6 +808,32 @@ export const en: Messages = {
   "admin.tabPrinting": "Printing",
   "admin.tabSellScreen": "Sell screen",
   "admin.tabBackups": "Backups",
+  "admin.products.title": "Products",
+  "admin.products.subtitle":
+    "Stock policies and defaults prefilled when creating products",
+  "admin.products.defaultMarginPct": "Default margin (%)",
+  "admin.products.defaultMarginPctHint": "Prefilled when creating a product",
+  "admin.products.defaultUom": "Default unit of measure",
+  "admin.products.noDefault": "No preference",
+  "admin.products.stockPolicy": "Insufficient stock",
+  "admin.products.stockPolicyBlock":
+    "Block the sale when stock is insufficient",
+  "admin.products.stockPolicyWarn":
+    "Allow the sale and warn when stock is insufficient",
+  "admin.products.allowNegativeStock": "Allow Negative Stock",
+  "admin.products.allowNegativeStockHint":
+    "Allow products to go below zero stock",
+  "admin.products.enableVariants": "Enable Product Variants",
+  "admin.products.enableVariantsHint":
+    "Allow products to have variants (e.g. color, size)",
+  "admin.products.requireBarcode": "Require barcode",
+  "admin.products.requireBarcodeHint":
+    "UI only: require at least one barcode to create a product",
+  "admin.products.warnBelowCost": "Warn when the price is below cost",
+  "admin.products.warnBelowCostHint":
+    "UI only: shows a non-blocking warning on the sell screen",
+  "admin.products.saved": "Product settings saved",
+  "admin.products.saveChanges": "Save changes",
   "admin.printing.title": "Printing",
   "admin.printing.subtitle": "Default voucher print format and printable texts",
   "admin.printing.format": "Default format",
@@ -1157,21 +1186,11 @@ export const en: Messages = {
   "admin.general.address": "Address",
   "admin.general.addressPlaceholder": "Street, City, Province",
   "admin.general.defaultIva": "Default VAT Rate (%)",
-  "admin.general.allowNegativeStock": "Allow Negative Stock",
-  "admin.general.allowNegativeStockHint":
-    "Allow products to go below zero stock",
-  "admin.general.enableVariants": "Enable Product Variants",
-  "admin.general.enableVariantsHint":
-    "Allow products to have variants (e.g. color, size)",
   "admin.general.timezone": "Timezone",
   "admin.general.selectTimezone": "Select timezone",
   "admin.general.timezoneHint":
     "Used for backup scheduling and backup file timestamps",
   "admin.general.numberFormat": "Number format",
-  "admin.general.stockPolicy": "Insufficient stock",
-  "admin.general.stockPolicyBlock": "Block the sale when stock is insufficient",
-  "admin.general.stockPolicyWarn":
-    "Allow the sale and warn when stock is insufficient",
   "admin.general.defaultLocale": "Default language",
   "admin.general.localeEs": "Español",
   "admin.general.localeEn": "English",

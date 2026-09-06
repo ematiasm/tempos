@@ -203,6 +203,11 @@ class BusinessSettingsUpdate(SQLModel):
     payment_method_default_id: uuid.UUID | None = None
     number_format: NumberFormat | None = None
     stock_policy: StockPolicy | None = None
+    # Product defaults (see BusinessSettings for semantics).
+    default_margen_pct: Decimal | None = None
+    warn_below_cost: bool | None = None
+    require_barcode: bool | None = None
+    default_uom_id: uuid.UUID | None = None
     default_locale: LocalePreference | None = None
     default_print_format: PrintFormat | None = None
     voucher_footer: str | None = Field(default=None, max_length=255)
@@ -783,6 +788,18 @@ class BusinessSettings(SQLModel, table=True):
     # Path (public, served under /uploads) to the business logo shown on vouchers.
     logo_path: str | None = Field(default=None, max_length=255)
     stock_policy: StockPolicy = Field(default=StockPolicy.WARN, max_length=10)
+    # --- Product defaults ---
+    # Margin % prefilled when creating a product; NULL = no prefill.
+    default_margen_pct: Decimal | None = Field(
+        default=None,
+        sa_type=Numeric(5, 2),  # type: ignore
+    )
+    # UI-only warning when a cart line's unit price is below the product cost.
+    warn_below_cost: bool = Field(default=False)
+    # UI-only: require at least one barcode to create a product.
+    require_barcode: bool = Field(default=False)
+    # Unit of measure preselected when creating a product; NULL = no prefill.
+    default_uom_id: uuid.UUID | None = Field(default=None, foreign_key="uom.id")
     default_locale: LocalePreference = Field(default=LocalePreference.EN, max_length=5)
     # Voucher print profile preselected by the print dialog (A4 or 80mm).
     default_print_format: PrintFormat = Field(default=PrintFormat.A4, max_length=10)
@@ -1449,6 +1466,11 @@ class BusinessSettingsPublic(SQLModel):
     number_format: NumberFormat
     logo_path: str | None = None
     stock_policy: StockPolicy
+    # Product defaults (see BusinessSettings for semantics).
+    default_margen_pct: Decimal | None = None
+    warn_below_cost: bool
+    require_barcode: bool
+    default_uom_id: uuid.UUID | None = None
     default_locale: LocalePreference
     default_print_format: PrintFormat
     voucher_footer: str | None = None
