@@ -73,7 +73,9 @@ export function ReceiptDialog({
 
   const { data: currentSession } = useQuery({
     queryFn: () => CashSessionsService.readCurrentCashSession(),
-    queryKey: ["cash-sessions-current"],
+    // Same namespaced key as useOpenCashSession: the open/close dialogs'
+    // ["cash-sessions"] prefix invalidation keeps this query fresh too.
+    queryKey: ["cash-sessions", "current"],
   })
   const hasOpenSession =
     currentSession != null && currentSession.status === "open"
