@@ -34,13 +34,10 @@ export interface CounterpartComboboxControls {
 
 interface CounterpartComboboxProps {
   items: CounterpartOption[]
-  /** Currently selected counterpart id, or null for none. */
+  /** Currently selected counterpart id, or null while nothing is selected. */
   value: string | null
-  onChange: (id: string | null) => void
-  /** Renders a "no counterpart" clear option (e.g. "Sin cliente"). */
-  allowNone?: boolean
-  /** Label for the none option; i18n is owned by the caller. */
-  noneLabel?: string
+  /** Picking is final: this combobox offers no "none" clear option. */
+  onChange: (id: string) => void
   placeholder: string
   triggerTestId?: string
   /** Imperative handle so screens can open + focus the picker via a shortcut. */
@@ -58,8 +55,6 @@ export function CounterpartCombobox({
   items,
   value,
   onChange,
-  allowNone = false,
-  noneLabel,
   placeholder,
   triggerTestId,
   controlsRef,
@@ -137,20 +132,6 @@ export function CounterpartCombobox({
           <CommandList>
             <CommandEmpty>{t("common.noResults")}</CommandEmpty>
             <CommandGroup>
-              {allowNone && !search.trim() && (
-                <CommandItem
-                  value="__none__"
-                  onSelect={() => {
-                    onChange(null)
-                    close()
-                  }}
-                >
-                  <Check
-                    className={cn(value === null ? "opacity-100" : "opacity-0")}
-                  />
-                  <span className="truncate">{noneLabel}</span>
-                </CommandItem>
-              )}
               {filtered.map((item) => (
                 <CommandItem
                   key={item.id}

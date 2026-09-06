@@ -119,7 +119,6 @@ export const es = {
   "sell.amountReceived": "Monto recibido",
   "sell.goOnBalance": "{amount} van a la cuenta del cliente",
   "sell.changeDue": "Vuelto: {change}",
-  "sell.noCustomer": "Sin cliente",
   "sell.quickPayment.customerRequired":
     "Seleccioná un cliente para vender a cuenta corriente",
   "sell.quickPayment.splitEntry": "Pago dividido",

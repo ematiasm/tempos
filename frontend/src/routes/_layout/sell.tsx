@@ -71,8 +71,8 @@ function Sell() {
     restore: restoreCartLines,
   } = useSellCart()
   const [customerId, setCustomerId] = useState<string | null>(null)
-  // once the operator explicitly picks (or clears) a customer, the
-  // configured default must never re-apply
+  // once the operator explicitly picks a customer, the configured default
+  // must never re-apply
   const [customerTouched, setCustomerTouched] = useState(false)
   const [docTypeId, setDocTypeId] = useState<string | null>(null)
   const [date, setDate] = useState<string>(() =>
@@ -187,14 +187,11 @@ function Sell() {
         // effect above applied within this same commit
         setCustomerTouched(true)
         setCustomerId(restoredId)
-      } else if (restoredId) {
-        // stale pick (customer deleted or deactivated): fall back to the
-        // configured default via the default-customer effect
-        setCustomerTouched(false)
       } else {
-        // the operator explicitly cleared the customer: keep it cleared
-        setCustomerTouched(true)
-        setCustomerId(null)
+        // stale pick (customer deleted or deactivated), or a legacy snapshot
+        // with no customer: the sell screen always has a customer, so fall
+        // back to the configured default via the default-customer effect
+        setCustomerTouched(false)
       }
     }
     if (snapshot.docTypeId) {

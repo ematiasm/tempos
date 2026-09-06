@@ -21,7 +21,7 @@ interface SellSidebarProps {
   saleTypes: DocumentTypePublic[]
   selectedCustomer: CustomerPublic | null
   customerId: string | null
-  onCustomerChange: (customerId: string | null) => void
+  onCustomerChange: (customerId: string) => void
   /** Imperative handle for the Alt+C customer shortcut. */
   customerControlsRef?: RefObject<CounterpartComboboxControls | null>
   docTypeId: string | null
@@ -82,8 +82,6 @@ export function SellSidebar({
             }))}
             value={customerId}
             onChange={onCustomerChange}
-            allowNone
-            noneLabel={t("sell.noCustomer")}
             placeholder={t("sell.selectCustomer")}
             triggerTestId="customer-select"
             controlsRef={customerControlsRef}

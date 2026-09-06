@@ -122,7 +122,6 @@ export const en: Messages = {
   "sell.amountReceived": "Amount received",
   "sell.goOnBalance": "{amount} go on customer balance",
   "sell.changeDue": "Change due: {change}",
-  "sell.noCustomer": "No customer",
   "sell.quickPayment.customerRequired": "Select a customer to sell on credit",
   "sell.quickPayment.splitEntry": "Split payment",
   "sell.quickPayment.fkeyHint": "Confirm the sale with {key}",

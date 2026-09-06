@@ -245,40 +245,6 @@ test.describe("Sell flow", () => {
     expect(sale?.payments[0].monto).toBe("150.00")
   })
 
-  test("Credit quick without a customer prompts and does not create a document", async ({
-    page,
-    request,
-  }) => {
-    const suffix = uid()
-    const creditMethod = await createCreditPaymentMethod(
-      request,
-      `Cuenta Corriente ${suffix}`,
-    )
-
-    await page.goto("/sell")
-    await page.getByTestId("product-search").fill(productName)
-    await page.getByRole("button", { name: new RegExp(productName) }).click()
-    await expect(
-      page.getByRole("row").filter({ hasText: productName }),
-    ).toBeVisible()
-
-    // clear the auto-selected customer so no customer is selected
-    await page.getByTestId("customer-select").click()
-    await page.getByRole("option", { name: "Sin cliente" }).click()
-
-    await payQuick(page, `Cuenta Corriente ${suffix}`)
-
-    await expect(page.getByTestId("credit-customer-warning")).toBeVisible()
-    await expect(page.getByTestId("sale-success-numero")).toHaveCount(0)
-
-    // no document was created through the credit method
-    const docs = await readDocuments(request)
-    const viaCredit = docs.filter((d) =>
-      d.payments.some((p) => p.payment_method_id === creditMethod.id),
-    )
-    expect(viaCredit).toHaveLength(0)
-  })
-
   test("Credit quick with a customer creates the credit sale", async ({
     page,
     request,
@@ -1918,8 +1884,8 @@ test.describe("Sell flow", () => {
 
     const option = page.getByRole("option", { name: new RegExp(name) })
     await expect(option).toBeVisible()
-    // only the matching customer remains; "Sin cliente" and non-matching
-    // customers (Consumidor Final has no documento) are filtered out
+    // only the matching customer remains; non-matching customers
+    // (Consumidor Final has no documento) are filtered out
     await expect(page.getByRole("option")).toHaveCount(1)
     // saldo is rendered on the row even when it is zero
     await expect(option).toContainText(/\$0[.,]00/)
