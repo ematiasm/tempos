@@ -135,8 +135,9 @@ const isCartLineShape = (value: unknown): value is CartLine => {
   )
 }
 
-/** True when the parsed value has the persisted snapshot's shape. */
-const isSnapshotShape = (value: unknown): value is SellCartSnapshot => {
+/** True when the parsed value has the persisted snapshot's shape. Exported
+ * so the parked-sales storage can validate its embedded snapshots too. */
+export const isSnapshotShape = (value: unknown): value is SellCartSnapshot => {
   if (!isRecord(value) || value.version !== 1) return false
   if (!Array.isArray(value.cart) || !value.cart.every(isCartLineShape)) {
     return false

@@ -155,6 +155,19 @@ export const es = {
   "sell.onCreditHint":
     "El monto ({amount}) se registra en la cuenta corriente del cliente. No se cobra dinero.",
   "sell.issued": "Venta {numero} emitida",
+  "sell.park": "Guardar",
+  "sell.parked.title": "Ventas guardadas",
+  "sell.parked.count": "Guardadas ({count})",
+  "sell.parked.empty": "No hay ventas guardadas",
+  "sell.parked.recall": "Recuperar",
+  "sell.parked.discard": "Descartar",
+  "sell.parked.discardConfirm":
+    "¿Descartar la venta de {customer}? Esta acción no se puede deshacer.",
+  "sell.parked.items": "{count, plural, one {# ítem} other {# ítems}}",
+  "sell.parked.parkedAt": "Guardada {time}",
+  "sell.parked.fallbackName": "Venta",
+  "sell.parkSuccess": "Venta guardada",
+  "sell.recallSuccess": "Venta recuperada",
   "buy.title": "Comprar",
   "buy.subtitle":
     "Registrá compras y dejá que el sistema proponga actualizaciones de costo",
@@ -665,6 +678,12 @@ export const es = {
   "cash.closeSuccess": "Caja cerrada correctamente",
   "cash.closeTitle": "Cerrar caja del día",
   "cash.closeHint": "Contá el efectivo físico del cajón para hacer el arqueo.",
+  "cash.openSalesWarning":
+    "{count, plural, one {# venta guardada} other {# ventas guardadas}} sin cerrar",
+  "cash.openSalesActive": "Hay una venta en curso sin cobrar",
+  "cash.openSalesHint":
+    "Descartá las ventas pendientes para habilitar el cierre de caja.",
+  "cash.discardAll": "Descartar todas",
   "cash.openingAmount": "Monto inicial (cambio)",
   "cash.openingAmountLabel": "Monto inicial",
   "cash.openingSource": "Cuenta de origen del fondo",

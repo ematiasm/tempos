@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import { type CashSessionPublic, CashSessionsService } from "@/client"
 import { Button } from "@/components/ui/button"
@@ -20,6 +20,12 @@ import { useLocale, useT } from "@/i18n"
 import { formatMoney } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
+import {
+  clearParkedSales,
+  countOpenSales,
+  SELL_EXTERNAL_RESET_EVENT,
+} from "./parkedSales"
+import { clearCartSnapshot } from "./useSellCart"
 
 interface CloseCashDialogProps {
   open: boolean
@@ -45,6 +51,25 @@ export function CloseCashDialog({
 
   const [counted, setCounted] = useState("")
   const [notes, setNotes] = useState("")
+
+  // --- Open sales gate -------------------------------------------------------
+  // Parked sales and the in-progress sale must not vanish silently when the
+  // register closes: the close stays blocked until they are discarded here.
+  const [openSales, setOpenSales] = useState(() => countOpenSales())
+  const hasOpenSales = openSales.parkedCount > 0 || openSales.activeHasItems
+
+  useEffect(() => {
+    if (open) setOpenSales(countOpenSales())
+  }, [open])
+
+  const discardOpenSales = () => {
+    clearParkedSales()
+    clearCartSnapshot()
+    // the sell screen listens and resets its in-flight state on this event
+    // instead of re-persisting the stale cart into the snapshot
+    window.dispatchEvent(new CustomEvent(SELL_EXTERNAL_RESET_EVENT))
+    setOpenSales(countOpenSales())
+  }
 
   const { data: report } = useQuery({
     queryFn: () =>
@@ -124,6 +149,37 @@ export function CloseCashDialog({
           </div>
         </div>
 
+        {hasOpenSales && (
+          <div
+            className="flex flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
+            data-testid="cash-open-sales-warning"
+          >
+            {openSales.parkedCount > 0 && (
+              <span className="font-medium text-destructive">
+                {t("cash.openSalesWarning", { count: openSales.parkedCount })}
+              </span>
+            )}
+            {openSales.activeHasItems && (
+              <span className="font-medium text-destructive">
+                {t("cash.openSalesActive")}
+              </span>
+            )}
+            <span className="text-muted-foreground">
+              {t("cash.openSalesHint")}
+            </span>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="w-fit"
+              data-testid="cash-discard-open-sales"
+              onClick={discardOpenSales}
+            >
+              {t("cash.discardAll")}
+            </Button>
+          </div>
+        )}
+
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label>{t("cash.countedAmount")}</Label>
@@ -152,7 +208,8 @@ export function CloseCashDialog({
             type="button"
             data-testid="cash-close-submit"
             loading={mutation.isPending}
-            disabled={counted === ""}
+            // open sales block the close even with a counted amount filled
+            disabled={counted === "" || hasOpenSales}
             onClick={() => mutation.mutate()}
           >
             {t("cash.close")}

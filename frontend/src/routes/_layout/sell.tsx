@@ -22,8 +22,18 @@ import {
 import { CartActionBar } from "@/components/Sell/CartActionBar"
 import { CartTable } from "@/components/Sell/CartTable"
 import { CashRegisterBar } from "@/components/Sell/CashRegisterBar"
+import { ParkedSalesMenu } from "@/components/Sell/ParkedSalesMenu"
 import { PostSaleDialog } from "@/components/Sell/PostSaleDialog"
 import ProductSearch from "@/components/Sell/ProductSearch"
+import type { ParkedSale } from "@/components/Sell/parkedSales"
+import {
+  addParkedSale,
+  makeParkedSale,
+  PARKED_CHANGED_EVENT,
+  readParkedSales,
+  removeParkedSale,
+  SELL_EXTERNAL_RESET_EVENT,
+} from "@/components/Sell/parkedSales"
 import { QuantityModal } from "@/components/Sell/QuantityModal"
 import { QuickPaymentBar } from "@/components/Sell/QuickPaymentBar"
 import { SellSidebar } from "@/components/Sell/SellSidebar"
@@ -107,6 +117,18 @@ function Sell() {
   const suppressSuggestRef = useRef<string | null>(null)
   // always-fresh closure for the restore-toast discard action
   const discardRef = useRef<() => void>(() => {})
+
+  // --- Parked sales (localStorage) ------------------------------------------
+  // The list re-reads on every parked-changed event: mutations from this
+  // screen and from other surfaces (close-cash discard) all dispatch it.
+  const [parked, setParked] = useState<ParkedSale[]>([])
+
+  useEffect(() => {
+    setParked(readParkedSales())
+    const listener = () => setParked(readParkedSales())
+    window.addEventListener(PARKED_CHANGED_EVENT, listener)
+    return () => window.removeEventListener(PARKED_CHANGED_EVENT, listener)
+  }, [])
 
   // --- Configuration-driven behavior -------------------------------------
   // Ordered quick shortcuts; null (unset) keeps ALL methods in list order.
@@ -229,6 +251,17 @@ function Sell() {
       setSelectedLine(null)
     }
   })
+
+  // External reset (cash-close "discard all"): the dialog wiped the parked
+  // list and the snapshot, then fired this event so the screen resets to its
+  // defaults in one batch. The autosave effect then runs with the now-empty
+  // cart and clears the snapshot again — the desired end state — so no ref
+  // guard is needed: the effect never re-persists a stale cart.
+  useEffect(() => {
+    const listener = () => discardRef.current()
+    window.addEventListener(SELL_EXTERNAL_RESET_EVENT, listener)
+    return () => window.removeEventListener(SELL_EXTERNAL_RESET_EVENT, listener)
+  }, [])
 
   // Persist the in-progress sale on every change once hydration is done; an
   // empty cart clears the snapshot instead of storing a husk.
@@ -401,6 +434,83 @@ function Sell() {
     searchInputRef.current?.focus()
   }
 
+  // --- Parked sales (park / recall / discard) -------------------------------
+  /** Parks the in-progress sale and resets the screen to its defaults. */
+  const parkSale = () => {
+    if (cart.length === 0 || createMutation.isPending) return
+    addParkedSale(
+      makeParkedSale(
+        {
+          cart,
+          customerId,
+          customerTouched,
+          docTypeId,
+          date,
+          discountTotal,
+          notes,
+        },
+        selectedCustomer?.razon_social ?? null,
+      ),
+    )
+    // same reset as a completed sale
+    discardRef.current()
+    showSuccessToast(t("sell.parkSuccess"))
+  }
+
+  /** Loads a parked sale, auto-parking the active one first (nothing is lost). */
+  const recallSale = (entry: ParkedSale) => {
+    // zero-friction swap: the active sale parks with its own timestamp
+    if (cart.length > 0) {
+      addParkedSale(
+        makeParkedSale(
+          {
+            cart,
+            customerId,
+            customerTouched,
+            docTypeId,
+            date,
+            discountTotal,
+            notes,
+          },
+          selectedCustomer?.razon_social ?? null,
+        ),
+      )
+    }
+    removeParkedSale(entry.id)
+    restoreCartLines(entry.snapshot.cart)
+    const recalledId = entry.snapshot.customerId
+    if (
+      entry.snapshot.customerTouched &&
+      recalledId &&
+      customers.some((c) => c.id === recalledId)
+    ) {
+      // the operator's pick still exists: it wins over the configured default
+      setCustomerTouched(true)
+      setCustomerId(recalledId)
+    } else {
+      // stale pick or never-touched default: fall back to the default flow
+      setCustomerTouched(false)
+      setCustomerId(null)
+    }
+    if (entry.snapshot.docTypeId) {
+      setDocTypeId(entry.snapshot.docTypeId)
+      // same protection as the reload restore: the fiscal-type suggestion
+      // for the recalled customer must not clobber the recalled type
+      if (recalledId) suppressSuggestRef.current = recalledId
+    } else {
+      setDocTypeId(fixedDocTypeId)
+    }
+    setDate(entry.snapshot.date)
+    setDiscountTotal(entry.snapshot.discountTotal)
+    setNotes(entry.snapshot.notes)
+    setSelectedLine(null)
+    showSuccessToast(t("sell.recallSuccess"))
+  }
+
+  const discardParked = (entry: ParkedSale) => {
+    removeParkedSale(entry.id)
+  }
+
   // --- Cart keyboard ------------------------------------------------------
   // Active only with focus OUTSIDE any text/number input, so the search bar,
   // price/discount/qty inputs and dialogs are never hijacked. The listener is
@@ -419,12 +529,32 @@ function Sell() {
     }
 
     const onKey = (e: KeyboardEvent) => {
-      if (cart.length === 0) return
       if (created || splitOpen || qtyTarget) return
       // Skip while ANY Radix dialog is open (e.g. cash open/close): focus may
       // land on a button, so the typing-target check alone is not enough.
       if (document.querySelector('[role="dialog"][data-state="open"]')) return
       if (isTypingTarget(e.target)) return
+
+      // Parked-sale shortcuts evaluate BEFORE the empty-cart guard: recall
+      // must reach the parked list even with an empty active cart. Alt+C is
+      // owned by the payment-keys handler, so other Alt combos fall through.
+      if (e.altKey && !e.ctrlKey && !e.metaKey) {
+        if (e.code === "KeyP") {
+          e.preventDefault()
+          parkSale()
+          return
+        }
+        const digitMatch = /^(?:Digit|Numpad)([1-9])$/.exec(e.code)
+        if (digitMatch) {
+          e.preventDefault()
+          const target = parked[Number(digitMatch[1]) - 1]
+          if (target) recallSale(target)
+          return
+        }
+        return
+      }
+
+      if (cart.length === 0) return
 
       if (e.key === "ArrowDown") {
         e.preventDefault()
@@ -530,6 +660,16 @@ function Sell() {
       </div>
 
       <CashRegisterBar />
+
+      <div className="flex justify-end">
+        <ParkedSalesMenu
+          parked={parked}
+          canPark={cart.length > 0 && !createMutation.isPending}
+          onPark={parkSale}
+          onRecall={recallSale}
+          onDiscard={discardParked}
+        />
+      </div>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="flex flex-1 flex-col gap-4">

@@ -157,6 +157,19 @@ export const en: Messages = {
   "sell.onCreditHint":
     "The amount ({amount}) is registered on the customer's current account. No money is collected.",
   "sell.issued": "Sale {numero} issued",
+  "sell.park": "Park sale",
+  "sell.parked.title": "Parked sales",
+  "sell.parked.count": "Parked ({count})",
+  "sell.parked.empty": "No parked sales",
+  "sell.parked.recall": "Recall",
+  "sell.parked.discard": "Discard",
+  "sell.parked.discardConfirm":
+    "Discard the sale for {customer}? This action cannot be undone.",
+  "sell.parked.items": "{count, plural, one {# item} other {# items}}",
+  "sell.parked.parkedAt": "Parked {time}",
+  "sell.parked.fallbackName": "Sale",
+  "sell.parkSuccess": "Sale parked",
+  "sell.recallSuccess": "Sale recalled",
   "buy.title": "Buy",
   "buy.subtitle": "Register purchases and let the system propose cost updates",
   "buy.newPurchase": "New purchase",
@@ -653,6 +666,12 @@ export const en: Messages = {
   "cash.closeSuccess": "Cash register closed successfully",
   "cash.closeTitle": "Close daily cash register",
   "cash.closeHint": "Count the physical cash in the drawer to run the arqueo.",
+  "cash.openSalesWarning":
+    "{count, plural, one {# parked sale} other {# parked sales}} still open",
+  "cash.openSalesActive": "There is a sale in progress",
+  "cash.openSalesHint":
+    "Discard the pending sales to enable closing the register.",
+  "cash.discardAll": "Discard all",
   "cash.openingAmount": "Opening amount (change)",
   "cash.openingAmountLabel": "Opening amount",
   "cash.openingSource": "Funding source account",
