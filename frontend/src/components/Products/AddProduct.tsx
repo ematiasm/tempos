@@ -47,7 +47,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useT } from "@/i18n"
-import { computePriceChain, countSelectedIvas } from "@/lib/pricing"
+import {
+  computePriceChain,
+  countSelectedIvas,
+  margenPctFromNeto,
+} from "@/lib/pricing"
 import { handleError } from "@/utils"
 
 const formSchema = z
@@ -83,6 +87,10 @@ const AddProduct = () => {
   const [isOpen, setIsOpen] = useState(false)
   const [tab, setTab] = useState("details")
   const [newBarcode, setNewBarcode] = useState("")
+  // When the user is typing a net price directly, keep the raw draft here so
+  // keystrokes are not overwritten by the chain-derived value; it resets on
+  // blur or whenever the cost changes (the chain then drives the field again).
+  const [netoDraft, setNetoDraft] = useState<string | null>(null)
   const [barcodes, setBarcodes] = useState<string[]>([])
   const [selectedTaxIds, setSelectedTaxIds] = useState<string[]>([])
   const [barcodeError, setBarcodeError] = useState(false)
@@ -151,6 +159,7 @@ const AddProduct = () => {
     if (defaultUomId) {
       form.setValue("uom_id", defaultUomId)
     }
+    setNetoDraft(null)
   }, [isOpen, defaultMargenPct, defaultUomId, form])
 
   const costoStr = form.watch("costo_actual")
@@ -158,6 +167,19 @@ const AddProduct = () => {
   const costo = parseFloat(costoStr) || 0
   const margen = parseFloat(margenStr) || 0
   const selectedTaxes = taxes.filter((tax) => selectedTaxIds.includes(tax.id))
+
+  // Editing the net price derives the margin (the stored input); the chain
+  // then recomputes the displayed neto from that margin, so both stay
+  // consistent. Negative margins are allowed (shown as a warning).
+  const handleNetoChange = (raw: string) => {
+    setNetoDraft(raw)
+    const neto = parseFloat(raw)
+    if (Number.isFinite(neto) && costo > 0) {
+      form.setValue("margen_pct", String(margenPctFromNeto(costo, neto)), {
+        shouldValidate: true,
+      })
+    }
+  }
   const chain = computePriceChain({
     costo,
     margenPct: margen,
@@ -461,9 +483,11 @@ const AddProduct = () => {
                     <FormItem>
                       <FormLabel>{t("products.netPrice")}</FormLabel>
                       <Input
-                        value={chain.precioNeto.toFixed(2)}
-                        disabled
-                        className="bg-muted"
+                        type="number"
+                        step="0.01"
+                        value={netoDraft ?? chain.precioNeto.toFixed(2)}
+                        onChange={(e) => handleNetoChange(e.target.value)}
+                        onBlur={() => setNetoDraft(null)}
                       />
                     </FormItem>
                   </div>

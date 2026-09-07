@@ -56,6 +56,17 @@ export function computePriceChain({
 }
 
 /**
+ * Inverse of the chain's net-price step: derives the margin percentage from
+ * a user-entered net price. `round2` keeps the derived margin at 2 decimals
+ * (HALF_UP), matching the stored `margen_pct` scale. Returns 0 when the cost
+ * is not positive (the ratio is undefined).
+ */
+export function margenPctFromNeto(costo: number, neto: number): number {
+  if (costo <= 0) return 0
+  return round2(((neto - costo) / costo) * 100)
+}
+
+/**
  * One percent-IVA-per-product guard (backend rule `multiple_iva_taxes`):
  * products may carry at most one tipo-IVA tax regardless of `exento`.
  */

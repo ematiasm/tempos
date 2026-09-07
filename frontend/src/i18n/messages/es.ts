@@ -571,6 +571,8 @@ export const es = {
   "products.marginPct": "Margen %",
   "products.salePrice": "Precio de venta",
   "products.netPrice": "Precio neto",
+  "products.negativeMarginWarning":
+    "El precio neto está por debajo del costo (margen negativo).",
   "products.costWithTaxes": "Costo con impuestos",
   "products.noIvaOption": "Sin IVA / 0%",
   "products.minStock": "Stock mín.",

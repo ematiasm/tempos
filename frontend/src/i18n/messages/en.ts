@@ -568,6 +568,8 @@ export const en: Messages = {
   "products.marginPct": "Margin %",
   "products.salePrice": "Sale Price",
   "products.netPrice": "Net Price",
+  "products.negativeMarginWarning":
+    "Net price is below cost (negative margin).",
   "products.costWithTaxes": "Cost with taxes",
   "products.noIvaOption": "No VAT / 0%",
   "products.minStock": "Min Stock",

@@ -33,25 +33,29 @@ const PriceChainPreview = ({
   ]
 
   return (
-    <div
-      className={cn(
-        "grid grid-cols-4 gap-3 rounded border bg-muted/40 p-3",
-        className,
+    <div className={cn("flex flex-col gap-1.5", className)}>
+      <div
+        className={cn("grid grid-cols-4 gap-3 rounded border bg-muted/40 p-3")}
+      >
+        {items.map((item) => (
+          <div key={item.label} className="flex flex-col gap-0.5">
+            <span className="text-xs text-muted-foreground">{item.label}</span>
+            <span
+              className={cn(
+                "text-sm font-medium",
+                item.strong && "text-base text-primary",
+              )}
+            >
+              {money(item.value, numberFormat)}
+            </span>
+          </div>
+        ))}
+      </div>
+      {precioNeto < costoActual && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          {t("products.negativeMarginWarning")}
+        </p>
       )}
-    >
-      {items.map((item) => (
-        <div key={item.label} className="flex flex-col gap-0.5">
-          <span className="text-xs text-muted-foreground">{item.label}</span>
-          <span
-            className={cn(
-              "text-sm font-medium",
-              item.strong && "text-base text-primary",
-            )}
-          >
-            {money(item.value, numberFormat)}
-          </span>
-        </div>
-      ))}
     </div>
   )
 }
