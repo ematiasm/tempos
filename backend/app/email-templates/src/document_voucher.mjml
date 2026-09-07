@@ -62,6 +62,39 @@
           {% endfor %}
         </mj-table>
         {% endif %}
+        {% if receipt_allocations %}
+        <mj-divider border-color="#eee" border-width="1px"></mj-divider>
+        <mj-text font-size="13px" color="#333" font-family="Arial, Helvetica, sans-serif"><strong>Applied receipts</strong></mj-text>
+        <mj-table font-family="Arial, Helvetica, sans-serif" font-size="13px" color="#555">
+          <tr style="border-bottom:1px solid #eee">
+            <td style="padding:6px" width="40%">Receipt</td>
+            <td style="padding:6px" align="right">Initial balance</td>
+            <td style="padding:6px" align="right">Paid</td>
+            <td style="padding:6px" align="right">Remaining</td>
+          </tr>
+          {% for allocation in receipt_allocations %}
+          <tr>
+            <td style="padding:6px">{{ allocation.numero }} ({{ allocation.fecha }})</td>
+            <td style="padding:6px" align="right">{% if allocation.saldo_inicial %}{{ allocation.saldo_inicial }}{% else %}—{% endif %}</td>
+            <td style="padding:6px" align="right">{{ allocation.monto }}</td>
+            <td style="padding:6px" align="right">{% if allocation.saldo_restante %}{{ allocation.saldo_restante }}{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+          <tr>
+            <td style="padding:4px 6px" align="right" colspan="3"><strong>Outstanding balance</strong></td>
+            <td style="padding:4px 6px" align="right"><strong>{{ saldo_pendiente }}</strong></td>
+          </tr>
+        </mj-table>
+        {% endif %}
+        {% if saldo_pendiente and not receipt_allocations %}
+        <mj-divider border-color="#eee" border-width="1px"></mj-divider>
+        <mj-table font-family="Arial, Helvetica, sans-serif" font-size="13px" color="#555">
+          <tr>
+            <td style="padding:4px 6px" align="right"><strong>Outstanding balance</strong></td>
+            <td style="padding:4px 6px" align="right" width="120"><strong>{{ saldo_pendiente }}</strong></td>
+          </tr>
+        </mj-table>
+        {% endif %}
         {% if notes %}
         <mj-divider border-color="#eee" border-width="1px"></mj-divider>
         <mj-text font-size="13px" color="#555" font-family="Arial, Helvetica, sans-serif">Note: {{ notes }}</mj-text>

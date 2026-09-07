@@ -255,6 +255,109 @@ def test_email_status_reports_emails_enabled(
     assert r.json() == {"emails_enabled": False}
 
 
+def _cash_method_id(client: TestClient, headers: dict[str, str]) -> str:
+    r = client.get(
+        f"{settings.API_V1_STR}/payment-methods/",
+        headers=headers,
+        params={"limit": 100},
+    )
+    assert r.status_code == 200, r.text
+    return next(m["id"] for m in r.json()["data"] if m["name"] == "Efectivo")
+
+
+def _credit_method_id(client: TestClient, headers: dict[str, str]) -> str:
+    r = client.get(
+        f"{settings.API_V1_STR}/payment-methods/",
+        headers=headers,
+        params={"limit": 100},
+    )
+    assert r.status_code == 200, r.text
+    return next(m["id"] for m in r.json()["data"] if m["name"] == "Crédito")
+
+
+def test_email_includes_receipts_applied_after_issue(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    smtp_on,  # noqa: ARG001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A credit sale emailed after a partial receipt shows the receipt."""
+    recorder = _SendRecorder()
+    monkeypatch.setattr("app.api.routes.documents.send_email", recorder)
+    customer = _create_customer(client, superuser_token_headers, email=random_email())
+    doc = _create_sale(client, superuser_token_headers, customer)
+    assert doc["total"] == "121.00"
+
+    r = client.post(
+        f"{settings.API_V1_STR}/payments/",
+        headers=superuser_token_headers,
+        json={
+            "contraparte_type": "customer",
+            "contraparte_id": customer["id"],
+            "payments": [
+                {
+                    "payment_method_id": _cash_method_id(
+                        client, superuser_token_headers
+                    ),
+                    "monto": "21.00",
+                }
+            ],
+        },
+    )
+    assert r.status_code == 200, r.text
+    receipt_numero = r.json()["document"]["numero"]
+
+    r = _email_document(client, superuser_token_headers, doc["id"])
+    assert r.status_code == 204, r.text
+    html = recorder.calls[0]["html"]
+    assert "Applied receipts" in html
+    assert receipt_numero in html
+    assert "Outstanding balance" in html
+    assert "100.00" in html
+
+
+def test_email_credit_method_sale_shows_pending_not_payment(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    smtp_on,  # noqa: ARG001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A marks_paid=false method row is not a payment: pending instead."""
+    recorder = _SendRecorder()
+    monkeypatch.setattr("app.api.routes.documents.send_email", recorder)
+    customer = _create_customer(client, superuser_token_headers, email=random_email())
+    product = _create_product(client, superuser_token_headers)
+    load_stock(client, superuser_token_headers, product["id"], "1")
+    r = client.post(
+        f"{settings.API_V1_STR}/documents/",
+        headers=superuser_token_headers,
+        json={
+            "document_type_id": _doc_type_id(client, superuser_token_headers, "TCK"),
+            "contraparte_id": customer["id"],
+            "lines": [{"product_id": product["id"], "cantidad": "1"}],
+            "payments": [
+                {
+                    "payment_method_id": _credit_method_id(
+                        client, superuser_token_headers
+                    ),
+                    "monto": "121.00",
+                }
+            ],
+        },
+    )
+    assert r.status_code == 200, r.text
+    doc = r.json()
+    assert len(doc["payments"]) == 1  # stored, but not a payment
+
+    r = _email_document(client, superuser_token_headers, doc["id"])
+    assert r.status_code == 204, r.text
+    html = recorder.calls[0]["html"]
+    assert "Crédito" not in html
+    assert "Applied receipts" not in html
+    assert "Outstanding balance" in html
+    assert "121.00" in html
+
+
 def test_email_requires_document_email_permission(
     client: TestClient,
     superuser_token_headers: dict[str, str],

@@ -395,6 +395,7 @@ export type DocumentAllocationPublic = {
     receipt_numero: string;
     fecha?: (string | null);
     monto: string;
+    saldo_inicial?: (string | null);
 };
 
 export type DocumentCreate = {

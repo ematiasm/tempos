@@ -21,6 +21,7 @@ from app.models import (
     DocumentEmailStatus,
     DocumentLine,
     DocumentNotesUpdate,
+    DocumentOperation,
     DocumentPaymentAllocation,
     DocumentPublic,
     DocumentStatus,
@@ -269,6 +270,7 @@ def read_document_allocations(session: SessionDep, document_id: uuid.UUID) -> An
             receipt_numero=receipt.numero,
             fecha=receipt.fecha,
             monto=allocation.monto,
+            saldo_inicial=allocation.saldo_inicial,
         )
         for allocation, receipt in rows
     ]
@@ -371,6 +373,51 @@ def _document_email_context(session: SessionDep, document: Document) -> dict[str
         if method_ids
         else {}
     )
+    # Methods that do not mark as paid (credit/current-account) never move
+    # money: their rows are not payments, so they stay out of the voucher.
+    marks_paid = dict(
+        session.exec(select(PaymentMethod.id, PaymentMethod.marks_paid)).all()
+    )
+    paid_payments = [
+        p for p in document.payments if marks_paid.get(p.payment_method_id, True)
+    ]
+    doc_operation = document.document_type.operation if document.document_type else None
+    # Receipts applied to this sale/purchase after its issue (active ones
+    # only), so the emailed voucher reflects the current payment state.
+    receipt_allocations: list[dict[str, Any]] = []
+    saldo_pendiente: str | None = None
+    incoming_paid = Decimal("0")
+    paid_at_issue = sum(p.monto for p in paid_payments)
+    if doc_operation in (DocumentOperation.VENTA, DocumentOperation.COMPRA):
+        rows = session.exec(
+            select(DocumentPaymentAllocation, Document)
+            .join(
+                Document,
+                col(Document.id) == col(DocumentPaymentAllocation.receipt_document_id),
+            )
+            .where(
+                col(DocumentPaymentAllocation.document_id) == document.id,
+                col(Document.estado) == DocumentStatus.ACTIVE,
+            )
+            .order_by(col(Document.fecha).asc(), col(Document.numero).asc())
+        ).all()
+        for allocation, receipt in rows:
+            incoming_paid += allocation.monto
+            initial = allocation.saldo_inicial
+            receipt_allocations.append(
+                {
+                    "numero": receipt.numero,
+                    "fecha": receipt.fecha.strftime("%Y-%m-%d %H:%M"),
+                    "monto": str(allocation.monto),
+                    "saldo_inicial": str(initial) if initial is not None else None,
+                    "saldo_restante": str(initial - allocation.monto)
+                    if initial is not None
+                    else None,
+                }
+            )
+        pending = document.total - document.favor_monto - paid_at_issue - incoming_paid
+        if pending > 0:
+            saldo_pendiente = str(pending)
     return {
         "business_name": bs.business_name if bs else "",
         "business_address": bs.address if bs else None,
@@ -396,9 +443,11 @@ def _document_email_context(session: SessionDep, document: Document) -> dict[str
                 "method_name": method_names.get(p.payment_method_id),
                 "monto": str(p.monto),
             }
-            for p in document.payments
+            for p in paid_payments
         ],
         "notes": document.notes,
+        "receipt_allocations": receipt_allocations,
+        "saldo_pendiente": saldo_pendiente,
         "voucher_footer": bs.voucher_footer if bs else None,
         "voucher_legends": (
             bs.voucher_legends.splitlines() if bs and bs.voucher_legends else []

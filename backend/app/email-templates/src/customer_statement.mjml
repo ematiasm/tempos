@@ -34,14 +34,14 @@
             <td style="padding:6px">{{ document.numero }}</td>
             <td style="padding:6px">{{ document.fecha }}</td>
             <td style="padding:6px">{{ document.type_name }}</td>
-            <td style="padding:6px" align="right">{{ document.total }}</td>
+            <td style="padding:6px" align="right">{% if document.kind == "nota" %}-{% endif %}{{ document.total }}</td>
           </tr>
           {% for line in document.lines %}
           <tr>
             <td style="padding:2px 6px 2px 24px;color:#888">{{ line.name }}</td>
             <td style="padding:2px 6px;color:#888" align="right">x {{ line.cantidad }}</td>
             <td style="padding:2px 6px;color:#888" align="right">{{ line.precio_unit }}</td>
-            <td style="padding:2px 6px;color:#888" align="right">{{ line.subtotal_line }}</td>
+            <td style="padding:2px 6px;color:#888" align="right">{% if document.kind == "nota" %}-{% endif %}{{ line.subtotal_line }}</td>
           </tr>
           {% endfor %}
           {% endfor %}

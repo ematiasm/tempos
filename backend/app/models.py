@@ -1813,6 +1813,8 @@ class DocumentAllocationPublic(SQLModel):
     receipt_numero: str
     fecha: datetime | None = None
     monto: Decimal
+    # Pending balance of the document before this receipt settled it.
+    saldo_inicial: Decimal | None = None
 
 
 class PaymentReceiptPublic(SQLModel):

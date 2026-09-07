@@ -613,6 +613,7 @@ def test_document_allocations_endpoint_shows_receipt_imputations(
     assert r.json()[0]["receipt_document_id"] == receipt["document"]["id"]
     assert r.json()[0]["receipt_numero"] == receipt["document"]["numero"]
     assert r.json()[0]["monto"] == "121.00"
+    assert r.json()[0]["saldo_inicial"] == "121.00"
 
     # a document without imputations returns an empty list
     r = client.get(

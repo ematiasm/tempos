@@ -771,3 +771,29 @@ def test_statement_note_rows_have_no_paid_pending(
     assert nc_row["kind"] == "nota"
     assert nc_row["pagado"] == "0"
     assert nc_row["pendiente"] is None
+
+
+def test_statement_email_shows_credit_note_with_minus_sign(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    smtp_on,  # noqa: ARG001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The emailed statement shows credit notes with a minus sign."""
+    recorder = _SendRecorder()
+    monkeypatch.setattr("app.api.routes.customers.send_email", recorder)
+    product = _create_product(client, superuser_token_headers)
+    customer = _create_customer(client, superuser_token_headers, email=random_email())
+    sale = _create_sale(client, superuser_token_headers, product["id"], customer["id"])
+    nc = _void_document(client, superuser_token_headers, sale["id"])
+
+    r = client.post(
+        f"{settings.API_V1_STR}/customers/{customer['id']}/statement/email",
+        headers=superuser_token_headers,
+        json={},
+    )
+    assert r.status_code == 204, r.text
+    html = recorder.calls[0]["html"]
+    assert "Credit notes" in html
+    assert nc["numero"] in html
+    assert f"-{nc['total']}" in html

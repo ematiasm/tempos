@@ -107,6 +107,24 @@ const DocumentDetailSheet = ({
   const methodNames = new Map(
     (methodsData?.data ?? []).map((m) => [m.id, m.name] as const),
   )
+  const methodMarksPaid = new Map(
+    (methodsData?.data ?? []).map((m) => [m.id, m.marks_paid] as const),
+  )
+  // Credit rows never move money: only effectively-paid rows list as
+  // payments, the remainder shows as pending (same backend formula).
+  const paidRows = (document.payments ?? []).filter(
+    (p) => methodMarksPaid.get(p.payment_method_id) !== false,
+  )
+  const pendingAmount =
+    Number(document.total) -
+    Number(document.favor_monto ?? 0) -
+    paidRows.reduce((sum, p) => sum + Number(p.monto), 0) -
+    (incomingAllocations ?? []).reduce((sum, a) => sum + Number(a.monto), 0)
+  const showPending =
+    !isReceipt &&
+    (document.document_type.operation === "venta" ||
+      document.document_type.operation === "compra") &&
+    pendingAmount > 0
   const taxNames = new Map(
     (taxesData?.data ?? []).map((t) => [t.id, t.name] as const),
   )
@@ -225,13 +243,13 @@ const DocumentDetailSheet = ({
             )}
           </div>
 
-          {(document.payments ?? []).length > 0 && (
+          {paidRows.length > 0 && (
             <div>
               <h4 className="text-sm font-medium mb-2">
                 {t("documents.payments")}
               </h4>
               <ul className="divide-y rounded border">
-                {(document.payments ?? []).map((payment) => (
+                {paidRows.map((payment) => (
                   <li
                     key={payment.id}
                     className="flex items-center justify-between px-3 py-2 text-sm"
@@ -246,6 +264,15 @@ const DocumentDetailSheet = ({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {showPending && (
+            <div className="flex items-center justify-between rounded border px-3 py-2 text-sm font-medium">
+              <span>{t("documents.balancePending")}</span>
+              <span className="font-mono">
+                {money(pendingAmount, numberFormat)}
+              </span>
             </div>
           )}
 

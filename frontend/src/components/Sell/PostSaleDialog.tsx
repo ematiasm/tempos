@@ -66,6 +66,17 @@ export function PostSaleDialog({
   const methodNames = new Map(
     (methodsData?.data ?? []).map((m) => [m.id, m.name] as const),
   )
+  const methodMarksPaid = new Map(
+    (methodsData?.data ?? []).map((m) => [m.id, m.marks_paid] as const),
+  )
+  // Same display rule as the voucher: credit rows are not payments.
+  const paidRows = (doc.payments ?? []).filter(
+    (p) => methodMarksPaid.get(p.payment_method_id) !== false,
+  )
+  const pendingAmount =
+    Number(doc.total) -
+    Number(doc.favor_monto ?? 0) -
+    paidRows.reduce((sum, p) => sum + Number(p.monto), 0)
 
   const emailMutation = useMutation({
     mutationFn: (address: string | null) =>
@@ -172,12 +183,12 @@ export function PostSaleDialog({
         )}
       </div>
 
-      {(doc.payments ?? []).length > 0 && (
+      {paidRows.length > 0 && (
         <div className="w-full max-w-sm rounded-md bg-muted/40 p-3 text-sm">
           <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
             {t("voucher.payments")}
           </p>
-          {(doc.payments ?? []).map((payment) => (
+          {paidRows.map((payment) => (
             <div
               key={payment.id}
               className="flex justify-between py-0.5 text-left"
@@ -189,6 +200,17 @@ export function PostSaleDialog({
               <span>{money(Number(payment.monto), numberFormat)}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {paidRows.length === 0 && pendingAmount > 0 && (
+        <div className="w-full max-w-sm rounded-md bg-muted/40 p-3 text-sm">
+          <div className="flex justify-between font-medium">
+            <span className="text-muted-foreground">
+              {t("voucher.balancePending")}
+            </span>
+            <span>{money(pendingAmount, numberFormat)}</span>
+          </div>
         </div>
       )}
 

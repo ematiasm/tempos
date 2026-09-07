@@ -2077,6 +2077,9 @@ def statement_email_context(
     base_total = (
         statement.totals.total_ventas if is_customer else statement.totals.total_compras
     )
+    # Credit notes reduce the balance: show them with a minus sign.
+    total_notas = statement.totals.total_notas
+    total_notas_label = str(total_notas) if total_notas == 0 else f"-{total_notas}"
     return {
         "business_name": bs.business_name if bs else "",
         "business_address": bs.address if bs else None,
@@ -2092,7 +2095,7 @@ def statement_email_context(
                 "label": "Total sales" if is_customer else "Total purchases",
                 "value": str(base_total),
             },
-            {"label": "Credit notes", "value": str(statement.totals.total_notas)},
+            {"label": "Credit notes", "value": total_notas_label},
             {"label": "Payments", "value": str(statement.totals.total_pagos)},
         ],
         "saldo_actual": str(statement.totals.saldo_actual),
@@ -2101,6 +2104,7 @@ def statement_email_context(
                 "numero": document.numero,
                 "fecha": document.fecha.strftime("%Y-%m-%d"),
                 "type_name": document.type_name,
+                "kind": document.kind.value,
                 "total": str(document.total),
                 "lines": [
                     {

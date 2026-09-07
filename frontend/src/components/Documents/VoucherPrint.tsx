@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 import {
   BusinessSettingsService,
   type DocumentPublic,
+  DocumentsService,
   OpenAPI,
   PaymentMethodsService,
   PaymentsService,
@@ -44,6 +45,9 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
     queryKey: ["taxes"],
   })
   const isReceipt = document.document_type.operation === "recibo"
+  const isDebtDocument =
+    document.document_type.operation === "venta" ||
+    document.document_type.operation === "compra"
   const { data: allocationsData } = useQuery({
     queryFn: () =>
       PaymentsService.readReceiptAllocations({
@@ -52,9 +56,21 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
     queryKey: ["receipt-allocations", document.id],
     enabled: isReceipt,
   })
+  // Receipts applied to this sale/purchase after its issue (incoming
+  // allocations). Lets a reprint reflect the current payment state instead
+  // of the frozen at-issue one.
+  const { data: incomingData } = useQuery({
+    queryFn: () =>
+      DocumentsService.readDocumentAllocations({ documentId: document.id }),
+    queryKey: ["documents-allocations", document.id],
+    enabled: !isReceipt && isDebtDocument,
+  })
 
   const methodNames = new Map(
     (methodsData?.data ?? []).map((m) => [m.id, m.name] as const),
+  )
+  const methodMarksPaid = new Map(
+    (methodsData?.data ?? []).map((m) => [m.id, m.marks_paid] as const),
   )
   const taxNames = new Map(
     (taxesData?.data ?? []).map((t) => [t.id, t.name] as const),
@@ -72,6 +88,30 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
     0,
   )
   const onAccount = Math.max(0, Number(document.total) - totalPaid)
+  // Credit/current-account rows (marks_paid = false) never move money: they
+  // are not payments, so only effectively-paid rows list under Pagos and the
+  // remainder shows as pending.
+  const incoming = incomingData ?? []
+  const incomingInitial = incoming.reduce(
+    (sum, a) => sum + (a.saldo_inicial == null ? 0 : Number(a.saldo_inicial)),
+    0,
+  )
+  const incomingPaid = incoming.reduce((sum, a) => sum + Number(a.monto), 0)
+  const incomingRemaining = incoming.reduce(
+    (sum, a) =>
+      sum +
+      (a.saldo_inicial == null ? 0 : Number(a.saldo_inicial) - Number(a.monto)),
+    0,
+  )
+  const paidRows = (document.payments ?? []).filter(
+    (p) => methodMarksPaid.get(p.payment_method_id) !== false,
+  )
+  const paidAtIssue = paidRows.reduce((sum, p) => sum + Number(p.monto), 0)
+  const saldoPendiente =
+    Number(document.total) -
+    Number(document.favor_monto ?? 0) -
+    paidAtIssue -
+    incomingPaid
   const lines = [...(document.lines ?? [])].sort((a, b) => a.orden - b.orden)
   const date = new Date(document.fecha).toLocaleDateString("es-AR")
 
@@ -308,10 +348,10 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
         </div>
       </div>
 
-      {(document.payments ?? []).length > 0 && (
+      {paidRows.length > 0 && (
         <div className="border-t border-black py-3 text-sm">
           <p className="mb-1 font-semibold">{t("voucher.payments")}</p>
-          {(document.payments ?? []).map((payment) => (
+          {paidRows.map((payment) => (
             <div key={payment.id} className="flex justify-between py-0.5">
               <span>
                 {methodNames.get(payment.payment_method_id) ??
@@ -320,6 +360,93 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
               <span>{money(payment.monto, numberFormat)}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {incoming.length === 0 && isDebtDocument && saldoPendiente > 0 && (
+        <div className="flex justify-between border-t border-black py-3 text-sm font-semibold">
+          <span>{t("voucher.balancePending")}</span>
+          <span>{money(saldoPendiente, numberFormat)}</span>
+        </div>
+      )}
+
+      {incoming.length > 0 && (
+        <div className="border-t border-black py-3">
+          <p className="mb-2 text-sm font-semibold">
+            {t("voucher.receiptsTitle")}
+          </p>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-black text-left">
+                <th className="py-2 pr-2 font-semibold">
+                  {t("voucher.document")}
+                </th>
+                <th className="py-2 pr-2 text-right font-semibold">
+                  {t("voucher.balanceInitial")}
+                </th>
+                <th className="py-2 pr-2 text-right font-semibold">
+                  {t("voucher.balancePaid")}
+                </th>
+                <th className="py-2 text-right font-semibold">
+                  {t("voucher.balanceRemaining")}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {incoming.map((allocation) => (
+                <tr
+                  key={allocation.receipt_document_id}
+                  className="border-b border-dotted border-black/40"
+                >
+                  <td className="py-2 pr-2">
+                    <span className="font-mono">
+                      {allocation.receipt_numero}
+                    </span>
+                    {allocation.fecha && (
+                      <div className="text-xs text-black/60">
+                        {new Date(allocation.fecha).toLocaleDateString("es-AR")}
+                      </div>
+                    )}
+                  </td>
+                  <td className="py-2 pr-2 text-right">
+                    {money(allocation.saldo_inicial, numberFormat)}
+                  </td>
+                  <td className="py-2 pr-2 text-right">
+                    {money(allocation.monto, numberFormat)}
+                  </td>
+                  <td className="py-2 text-right">
+                    {allocation.saldo_inicial == null
+                      ? "—"
+                      : money(
+                          Number(allocation.saldo_inicial) -
+                            Number(allocation.monto),
+                          numberFormat,
+                        )}
+                  </td>
+                </tr>
+              ))}
+              <tr className="border-b border-black font-semibold">
+                <td className="py-2 pr-2">{t("voucher.totals")}</td>
+                <td className="py-2 pr-2 text-right">
+                  {money(incomingInitial, numberFormat)}
+                </td>
+                <td className="py-2 pr-2 text-right">
+                  {money(incomingPaid, numberFormat)}
+                </td>
+                <td className="py-2 text-right">
+                  {money(incomingRemaining, numberFormat)}
+                </td>
+              </tr>
+              <tr className="font-semibold">
+                <td className="py-2 pr-2" colSpan={3}>
+                  {t("voucher.balancePending")}
+                </td>
+                <td className="py-2 text-right">
+                  {money(Math.max(0, saldoPendiente), numberFormat)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       )}
 

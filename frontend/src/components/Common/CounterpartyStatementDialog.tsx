@@ -59,6 +59,15 @@ const formatDate = (value: string) => {
 const formatDateTime = (value: string) =>
   new Date(value).toLocaleString("es-AR")
 
+/** Credit-note amounts reduce the balance: render them with a minus sign. */
+const negMoney = (
+  value: string | number | null | undefined,
+  format: NumberFormat,
+) =>
+  value == null || value === "" || Number(value) === 0
+    ? money(value, format)
+    : `-${money(value, format)}`
+
 function useCounterpartyStatement(
   counterpartId: string,
   type: StatementCounterpartType,
@@ -95,16 +104,18 @@ function StatementStat({
   label,
   value,
   numberFormat,
+  negative = false,
 }: {
   label: string
   value: string
   numberFormat: NumberFormat
+  negative?: boolean
 }) {
   return (
     <div className="rounded-lg border p-3">
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className="mt-0.5 block font-mono text-sm font-medium">
-        {money(value, numberFormat)}
+        {negative ? negMoney(value, numberFormat) : money(value, numberFormat)}
       </span>
     </div>
   )
@@ -146,7 +157,9 @@ function StatementDocumentRow({
             {doc.kind === "nota" ? "—" : money(doc.pendiente, numberFormat)}
           </span>
           <span className="w-28 text-right font-mono text-sm font-medium">
-            {money(doc.total, numberFormat)}
+            {doc.kind === "nota"
+              ? negMoney(doc.total, numberFormat)
+              : money(doc.total, numberFormat)}
           </span>
           <ChevronDown
             className={cn(
@@ -188,7 +201,9 @@ function StatementDocumentRow({
                   {money(line.precio_unit, numberFormat)}
                 </td>
                 <td className="px-3 py-1.5 text-right font-mono">
-                  {money(line.subtotal_line, numberFormat)}
+                  {doc.kind === "nota"
+                    ? negMoney(line.subtotal_line, numberFormat)
+                    : money(line.subtotal_line, numberFormat)}
                 </td>
               </tr>
             ))}
@@ -338,7 +353,7 @@ function StatementPrintContent({
         </div>
         <div className="flex justify-between">
           <span>{t("counterparty.statement.notes")}</span>
-          <span>{money(totals.total_notas, numberFormat)}</span>
+          <span>{negMoney(totals.total_notas, numberFormat)}</span>
         </div>
         <div className="flex justify-between">
           <span>{t("counterparty.statement.payments")}</span>
@@ -400,7 +415,9 @@ function StatementPrintContent({
                         : money(doc.pendiente, numberFormat)}
                     </td>
                     <td className="py-2 text-right">
-                      {money(doc.total, numberFormat)}
+                      {doc.kind === "nota"
+                        ? negMoney(doc.total, numberFormat)
+                        : money(doc.total, numberFormat)}
                     </td>
                   </tr>
                   {(doc.lines ?? []).map((line, index) => (
@@ -413,7 +430,9 @@ function StatementPrintContent({
                         {money(line.precio_unit, numberFormat)}
                       </td>
                       <td className="py-1 text-right">
-                        {money(line.subtotal_line, numberFormat)}
+                        {doc.kind === "nota"
+                          ? negMoney(line.subtotal_line, numberFormat)
+                          : money(line.subtotal_line, numberFormat)}
                       </td>
                     </tr>
                   ))}
@@ -663,6 +682,7 @@ export function CounterpartyStatementDialog({
                   label={t("counterparty.statement.notes")}
                   value={totals.total_notas}
                   numberFormat={numberFormat}
+                  negative
                 />
                 <StatementStat
                   label={t("counterparty.statement.payments")}
