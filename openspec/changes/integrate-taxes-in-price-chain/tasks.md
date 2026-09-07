@@ -60,16 +60,16 @@ Strict TDD is enabled (`openspec/config.yaml`): every behavior work unit is sequ
 
 ## Work Unit 6 — Client regeneration
 
-- [ ] From repo root: `bash ./scripts/generate-client.sh`, then `cd frontend && bunx tsc -p tsconfig.build.json --noEmit`; fix hand-written code only (client types under `frontend/src/client/` are generated, AGENTS.md §5.3). Commit regenerated client with the backend PR or as PR 2 head per the delivery decision. <!-- sdd-owner: implementation -->
+- [x] From repo root: `bash ./scripts/generate-client.sh`, then `cd frontend && bunx tsc -p tsconfig.build.json --noEmit`; fix hand-written code only (client types under `frontend/src/client/` are generated, AGENTS.md §5.3). Commit regenerated client with the backend PR or as PR 2 head per the delivery decision. <!-- sdd-owner: implementation -->
 
 ## Work Unit 7 — Frontend: forms, detail, price list, reports, admin setting, i18n
 
-- [ ] `frontend/src/components/Products/AddProduct.tsx`: single-select IVA picker (radio-style listing tipo-IVA taxes + "Sin IVA / 0%"), other tipos (IIBB, Interno, PercGan, Otro) stay multi-select; disable submit + translated `multiple_iva_taxes` error on two IVAs; live-computed four-price chain preview from costo/margen/taxes/rounding setting. <!-- sdd-owner: implementation -->
-- [ ] `frontend/src/components/Products/ProductDetailSheet.tsx` (product edit AND detail — there is no `EditProduct.tsx`; editing routes through this file's `updateProduct`): show the four prices (`costo_actual`, costo con impuestos, `precio_neto`, `precio_venta`); apply the same single-IVA picker to its edit form; surface `multiple_iva_taxes` / `invalid_fixed_tax_amount` via `handleError`. <!-- sdd-owner: implementation -->
-- [ ] `frontend/src/components/Products/productsColumns.tsx`: add `Precio neto` column, keep `Precio venta` (góndola). <!-- sdd-owner: implementation -->
-- [ ] `frontend/src/components/Reports/MarginTab.tsx`: show `Ingreso neto` (`revenue_neto`) next to `Ingreso bruto`; compute displayed margin over net. Verify `frontend/src/components/Reports/VatTab.tsx` displays the now-exact net bases coherently (code-unchanged). <!-- sdd-owner: implementation -->
-- [ ] `frontend/src/components/Admin/GeneralSettings.tsx`: `price_rounding` shadcn `Select` (Sin redondeo / Dos decimales / Psicológico (.90)) with copy stating existing products reprice on their next write/cost recompute. <!-- sdd-owner: implementation -->
-- [ ] `frontend/src/i18n/*`: es/en strings for new labels plus `multiple_iva_taxes` / `invalid_fixed_tax_amount` error codes. <!-- sdd-owner: implementation -->
+- [x] `frontend/src/components/Products/AddProduct.tsx`: single-select IVA picker (radio-style listing tipo-IVA taxes + "Sin IVA / 0%"), other tipos (IIBB, Interno, PercGan, Otro) stay multi-select; disable submit + translated `multiple_iva_taxes` error on two IVAs; live-computed four-price chain preview from costo/margen/taxes/rounding setting. <!-- sdd-owner: implementation -->
+- [x] `frontend/src/components/Products/ProductDetailSheet.tsx` (product edit AND detail — there is no `EditProduct.tsx`; editing routes through this file's `updateProduct`): show the four prices (`costo_actual`, costo con impuestos, `precio_neto`, `precio_venta`); apply the same single-IVA picker to its edit form; surface `multiple_iva_taxes` / `invalid_fixed_tax_amount` via `handleError`. <!-- sdd-owner: implementation -->
+- [x] `frontend/src/components/Products/productsColumns.tsx`: add `Precio neto` column, keep `Precio venta` (góndola). <!-- sdd-owner: implementation -->
+- [x] `frontend/src/components/Reports/MarginTab.tsx`: show `Ingreso neto` (`revenue_neto`) next to `Ingreso bruto`; compute displayed margin over net. Verify `frontend/src/components/Reports/VatTab.tsx` displays the now-exact net bases coherently (code-unchanged). <!-- sdd-owner: implementation -->
+- [x] `frontend/src/components/Admin/GeneralSettings.tsx`: `price_rounding` shadcn `Select` (Sin redondeo / Dos decimales / Psicológico (.90)) with copy stating existing products reprice on their next write/cost recompute. <!-- sdd-owner: implementation -->
+- [x] `frontend/src/i18n/*`: es/en strings for new labels plus `multiple_iva_taxes` / `invalid_fixed_tax_amount` error codes. <!-- sdd-owner: implementation -->
 
 ## Work Unit 8 — Seeds, demo data, CHANGELOG rollout note
 
@@ -81,8 +81,8 @@ Strict TDD is enabled (`openspec/config.yaml`): every behavior work unit is sequ
 
 - [x] `cd backend && bash scripts/test.sh` (full suite, docker db up, migrations applied, non-parallel-safe). <!-- sdd-owner: implementation -->
 - [x] `cd backend && bash scripts/lint.sh` (ruff + mypy --strict + ty). <!-- sdd-owner: implementation -->
-- [ ] `cd frontend && bunx tsc -p tsconfig.build.json --noEmit` and `cd frontend && bun run lint` (biome). <!-- sdd-owner: implementation -->
-- [ ] Re-run Playwright critical-flow suite (`cd frontend && bunx playwright test`) — sell flow regression check (`/sell` and `/buy` untouched). <!-- sdd-owner: implementation -->
+- [x] `cd frontend && bunx tsc -p tsconfig.build.json --noEmit` and `cd frontend && bun run lint` (biome). <!-- sdd-owner: implementation -->
+- [x] Re-run Playwright critical-flow suite (`cd frontend && bunx playwright test`) — sell flow regression check (`/sell` and `/buy` untouched). <!-- sdd-owner: implementation -->
 
 ## Parent-owned: review and delivery gate
 

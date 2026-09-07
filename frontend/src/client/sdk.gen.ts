@@ -1996,9 +1996,11 @@ export class ReportsService {
      * Margin Report
      * Gross margin per product from active sales in the date range.
      *
-     * Revenue is the net-of-line-discount line subtotal; cost is the sale-time
-     * cost snapshot times the quantity sold. Bounds are inclusive business-local
-     * days.
+     * Revenue is the net-of-line-discount line subtotal (gross, IVA inside);
+     * ``revenue_neto`` is the margin base: the line subtotal minus the sum of
+     * its aplicado line-tax montos (the stored exact decomposition). Cost is
+     * the sale-time cost snapshot times the quantity sold. Bounds are
+     * inclusive business-local days.
      * @param data The data for the request.
      * @param data.desde
      * @param data.hasta

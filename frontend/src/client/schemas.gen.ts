@@ -885,6 +885,9 @@ export const BusinessSettingsPublicSchema = {
         stock_policy: {
             '$ref': '#/components/schemas/StockPolicy'
         },
+        price_rounding: {
+            '$ref': '#/components/schemas/PriceRounding'
+        },
         default_margen_pct: {
             anyOf: [
                 {
@@ -993,7 +996,7 @@ export const BusinessSettingsPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants', 'timezone', 'number_format', 'stock_policy', 'warn_below_cost', 'require_barcode', 'default_locale', 'default_print_format', 'sell_block_price_edit', 'sell_hide_date'],
+    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants', 'timezone', 'number_format', 'stock_policy', 'price_rounding', 'warn_below_cost', 'require_barcode', 'default_locale', 'default_print_format', 'sell_block_price_edit', 'sell_hide_date'],
     title: 'BusinessSettingsPublic'
 } as const;
 
@@ -1144,6 +1147,16 @@ export const BusinessSettingsUpdateSchema = {
             anyOf: [
                 {
                     '$ref': '#/components/schemas/StockPolicy'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        price_rounding: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PriceRounding'
                 },
                 {
                     type: 'null'
@@ -3507,6 +3520,11 @@ export const MarginRowSchema = {
             pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
             title: 'Revenue'
         },
+        revenue_neto: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Revenue Neto'
+        },
         cost: {
             type: 'string',
             pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
@@ -3531,7 +3549,7 @@ export const MarginRowSchema = {
         }
     },
     type: 'object',
-    required: ['product_id', 'name', 'units', 'revenue', 'cost', 'margin'],
+    required: ['product_id', 'name', 'units', 'revenue', 'revenue_neto', 'cost', 'margin'],
     title: 'MarginRow'
 } as const;
 
@@ -4324,6 +4342,12 @@ export const PermissionPublicSchema = {
     title: 'PermissionPublic'
 } as const;
 
+export const PriceRoundingSchema = {
+    type: 'string',
+    enum: ['none', 'two_decimals', 'psychological_90'],
+    title: 'PriceRounding'
+} as const;
+
 export const PrintFormatSchema = {
     type: 'string',
     enum: ['a4', 'ticket80'],
@@ -4580,10 +4604,20 @@ export const ProductListItemPublicSchema = {
             pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
             title: 'Costo Actual'
         },
+        precio_neto: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Precio Neto'
+        },
         precio_venta: {
             type: 'string',
             pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
             title: 'Precio Venta'
+        },
+        costo_con_impuestos: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Costo Con Impuestos'
         },
         stock_current: {
             type: 'string',
@@ -4612,7 +4646,7 @@ export const ProductListItemPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'name', 'uom_id', 'is_active', 'margen_pct', 'costo_actual', 'precio_venta', 'stock_current'],
+    required: ['id', 'name', 'uom_id', 'is_active', 'margen_pct', 'costo_actual', 'precio_neto', 'precio_venta', 'costo_con_impuestos', 'stock_current'],
     title: 'ProductListItemPublic',
     description: `Lightweight product row for list views (server-side pagination).
 
@@ -4695,10 +4729,20 @@ export const ProductPublicSchema = {
             pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
             title: 'Costo Actual'
         },
+        precio_neto: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Precio Neto'
+        },
         precio_venta: {
             type: 'string',
             pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
             title: 'Precio Venta'
+        },
+        costo_con_impuestos: {
+            type: 'string',
+            pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$',
+            title: 'Costo Con Impuestos'
         },
         stock_current: {
             type: 'string',
@@ -4764,7 +4808,7 @@ export const ProductPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'name', 'uom_id', 'is_active', 'margen_pct', 'costo_actual', 'precio_venta', 'stock_current', 'stock_maximo', 'allow_price_edit_in_sale'],
+    required: ['id', 'name', 'uom_id', 'is_active', 'margen_pct', 'costo_actual', 'precio_neto', 'precio_venta', 'costo_con_impuestos', 'stock_current', 'stock_maximo', 'allow_price_edit_in_sale'],
     title: 'ProductPublic'
 } as const;
 
