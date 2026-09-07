@@ -5,15 +5,16 @@ import uuid
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app import crud
 from app.core.config import settings
 from app.models import (
+    CONSUMIDOR_FINAL_NAME,
     AccountMovement,
     AccountMovementType,
-    CONSUMIDOR_FINAL_NAME,
     Customer,
+    DocumentLineTax,
     PaymentMethod,
     Role,
     SupplierAccountMovement,
@@ -21,6 +22,9 @@ from app.models import (
 )
 from tests.utils.ledger import load_stock
 from tests.utils.utils import random_email, random_lower_string
+
+
+db_session: Session
 
 
 def _create_uom(client: TestClient, headers: dict[str, str]) -> dict:
@@ -42,7 +46,8 @@ def _create_product(
     headers: dict[str, str],
     *,
     costo: str = "100.00",
-    margen: str = "21.00",
+    # margen 0 → neto 100.00; with IVA 21% the góndola is 121.00 (net+IVA chain).
+    margen: str = "0.00",
     tax_ids: list[str] | None = None,
 ) -> dict:
     uom = _create_uom(client, headers)
@@ -129,7 +134,7 @@ def test_create_sale_document_computes_totals_and_taxes(
     iva21 = _iva21_id(client, superuser_token_headers)
     product = _create_product(
         client, superuser_token_headers, tax_ids=[iva21]
-    )  # precio_venta = 121.00
+    )  # neto 100.00 → precio_venta (góndola) = 121.00
     load_stock(client, superuser_token_headers, product["id"], "3")
     type_id = _doc_type_id(client, superuser_token_headers, "TCK")
     payload = {
@@ -169,15 +174,22 @@ def test_create_sale_document_computes_totals_and_taxes(
     assert lines[1]["subtotal_line"] == "90.00"
     assert lines[1]["precio_unit"] == "100.00"
 
-    # IVA 21 breakdown is informational (prices carry IVA inside)
+    # IVA 21 breakdown is the exact decomposition: neta + monto == bruto
     for line in lines:
         iva = next(t for t in line["taxes"] if t["tax_id"] == iva21)
         assert iva["aplicado"] is True
-        expected = str(
-            (Decimal(line["subtotal_line"]) * Decimal("0.21")).quantize(Decimal("0.01"))
-        )
-        assert iva["monto"] == expected
-
+        bruto = Decimal(line["subtotal_line"])
+        neta = Decimal(iva["base"])
+        monto = Decimal(iva["monto"])
+        assert neta + monto == bruto
+    # line 1: 217.80 → neta 180.00 + IVA 37.80 (exact); line 2: 90.00 →
+    # neta 74.38 + IVA 15.62 (residual 0.00 lands on the IVA row)
+    iva0 = next(t for t in lines[0]["taxes"] if t["tax_id"] == iva21)
+    assert iva0["base"] == "180.00"
+    assert iva0["monto"] == "37.80"
+    iva1 = next(t for t in lines[1]["taxes"] if t["tax_id"] == iva21)
+    assert iva1["base"] == "74.38"
+    assert iva1["monto"] == "15.62"
     # line-level taxes are not aggregated to DocumentTax
     # (only document-level percepciones land there)
     assert doc["taxes"] == []
@@ -748,14 +760,14 @@ def test_document_level_percepciones_add_to_total(
         {
             "document_type_id": type_id,
             "contraparte_id": customer["id"],
-            "lines": [{"product_id": product["id"], "cantidad": "2"}],  # 242.00
+            "lines": [{"product_id": product["id"], "cantidad": "2"}],  # 200.00 (neto 100 × 2)
         },
     )
     # percepción computed and added on top of the subtotal
     doc_tax = next(t for t in doc["taxes"] if t["tax_id"] == iibb_id)
-    assert doc_tax["base"] == "242.00"
-    assert doc_tax["monto"] == "7.26"
-    assert doc["total"] == "249.26"
+    assert doc_tax["base"] == "200.00"
+    assert doc_tax["monto"] == "6.00"
+    assert doc["total"] == "206.00"
 
 
 def test_line_tax_override_removes_taxes_from_line(
@@ -1150,3 +1162,311 @@ def test_read_documents_filter_resolves_business_local_days(
             headers=superuser_token_headers,
             json={"timezone": previous_tz},
         )
+
+
+# ----- Exact line-tax decomposition (pricing chain) -----
+
+
+def _create_iibb_tax(client: TestClient, headers: dict[str, str]) -> str:
+    r = client.post(
+        f"{settings.API_V1_STR}/taxes/",
+        headers=headers,
+        json={
+            "name": "IIBB CABA",
+            "code": "IIBB3DOC",
+            "tipo": "IIBB",
+            "rate": "3.00",
+            "is_percent": True,
+            "aplica_a": "linea",
+            "is_active": True,
+        },
+    )
+    assert r.status_code == 200, r.text
+    return r.json()["id"]
+
+
+def _create_fixed_tax(client: TestClient, headers: dict[str, str]) -> str:
+    r = client.post(
+        f"{settings.API_V1_STR}/taxes/",
+        headers=headers,
+        json={
+            "name": "Flete fijo",
+            "code": "FLETE2",
+            "tipo": "Otro",
+            "rate": "2.00",
+            "is_percent": False,
+            "aplica_a": "linea",
+            "is_active": True,
+        },
+    )
+    assert r.status_code == 200, r.text
+    return r.json()["id"]
+
+
+def _line_tax_rows(doc: dict) -> list[dict]:
+    return [
+        {"tax_id": lt["tax_id"], "base": lt["base"], "monto": lt["monto"], "aplicado": lt["aplicado"]}
+        for line in doc["lines"]
+        for lt in line["taxes"]
+    ]
+
+
+def _assert_identity(doc: dict) -> None:
+    """neta + Σ montos == subtotal_line, exactly, for every line."""
+    for line in doc["lines"]:
+        total = Decimal(line["subtotal_line"])
+        breakdown = sum(Decimal(lt["monto"]) for lt in line["taxes"])
+        bases = {Decimal(lt["base"]) for lt in line["taxes"]}
+        assert len(bases) == 1
+        neta = bases.pop()
+        assert neta + breakdown == total, (neta, breakdown, total)
+
+
+def _sale_payload(
+    type_id: str,
+    customer_id: str,
+    product_id: str,
+    *,
+    cantidad: str = "1",
+    precio_unit: str | None = None,
+    monto: str | None = None,
+) -> dict:
+    line = {"product_id": product_id, "cantidad": cantidad}
+    if precio_unit is not None:
+        line["precio_unit"] = precio_unit
+    return {
+        "document_type_id": type_id,
+        "contraparte_id": customer_id,
+        "lines": [line],
+        "payments": [{"payment_method_id": _cash_method_id(db_session), "monto": monto or "9999.00"}],
+    }
+
+
+def test_decomposition_single_iva_exact(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    global db_session
+    db_session = db
+    customer = _create_customer(client, superuser_token_headers)
+    iva21 = _iva21_id(client, superuser_token_headers)
+    product = _create_product(
+        client, superuser_token_headers, margen="50.00", tax_ids=[iva21]
+    )  # precio_venta 181.50
+    load_stock(client, superuser_token_headers, product["id"], "3")
+    type_id = _doc_type_id(client, superuser_token_headers, "TCK")
+    doc = _create_doc(
+        client,
+        superuser_token_headers,
+        _sale_payload(type_id, customer["id"], product["id"], monto="181.50"),
+    )
+    line = doc["lines"][0]
+    assert line["subtotal_line"] == "181.50"
+    iva = next(lt for lt in line["taxes"] if lt["tax_id"] == iva21)
+    # exact: neta 150.00 + IVA 31.50 = 181.50
+    assert iva["base"] == "150.00"
+    assert iva["monto"] == "31.50"
+    _assert_identity(doc)
+    # totals stay gross
+    assert doc["subtotal"] == "181.50"
+    assert doc["total"] == "181.50"
+
+
+def test_decomposition_adjust_last_percent_reconciles(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    global db_session
+    db_session = db
+    customer = _create_customer(client, superuser_token_headers)
+    iva21 = _iva21_id(client, superuser_token_headers)
+    iibb = _create_iibb_tax(client, superuser_token_headers)
+    product = _create_product(
+        client, superuser_token_headers, margen="50.00", tax_ids=[iva21, iibb]
+    )  # precio_venta 186.00
+    load_stock(client, superuser_token_headers, product["id"], "3")
+    type_id = _doc_type_id(client, superuser_token_headers, "TCK")
+    doc = _create_doc(
+        client,
+        superuser_token_headers,
+        _sale_payload(
+            type_id, customer["id"], product["id"], precio_unit="186.50", monto="186.50"
+        ),
+    )
+    line = doc["lines"][0]
+    assert line["subtotal_line"] == "186.50"
+    iva = next(lt for lt in line["taxes"] if lt["tax_id"] == iva21)
+    iibb_row = next(lt for lt in line["taxes"] if lt["tax_id"] == iibb)
+    # neta = round2(186.50 / 1.24) = 150.40
+    assert iva["base"] == "150.00" or True  # bases may differ per tax? No: same neta
+    assert iva["base"] == iibb_row["base"] == "150.40"
+    assert iva["monto"] == "31.58"
+    # residual 0.01 goes to the LAST percent tax (IIBB): 4.51 + 0.01
+    assert iibb_row["monto"] == "4.52"
+    _assert_identity(doc)
+    assert doc["total"] == "186.50"
+
+
+def test_decomposition_fixed_tax_outside_divisor(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    global db_session
+    db_session = db
+    customer = _create_customer(client, superuser_token_headers)
+    iva21 = _iva21_id(client, superuser_token_headers)
+    fixed = _create_fixed_tax(client, superuser_token_headers)
+    product = _create_product(
+        client, superuser_token_headers, margen="50.00", tax_ids=[iva21, fixed]
+    )  # precio_venta 183.50
+    load_stock(client, superuser_token_headers, product["id"], "3")
+    type_id = _doc_type_id(client, superuser_token_headers, "TCK")
+    doc = _create_doc(
+        client,
+        superuser_token_headers,
+        _sale_payload(
+            type_id, customer["id"], product["id"], precio_unit="183.99", monto="183.99"
+        ),
+    )
+    line = doc["lines"][0]
+    assert line["subtotal_line"] == "183.99"
+    iva = next(lt for lt in line["taxes"] if lt["tax_id"] == iva21)
+    fixed_row = next(lt for lt in line["taxes"] if lt["tax_id"] == fixed)
+    # fixed 2.00 outside the divisor; neta = round2(181.99 / 1.21) = 150.40
+    assert iva["base"] == "150.40"
+    assert fixed_row["base"] == "150.40"
+    assert fixed_row["monto"] == "2.00"
+    # residual 0.01 lands on the (only) percent tax: 31.58 + 0.01
+    assert iva["monto"] == "31.59"
+    _assert_identity(doc)
+    assert doc["total"] == "183.99"
+
+
+def test_decomposition_historical_immutability(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    global db_session
+    db_session = db
+    customer = _create_customer(client, superuser_token_headers)
+    iva21 = _iva21_id(client, superuser_token_headers)
+    product = _create_product(
+        client, superuser_token_headers, margen="50.00", tax_ids=[iva21]
+    )
+    load_stock(client, superuser_token_headers, product["id"], "3")
+    type_id = _doc_type_id(client, superuser_token_headers, "TCK")
+    doc = _create_doc(
+        client,
+        superuser_token_headers,
+        _sale_payload(type_id, customer["id"], product["id"], monto="181.50"),
+    )
+    before = _line_tax_rows(doc)
+    # change the product's tax assignment after the document exists
+    iva105 = client.get(
+        f"{settings.API_V1_STR}/taxes/",
+        headers=superuser_token_headers,
+        params={"limit": 100},
+    ).json()["data"]
+    iva105_id = next(row for row in iva105 if row["code"] == "IVA105")["id"]
+    r = client.patch(
+        f"{settings.API_V1_STR}/products/{product['id']}",
+        headers=superuser_token_headers,
+        json={"tax_ids": [iva105_id]},
+    )
+    assert r.status_code == 200, r.text
+    r = client.get(
+        f"{settings.API_V1_STR}/documents/{doc['id']}",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200, r.text
+    after = _line_tax_rows(r.json())
+    assert before == after
+
+
+def test_void_nc_regenerates_only_aplicado_taxes(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    global db_session
+    db_session = db
+    customer = _create_customer(client, superuser_token_headers)
+    iva21 = _iva21_id(client, superuser_token_headers)
+    iibb = _create_iibb_tax(client, superuser_token_headers)
+    product = _create_product(
+        client, superuser_token_headers, margen="50.00", tax_ids=[iva21, iibb]
+    )
+    load_stock(client, superuser_token_headers, product["id"], "3")
+    type_id = _doc_type_id(client, superuser_token_headers, "TCK")
+    doc = _create_doc(
+        client,
+        superuser_token_headers,
+        _sale_payload(type_id, customer["id"], product["id"], monto="372.00"),
+    )  # 2 × 186.00
+    # toggle the IIBB line tax off (aplicado=False) directly in the store
+    row = db.exec(
+        select(DocumentLineTax).where(
+            col(DocumentLineTax.tax_id) == uuid.UUID(iibb),
+            col(DocumentLineTax.aplicado) == True,  # noqa: E712
+        )
+    ).first()
+    assert row is not None
+    row.aplicado = False
+    db.add(row)
+    db.commit()
+
+    r = client.post(
+        f"{settings.API_V1_STR}/documents/{doc['id']}/void",
+        headers=superuser_token_headers,
+        json={},
+    )
+    assert r.status_code == 200, r.text
+    nc = r.json()
+    nc_tax_ids = {lt["tax_id"] for line in nc["lines"] for lt in line["taxes"]}
+    assert iva21 in nc_tax_ids
+    assert uuid.UUID(iibb) not in nc_tax_ids
+    # the regenerated NC breakdown satisfies the identity
+    _assert_identity(nc)
+    # the original document's stored rows are untouched (IIBB still monto 4.50)
+    r = client.get(
+        f"{settings.API_V1_STR}/documents/{doc['id']}",
+        headers=superuser_token_headers,
+    )
+    original = r.json()
+    iibb_row = next(
+        lt
+        for line in original["lines"]
+        for lt in line["taxes"]
+        if lt["tax_id"] == iibb
+    )
+    assert iibb_row["monto"] == "4.50"
+    _assert_identity(original)
+
+
+def test_quote_conversion_breakdown_satisfies_identity(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    global db_session
+    db_session = db
+    customer = _create_customer(client, superuser_token_headers)
+    iva21 = _iva21_id(client, superuser_token_headers)
+    product = _create_product(
+        client, superuser_token_headers, margen="50.00", tax_ids=[iva21]
+    )
+    load_stock(client, superuser_token_headers, product["id"], "3")
+    cot = _doc_type_id(client, superuser_token_headers, "COT")
+    quote = _create_doc(
+        client,
+        superuser_token_headers,
+        {
+            "document_type_id": cot,
+            "contraparte_id": customer["id"],
+            "lines": [{"product_id": product["id"], "cantidad": "1"}],
+            "payments": [],
+        },
+    )
+    _assert_identity(quote)
+    r = client.post(
+        f"{settings.API_V1_STR}/documents/{quote['id']}/convert-to-invoice",
+        headers=superuser_token_headers,
+        json={},
+    )
+    assert r.status_code == 200, r.text
+    invoice = r.json()
+    _assert_identity(invoice)
+    # copied verbatim apart from the new row ids
+    assert _line_tax_rows(invoice) == _line_tax_rows(quote)

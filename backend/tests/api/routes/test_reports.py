@@ -135,6 +135,14 @@ def _set_timezone(
     assert r.status_code == 200, r.text
 
 
+def _iva_tax_id(client: TestClient, headers: dict[str, str], code: str = "IVA21") -> str:
+    r = client.get(
+        f"{settings.API_V1_STR}/taxes/", headers=headers, params={"limit": 100}
+    )
+    assert r.status_code == 200
+    return next(row for row in r.json()["data"] if row["code"] == code)["id"]
+
+
 def _create_sale(
     client: TestClient,
     headers: dict[str, str],
@@ -781,3 +789,43 @@ def test_reorder_fills_to_stock_maximo(
     row = next(row for row in r.json() if row["id"] == product["id"])
     assert row["missing"] == "18.00"
     assert row["estimated_cost"] == "180.00"
+
+
+def test_margin_report_computes_over_net_revenue(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Margin base is net revenue: subtotal_line − Σ aplicado line tax montos.
+
+    Product: costo 100 / margen 50 / IVA 21% → precio_venta 181.50; the
+    decomposition is neta 150.00 + IVA 31.50, so revenue_neto = 150.00,
+    margin = 50.00 over net (33.33%), while gross revenue stays 181.50.
+    """
+    iva21_id = _iva_tax_id(client, superuser_token_headers)
+    product = _create_product(
+        client, superuser_token_headers, margen="50.00", tax_ids=[iva21_id]
+    )
+    load_stock(client, superuser_token_headers, product["id"], "5")
+    method = _cash_method_id(db)
+    customer = _create_customer(client, superuser_token_headers)
+    _create_sale(
+        client,
+        superuser_token_headers,
+        product["id"],
+        customer["id"],
+        method,
+        cantidad="1",
+        precio_unit="181.50",
+    )
+
+    r = client.get(
+        f"{settings.API_V1_STR}/reports/margin/", headers=superuser_token_headers
+    )
+    assert r.status_code == 200, r.text
+    rows = [row for row in r.json() if row["product_id"] == product["id"]]
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["revenue"] == "181.50"  # gross line subtotal
+    assert row["revenue_neto"] == "150.00"  # subtotal − IVA monto
+    assert row["cost"] == "100.00"
+    assert row["margin"] == "50.00"
+    assert row["margin_pct"] == "33.33"

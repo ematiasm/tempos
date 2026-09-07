@@ -1,12 +1,12 @@
 import enum
 import uuid
 from datetime import UTC, date, datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Optional
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, EmailStr, field_validator
-from sqlalchemy import JSON, DateTime, Numeric
+from sqlalchemy import JSON, DateTime, Numeric, String
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.validators import normalize_and_validate_documento
@@ -107,6 +107,12 @@ class StockPolicy(enum.StrEnum):
     WARN = "warn"
 
 
+class PriceRounding(enum.StrEnum):
+    NONE = "none"
+    TWO_DECIMALS = "two_decimals"
+    PSYCHOLOGICAL_90 = "psychological_90"
+
+
 class LocalePreference(enum.StrEnum):
     ES = "es"
     EN = "en"
@@ -203,6 +209,8 @@ class BusinessSettingsUpdate(SQLModel):
     payment_method_default_id: uuid.UUID | None = None
     number_format: NumberFormat | None = None
     stock_policy: StockPolicy | None = None
+    # Shelf-price rounding mode applied at product price formation.
+    price_rounding: PriceRounding | None = None
     # Product defaults (see BusinessSettings for semantics).
     default_margen_pct: Decimal | None = None
     warn_below_cost: bool | None = None
@@ -788,6 +796,14 @@ class BusinessSettings(SQLModel, table=True):
     # Path (public, served under /uploads) to the business logo shown on vouchers.
     logo_path: str | None = Field(default=None, max_length=255)
     stock_policy: StockPolicy = Field(default=StockPolicy.WARN, max_length=10)
+    # Rounding mode applied ONLY to ``precio_venta`` at price formation;
+    # ``precio_neto`` and ``costo_actual`` stay exact 2-dec values.
+    # Plain string column with Python-side str-enum validation: no pg enum
+    # type (they persist across migrations and poison reuse, AGENTS.md §9).
+    price_rounding: PriceRounding = Field(
+        default=PriceRounding.NONE,
+        sa_type=String(length=20),  # type: ignore
+    )
     # --- Product defaults ---
     # Margin % prefilled when creating a product; NULL = no prefill.
     default_margen_pct: Decimal | None = Field(
@@ -868,6 +884,12 @@ class UoM(SQLModel, table=True):
 
 class Product(ProductBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    # Cached net price (margin over cost, before line taxes); recomputed by the
+    # pricing-chain helper at every product write path.
+    precio_neto: Decimal = Field(
+        default=Decimal("0"),
+        sa_type=Numeric(12, 2),  # type: ignore
+    )
     precio_venta: Decimal = Field(
         default=Decimal("0"),
         sa_type=Numeric(12, 2),  # type: ignore
@@ -889,6 +911,22 @@ class Product(ProductBase, table=True):
     barcodes: list["Barcode"] = Relationship(  # noqa: UP045
         back_populates="product", cascade_delete=True
     )
+
+    @property
+    def costo_con_impuestos(self) -> Decimal:
+        """Display-derived cost including the product's single percent IVA.
+
+        ``costo_actual + round2(costo_actual × IVA rate / 100)``; ``0.00`` when
+        the product has no percent IVA (none, the exento marker, or IVA 0%).
+        Fixed-amount taxes are excluded (costo con impuestos is IVA-only).
+        """
+        for tax in self.taxes:
+            if tax.tipo == TaxType.IVA and tax.is_percent and tax.rate > 0:
+                monto = (self.costo_actual * tax.rate / Decimal("100")).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
+                return self.costo_actual + monto
+        return Decimal("0.00")
 
 
 class ProductVariant(SQLModel, table=True):
@@ -1466,6 +1504,8 @@ class BusinessSettingsPublic(SQLModel):
     number_format: NumberFormat
     logo_path: str | None = None
     stock_policy: StockPolicy
+    # Rounding mode applied to the shelf price (see BusinessSettings).
+    price_rounding: PriceRounding
     # Product defaults (see BusinessSettings for semantics).
     default_margen_pct: Decimal | None = None
     warn_below_cost: bool
@@ -1540,7 +1580,10 @@ class ProductPublic(SQLModel):
     is_active: bool
     margen_pct: Decimal
     costo_actual: Decimal
+    precio_neto: Decimal
     precio_venta: Decimal
+    # Display-derived: costo_actual plus the single percent IVA over cost.
+    costo_con_impuestos: Decimal
     stock_current: Decimal
     stock_minimo: Decimal | None = None
     stock_maximo: Decimal
@@ -1567,7 +1610,10 @@ class ProductListItemPublic(SQLModel):
     is_active: bool
     margen_pct: Decimal
     costo_actual: Decimal
+    precio_neto: Decimal
     precio_venta: Decimal
+    # Display-derived: costo_actual plus the single percent IVA over cost.
+    costo_con_impuestos: Decimal
     stock_current: Decimal
     stock_minimo: Decimal | None = None
     taxes: list[TaxPublic] = []
@@ -2149,6 +2195,8 @@ class MarginRow(BaseModel):
     name: str
     units: Decimal
     revenue: Decimal
+    # Net revenue: Σ (subtotal_line − Σ aplicado line tax montos).
+    revenue_neto: Decimal
     cost: Decimal
     margin: Decimal
     margin_pct: Decimal | None = None

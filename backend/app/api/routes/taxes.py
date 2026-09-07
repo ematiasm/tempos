@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -25,6 +26,22 @@ router = APIRouter(prefix="/taxes", tags=["taxes"])
 # Fields that change fiscal amounts or historical labels; editing them is
 # forbidden once the tax appears in any document.
 _RESTRICTED_TAX_FIELDS = {"tipo", "rate", "is_percent", "aplica_a"}
+
+
+def _ensure_valid_fixed_amount(*, is_percent: bool, rate: Decimal) -> None:
+    """A fixed-amount tax must carry a strictly positive amount.
+
+    Zero/negative fixed amounts would make the góndola identity look
+    inconsistent; the seeded exento marker bypasses the route entirely.
+    """
+    if not is_percent and rate <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "invalid_fixed_tax_amount",
+                "message": "Fixed-amount taxes must have a rate greater than zero",
+            },
+        )
 
 
 @router.get(
@@ -55,6 +72,7 @@ def create_tax(*, session: SessionDep, tax_in: TaxCreate) -> Any:
         raise HTTPException(
             status_code=400, detail="A tax with this code already exists"
         )
+    _ensure_valid_fixed_amount(is_percent=tax_in.is_percent, rate=tax_in.rate)
     tax = Tax.model_validate(tax_in)
     session.add(tax)
     session.commit()
@@ -92,6 +110,9 @@ def update_tax(*, session: SessionDep, tax_id: uuid.UUID, tax_in: TaxUpdate) -> 
         documents = _tax_referencing_documents(session, tax)
         if documents:
             raise _tax_in_use_error(documents)
+    effective_percent = data.get("is_percent", tax.is_percent)
+    effective_rate = data.get("rate", tax.rate)
+    _ensure_valid_fixed_amount(is_percent=effective_percent, rate=effective_rate)
     tax.sqlmodel_update(data)
     session.add(tax)
     session.commit()

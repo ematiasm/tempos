@@ -207,9 +207,11 @@ def margin_report(
 ) -> Any:
     """Gross margin per product from active sales in the date range.
 
-    Revenue is the net-of-line-discount line subtotal; cost is the sale-time
-    cost snapshot times the quantity sold. Bounds are inclusive business-local
-    days.
+    Revenue is the net-of-line-discount line subtotal (gross, IVA inside);
+    ``revenue_neto`` is the margin base: the line subtotal minus the sum of
+    its aplicado line-tax montos (the stored exact decomposition). Cost is
+    the sale-time cost snapshot times the quantity sold. Bounds are
+    inclusive business-local days.
     """
     dt_from, dt_to = crud.period_bounds(session, desde, hasta)
     docs = _active_sales(session, desde=dt_from, hasta=dt_to)
@@ -226,31 +228,57 @@ def margin_report(
         ).all()
     }
 
+    # Aplicado line-tax montos per line: revenue_neto = bruto − Σ montos.
+    line_ids = [ln.id for ln in lines]
+    tax_monto_by_line: dict[uuid.UUID, Decimal] = {}
+    for line_tax in session.exec(
+        select(DocumentLineTax).where(
+            col(DocumentLineTax.document_line_id).in_(line_ids),
+            col(DocumentLineTax.aplicado) == True,  # noqa: E712
+        )
+    ).all():
+        tax_monto_by_line[line_tax.document_line_id] = (
+            tax_monto_by_line.get(line_tax.document_line_id, Decimal("0"))
+            + line_tax.monto
+        )
+
     totals: dict[uuid.UUID, dict[str, Decimal]] = {}
     for line in lines:
         acc = totals.setdefault(
             line.product_id,
-            {"units": Decimal("0"), "revenue": Decimal("0"), "cost": Decimal("0")},
+            {
+                "units": Decimal("0"),
+                "revenue": Decimal("0"),
+                "revenue_neto": Decimal("0"),
+                "cost": Decimal("0"),
+            },
         )
         acc["units"] += line.cantidad
         acc["revenue"] += line.subtotal_line
+        acc["revenue_neto"] += line.subtotal_line - tax_monto_by_line.get(
+            line.id, Decimal("0")
+        )
         acc["cost"] += line.cantidad * line.costo_unitario
 
     rows = []
     for product_id, acc in totals.items():
         revenue = _money(acc["revenue"])
+        revenue_neto = _money(acc["revenue_neto"])
         cost = _money(acc["cost"])
-        margin = _money(revenue - cost)
+        margin = _money(revenue_neto - cost)
         rows.append(
             MarginRow(
                 product_id=product_id,
                 name=products.get(product_id, ""),
                 units=acc["units"],
                 revenue=revenue,
+                revenue_neto=revenue_neto,
                 cost=cost,
                 margin=margin,
                 margin_pct=(
-                    _money(margin / revenue * Decimal("100")) if revenue else None
+                    _money(margin / revenue_neto * Decimal("100"))
+                    if revenue_neto
+                    else None
                 ),
             )
         )

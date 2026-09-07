@@ -23,7 +23,9 @@ from app.models import (
     ProductTax,
     Supplier,
     Tax,
+    TaxAppliesTo,
     TaxCondition,
+    TaxType,
 )
 
 SETUP_URL = f"{settings.API_V1_STR}/setup"
@@ -211,6 +213,69 @@ def test_setup_with_demo_data(
     assert demo_supplier is not None
     if pre_demo_supplier is None:
         assert demo_supplier.documento == DEMO_SUPPLIER_CUIT
+
+
+def test_demo_products_satisfy_pricing_chain(
+    client: TestClient, db: Session, superuser_token_headers: dict[str, str]
+) -> None:
+    """Every freshly seeded demo product satisfies the pricing chain.
+
+    ``precio_venta = round_mode(neto + Σ line taxes)`` from
+    ``(costo_actual, margen_pct, taxes)`` — never a stored-price feedback —
+    and the one-IVA rule holds (at most one tipo-IVA tax, exento counts).
+    """
+    from decimal import ROUND_FLOOR, ROUND_HALF_UP
+
+    _fresh_install(db)
+
+    # The demo loader is additive and matches by name; rename any demo-named
+    # rows left by earlier runs (documents may reference them, so deletion is
+    # not safe) so this load recreates the whole catalog fresh and the chain
+    # assertions observe it.
+    for existing in db.exec(select(Product)).all():
+        if existing.name in DEMO_PRODUCT_NAMES:
+            existing.name = f"renamed-{existing.name}"
+    db.commit()
+    r = client.post(
+        SETUP_URL,
+        headers=superuser_token_headers,
+        json={
+            "business_name": "Comercio Demo",
+            "condicion_fiscal": "Consumidor Final",
+            "load_demo_data": True,
+        },
+    )
+    assert r.status_code == 200, r.text
+
+    # Fresh install wiped the settings singleton, so the rounding mode is the
+    # `none` default during seeding.
+    products = [
+        p for p in db.exec(select(Product)).all() if p.name in DEMO_PRODUCT_NAMES
+    ]
+    assert len(products) == len(DEMO_PRODUCT_NAMES), (
+        "demo load must recreate the whole catalog on a fresh install"
+    )
+
+    def round_gondola(raw: Decimal) -> Decimal:
+        base = raw.quantize(Decimal("1"), rounding=ROUND_FLOOR)
+        candidate = base + Decimal("0.90")
+        if candidate < raw:
+            candidate += Decimal("1")
+        return candidate
+
+    for product in products:
+        iva_taxes = [t for t in product.taxes if t.tipo == TaxType.IVA]
+        assert len(iva_taxes) <= 1, f"{product.name}: {len(iva_taxes)} IVA taxes"
+        line_taxes = [t for t in product.taxes if t.aplica_a == TaxAppliesTo.LINEA]
+        percent = sum((t.rate for t in line_taxes if t.is_percent), Decimal("0"))
+        fixed = sum((t.rate for t in line_taxes if not t.is_percent), Decimal("0"))
+        neto = (
+            product.costo_actual * (Decimal("1") + product.margen_pct / Decimal("100"))
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        raw_gondola = neto + neto * percent / Decimal("100") + fixed
+        gondola = raw_gondola.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        assert product.precio_neto == neto, product.name
+        assert product.precio_venta == gondola, product.name
 
 
 def test_setup_requires_superuser(
