@@ -49,8 +49,6 @@ from app.models import (
     DocumentType,
     DocumentVoidCreate,
     FinancialAccount,
-    Item,
-    ItemCreate,
     PaymentMethod,
     PaymentReceiptCreate,
     PriceRounding,
@@ -143,14 +141,6 @@ def authenticate(*, session: Session, email: str, password: str) -> User | None:
         session.commit()
         session.refresh(db_user)
     return db_user
-
-
-def create_item(*, session: Session, item_in: ItemCreate, owner_id: uuid.UUID) -> Item:
-    db_item = Item.model_validate(item_in, update={"owner_id": owner_id})
-    session.add(db_item)
-    session.commit()
-    session.refresh(db_item)
-    return db_item
 
 
 def _sync_user_roles(session: Session, user: User, role_ids: list[uuid.UUID]) -> None:

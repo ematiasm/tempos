@@ -11,7 +11,6 @@ from app.api.routes import (
     document_types,
     documents,
     financial_accounts,
-    items,
     login,
     payment_methods,
     payments,
@@ -59,7 +58,6 @@ api_router.include_router(account_movements.router)
 api_router.include_router(cash_sessions.router)
 api_router.include_router(backups.router)
 api_router.include_router(utils.router)
-api_router.include_router(items.router)
 
 
 if settings.ENVIRONMENT == "local":

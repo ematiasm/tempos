@@ -747,7 +747,6 @@ class User(UserBase, table=True):
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
-    items: list[Item] = Relationship(back_populates="owner", cascade_delete=True)
     roles: list[Role] = Relationship(back_populates="users", link_model=UserRole)
 
 
@@ -2268,41 +2267,6 @@ class BackupSchedule(SQLModel, table=True):
     )
     last_status: BackupStatus | None = Field(default=None, max_length=20)
     last_error: str | None = Field(default=None, max_length=500)
-
-
-# ---------------------------------------------------------------------------
-# Item models (existing, kept for template compatibility)
-# ---------------------------------------------------------------------------
-class ItemBase(SQLModel):
-    title: str = Field(min_length=1, max_length=255)
-    description: str | None = Field(default=None, max_length=255)
-
-
-class ItemCreate(ItemBase):
-    pass
-
-
-class ItemUpdate(SQLModel):
-    title: str | None = Field(default=None, min_length=1, max_length=255)
-    description: str | None = Field(default=None, max_length=255)
-
-
-class Item(ItemBase, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    created_at: datetime | None = Field(
-        default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore
-    )
-    owner_id: uuid.UUID = Field(
-        foreign_key="user.id", nullable=False, ondelete="CASCADE"
-    )
-    owner: User | None = Relationship(back_populates="items")
-
-
-class ItemPublic(ItemBase):
-    id: uuid.UUID
-    owner_id: uuid.UUID
-    created_at: datetime | None = None
 
 
 # ---------------------------------------------------------------------------

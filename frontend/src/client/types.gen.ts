@@ -581,24 +581,6 @@ export type HTTPValidationError = {
     detail?: Array<ValidationError>;
 };
 
-export type ItemCreate = {
-    title: string;
-    description?: (string | null);
-};
-
-export type ItemPublic = {
-    title: string;
-    description?: (string | null);
-    id: string;
-    owner_id: string;
-    created_at?: (string | null);
-};
-
-export type ItemUpdate = {
-    title?: (string | null);
-    description?: (string | null);
-};
-
 export type LocalePreference = 'es' | 'en';
 
 export type MarginRow = {
@@ -681,11 +663,6 @@ export type Page_DocumentTypePublic_ = {
 
 export type Page_FinancialAccountPublic_ = {
     data: Array<FinancialAccountPublic>;
-    count: number;
-};
-
-export type Page_ItemPublic_ = {
-    data: Array<ItemPublic>;
     count: number;
 };
 
@@ -1716,44 +1693,6 @@ export type FinancialAccountsDeleteFinancialAccountData = {
 };
 
 export type FinancialAccountsDeleteFinancialAccountResponse = (Message);
-
-export type ItemsReadItemsData = {
-    /**
-     * Items per page
-     */
-    limit?: number;
-    /**
-     * Items to skip
-     */
-    skip?: number;
-};
-
-export type ItemsReadItemsResponse = (Page_ItemPublic_);
-
-export type ItemsCreateItemData = {
-    requestBody: ItemCreate;
-};
-
-export type ItemsCreateItemResponse = (ItemPublic);
-
-export type ItemsReadItemData = {
-    id: string;
-};
-
-export type ItemsReadItemResponse = (ItemPublic);
-
-export type ItemsUpdateItemData = {
-    id: string;
-    requestBody: ItemUpdate;
-};
-
-export type ItemsUpdateItemResponse = (ItemPublic);
-
-export type ItemsDeleteItemData = {
-    id: string;
-};
-
-export type ItemsDeleteItemResponse = (Message);
 
 export type LoginLoginAccessTokenData = {
     formData: Body_login_login_access_token;
