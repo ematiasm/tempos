@@ -3,9 +3,6 @@
 This document is the source of truth for any AI agent (or human contributor)
 working on the tempos codebase. Read it before making any change.
 
-Todo el código, comentarios, documentos, tablas y campos de base de datos. Tiene que estar escrito en inglés — EXCEPTO el vocabulario de dominio fiscal/comercial, que queda en español a propósito (ver "Language rule" en la sección 2).
-
-Antes de implementar cualquier cambio, haceme mínimo 5 preguntas.
 
 ---
 
