@@ -103,7 +103,7 @@ def _compute_product_prices(session, product: Product) -> tuple[Decimal, Decimal
     Returns (precio_neto, precio_venta); writes nothing."""
 ```
 
-`_apply_price_rounding` `psychological_90` semantics (exact Decimal spec): `base = raw.quantize(Decimal("1"), ROUND_FLOOR); candidate = base + Decimal("0.80"); if candidate < raw: candidate += Decimal("1"); return candidate`. Verified: `181.50 → 181.90`, `181.95 → 182.90`, `181.90 → 181.90` (never down), `181.00 → 181.90` (always up to the **next** `.90`).
+`_apply_price_rounding` `psychological_90` semantics (exact Decimal spec): `base = raw.quantize(Decimal("1"), ROUND_FLOOR); candidate = base + Decimal("0.90"); if candidate < raw: candidate += Decimal("1"); return candidate`. Verified: `181.50 → 181.90`, `181.95 → 182.90`, `181.90 → 181.90` (never down), `181.00 → 181.90` (always up to the **next** `.90`).
 
 **Recompute triggers (all go through `_compute_product_prices`, in the same transaction as the triggering write):**
 
