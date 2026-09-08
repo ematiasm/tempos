@@ -11,7 +11,7 @@ dependencies = [
     "pydantic>2.0",
     "emails>=1.1.2,<2.0",
     "jinja2<4.0.0,>=3.1.4",
-    "alembic<2.0.0,>=1.12.1",
+    "alembic>=1.19.1,<2.0.0",
     "httpx<1.0.0,>=0.25.1",
     "psycopg[binary]>=3.3.4,<4.0.0",
     "sqlmodel>=0.0.39,<1.0.0",
@@ -90,6 +90,13 @@ sort = "-Cover"
 
 [tool.coverage.html]
 show_contexts = true
+
+# mypy requires the blanket ``# type: ignore`` on the ``Settings()`` call
+# (pydantic-settings injects the required fields from .env at runtime); ty
+# does not report those errors, so with ``error-on-warning`` it would flag
+# the directive as unused. Keep the rule off to let both checkers pass.
+[tool.ty.rules]
+"unused-type-ignore-comment" = "ignore"
 
 [tool.ty.terminal]
 error-on-warning = true

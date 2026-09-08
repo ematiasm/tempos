@@ -32,3 +32,11 @@ extend-ignore-re = [
 
 [tool.typos.default.extend-identifiers]
 alls = "alls"
+
+# mypy requires the blanket ``# type: ignore`` on the ``Settings()`` call in
+# backend/app/core/config.py (pydantic-settings injects the required fields
+# from .env at runtime); ty does not report those errors, so it would flag
+# the directive as unused. The CI ty hook runs from the repository root, so
+# this override must live in the root pyproject as well as backend/pyproject.
+[tool.ty.rules]
+"unused-type-ignore-comment" = "ignore"
