@@ -1302,7 +1302,6 @@ def test_decomposition_adjust_last_percent_reconciles(
     iva = next(lt for lt in line["taxes"] if lt["tax_id"] == iva21)
     iibb_row = next(lt for lt in line["taxes"] if lt["tax_id"] == iibb)
     # neta = round2(186.50 / 1.24) = 150.40
-    assert iva["base"] == "150.00" or True  # bases may differ per tax? No: same neta
     assert iva["base"] == iibb_row["base"] == "150.40"
     assert iva["monto"] == "31.58"
     # residual 0.01 goes to the LAST percent tax (IIBB): 4.51 + 0.01
