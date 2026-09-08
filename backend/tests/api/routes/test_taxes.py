@@ -46,6 +46,69 @@ def test_create_tax(
     assert created["rate"] == "15.00"
 
 
+def test_create_fixed_tax_nonpositive_rejected(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    base = {
+        "name": random_lower_string(),
+        "tipo": "Otro",
+        "is_percent": False,
+        "aplica_a": "linea",
+        "is_active": True,
+    }
+    for rate in ("0.00", "-1.00"):
+        payload = {
+            **base,
+            "code": random_lower_string()[:8].upper(),
+            "rate": rate,
+        }
+        r = client.post(
+            f"{settings.API_V1_STR}/taxes/",
+            headers=superuser_token_headers,
+            json=payload,
+        )
+        assert r.status_code == 400, r.text
+        assert r.json()["detail"]["code"] == "invalid_fixed_tax_amount"
+
+
+def test_update_fixed_tax_nonpositive_rejected(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    payload = {
+        "name": random_lower_string(),
+        "code": random_lower_string()[:8].upper(),
+        "tipo": "Otro",
+        "rate": "2.00",
+        "is_percent": False,
+        "aplica_a": "linea",
+        "is_active": True,
+    }
+    r = client.post(
+        f"{settings.API_V1_STR}/taxes/", headers=superuser_token_headers, json=payload
+    )
+    assert r.status_code == 200, r.text
+    tax_id = r.json()["id"]
+    for rate in ("0.00", "-1.00"):
+        r = client.patch(
+            f"{settings.API_V1_STR}/taxes/{tax_id}",
+            headers=superuser_token_headers,
+            json={"rate": rate},
+        )
+        assert r.status_code == 400, r.text
+        assert r.json()["detail"]["code"] == "invalid_fixed_tax_amount"
+    # the stored rate is untouched by the rejected updates
+    r = client.get(f"{settings.API_V1_STR}/taxes/", headers=superuser_token_headers)
+    stored = next(row for row in r.json()["data"] if row["id"] == tax_id)
+    assert stored["rate"] == "2.00"
+    # percent taxes may carry a zero rate (e.g. IVA 0%)
+    r = client.patch(
+        f"{settings.API_V1_STR}/taxes/{tax_id}",
+        headers=superuser_token_headers,
+        json={"is_percent": True, "rate": "0.00"},
+    )
+    assert r.status_code == 200, r.text
+
+
 def test_create_tax_duplicate_code_rejected(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:

@@ -1,6 +1,7 @@
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, date, datetime, time, tzinfo
-from decimal import Decimal
+from decimal import ROUND_FLOOR, ROUND_HALF_UP, Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -52,6 +53,7 @@ from app.models import (
     ItemCreate,
     PaymentMethod,
     PaymentReceiptCreate,
+    PriceRounding,
     Product,
     ProductCreate,
     ProductTax,
@@ -71,8 +73,10 @@ from app.models import (
     SupplierProduct,
     SupplierProductCreate,
     SupplierProductUpdate,
+    Tax,
     TaxAppliesTo,
     TaxCondition,
+    TaxType,
     Transfer,
     TransferCreate,
     User,
@@ -159,20 +163,82 @@ def _sync_user_roles(session: Session, user: User, role_ids: list[uuid.UUID]) ->
     session.commit()
 
 
-def _compute_precio_venta(costo_actual: Decimal, margen_pct: Decimal) -> Decimal:
-    """precio_venta = costo_actual * (1 + margen_pct / 100), rounded to 2 decimals."""
-    return (costo_actual * (Decimal("1") + margen_pct / Decimal("100"))).quantize(
-        Decimal("0.01")
-    )
+def _round2(value: Decimal) -> Decimal:
+    """Quantize to 2 decimals with ROUND_HALF_UP (pricing-chain convention)."""
+    return value.quantize(_Q2, rounding=ROUND_HALF_UP)
+
+
+def _read_price_rounding(session: Session) -> PriceRounding:
+    """Read the BusinessSettings singleton's price_rounding (default none)."""
+    settings = session.exec(select(BusinessSettings)).first()
+    return settings.price_rounding if settings else PriceRounding.NONE
+
+
+def _compute_precio_neto(costo_actual: Decimal, margen_pct: Decimal) -> Decimal:
+    """neto = costo_actual * (1 + margen_pct / 100), exact 2 decimals."""
+    return _round2(costo_actual * (Decimal("1") + margen_pct / Decimal("100")))
+
+
+def _apply_price_rounding(raw_gondola: Decimal, mode: PriceRounding) -> Decimal:
+    """Round the raw shelf price per the active mode.
+
+    ``none``/``two_decimals``: plain HALF_UP to 2 decimals.
+    ``psychological_90``: round UP to the next value ending in ``.90``, never
+    down (``181.50 -> 181.90``, ``181.95 -> 182.90``, ``181.00 -> 181.90``).
+    """
+    if mode != PriceRounding.PSYCHOLOGICAL_90:
+        return _round2(raw_gondola)
+    base = raw_gondola.quantize(Decimal("1"), rounding=ROUND_FLOOR)
+    candidate = base + Decimal("0.90")
+    if candidate < raw_gondola:
+        candidate += Decimal("1")
+    return candidate
+
+
+def _product_line_taxes(product: Product) -> tuple[Decimal, Decimal]:
+    """Sum (percent rates, fixed amounts) of the product's line-level taxes."""
+    percent = Decimal("0")
+    fixed = Decimal("0")
+    for tax in product.taxes:
+        if tax.aplica_a != TaxAppliesTo.LINEA:
+            continue
+        if tax.is_percent:
+            percent += tax.rate
+        else:
+            if tax.rate < 0:
+                raise BusinessError(
+                    "invalid_fixed_tax_amount",
+                    "Fixed-amount taxes cannot be negative",
+                )
+            fixed += tax.rate
+    return percent, fixed
+
+
+def _compute_product_prices(
+    session: Session, product: Product
+) -> tuple[Decimal, Decimal]:
+    """Full pricing chain from persisted inputs; returns (neto, venta).
+
+    Reads ``(costo_actual, margen_pct, taxes, settings)`` and never a stored
+    price, so repeated recomputes are idempotent even under psychological_90.
+    """
+    neto = _compute_precio_neto(product.costo_actual, product.margen_pct)
+    percent, fixed = _product_line_taxes(product)
+    raw_gondola = neto + neto * percent / Decimal("100") + fixed
+    gondola = _apply_price_rounding(raw_gondola, _read_price_rounding(session))
+    return neto, gondola
 
 
 def create_product(*, session: Session, product_in: ProductCreate) -> Product:
-    precio_venta = _compute_precio_venta(product_in.costo_actual, product_in.margen_pct)
-    db_obj = Product.model_validate(product_in, update={"precio_venta": precio_venta})
+    db_obj = Product.model_validate(product_in, update={"precio_venta": Decimal("0")})
     session.add(db_obj)
     session.commit()
     session.refresh(db_obj)
+    validate_product_tax_ids(session=session, tax_ids=product_in.tax_ids)
     _sync_product_taxes(session, db_obj, product_in.tax_ids)
+    db_obj.precio_neto, db_obj.precio_venta = _compute_product_prices(session, db_obj)
+    session.add(db_obj)
+    session.commit()
     session.refresh(db_obj)
     return db_obj
 
@@ -184,17 +250,47 @@ def update_product(
     tax_ids = data.pop("tax_ids", None) if "tax_ids" in data else None
     needs_recompute = "costo_actual" in data or "margen_pct" in data
     db_product.sqlmodel_update(data)
-    if needs_recompute:
-        db_product.precio_venta = _compute_precio_venta(
-            db_product.costo_actual, db_product.margen_pct
-        )
     session.add(db_product)
     session.commit()
     session.refresh(db_product)
     if tax_ids is not None:
+        validate_product_tax_ids(session=session, tax_ids=tax_ids)
         _sync_product_taxes(session, db_product, tax_ids)
         session.refresh(db_product)
+    # A tax change alters the góndola sum even with fixed cost/margin, so
+    # tax_ids also triggers the recompute (neto only depends on cost/margin).
+    if needs_recompute or tax_ids is not None:
+        db_product.precio_neto, db_product.precio_venta = _compute_product_prices(
+            session, db_product
+        )
+        session.add(db_product)
+        session.commit()
+        session.refresh(db_product)
     return db_product
+
+
+def _validate_product_taxes(taxes: Sequence[Tax]) -> None:
+    """At most ONE tipo-IVA tax per product, counting exento as an IVA marker.
+
+    Called before any tax assignment is persisted so a rejected update leaves
+    no partial assignment behind.
+    """
+    iva_count = sum(1 for tax in taxes if tax.tipo == TaxType.IVA)
+    if iva_count > 1:
+        raise BusinessError(
+            "multiple_iva_taxes",
+            "A product can have at most one IVA tax",
+        )
+
+
+def validate_product_tax_ids(*, session: Session, tax_ids: list[uuid.UUID]) -> None:
+    """Route-level pre-validation of the product tax assignment.
+
+    Raises ``BusinessError("multiple_iva_taxes")`` before anything is
+    persisted; the product routes translate it into the 400 code shape.
+    """
+    taxes = [tax for tax in (session.get(Tax, tid) for tid in tax_ids) if tax]
+    _validate_product_taxes(taxes)
 
 
 def _sync_product_taxes(
@@ -228,6 +324,60 @@ class BusinessError(ValueError):
 
 def _money(value: Decimal) -> Decimal:
     return value.quantize(_Q2)
+
+
+def _decompose_line_taxes(
+    subtotal_bruto: Decimal, taxes: Sequence[Tax]
+) -> list[tuple[uuid.UUID, Decimal, Decimal]]:
+    """Exact decomposition of a gross line price into its line taxes.
+
+    ``neta = round2((bruto - fixed_total) / (1 + Σ percent rates / 100))``;
+    each percent ``monto = round2(neta × rate / 100)``; the cent residual is
+    added to the LAST percent tax's monto (deterministic adjust-last rule), so
+    ``neta + Σ montos == subtotal_bruto`` EXACTLY. Fixed-amount taxes are NOT
+    part of the divisor and contribute their fixed amount once. Runs only at
+    document creation; stored rows are never rewritten.
+    """
+    percent_taxes = []
+    fixed_total = Decimal("0")
+    for tax in taxes:
+        if tax.is_percent:
+            percent_taxes.append(tax)
+        else:
+            if tax.rate < 0:
+                raise BusinessError(
+                    "invalid_fixed_tax_amount",
+                    "Fixed-amount taxes cannot be negative",
+                )
+            fixed_total += tax.rate
+    divisor = Decimal("1") + sum(t.rate for t in percent_taxes) / Decimal("100")
+    neta = _round2((subtotal_bruto - fixed_total) / divisor)
+    montos: dict[uuid.UUID, Decimal] = {}
+    montos_sum = Decimal("0")
+    for tax in percent_taxes:
+        monto = _round2(neta * tax.rate / Decimal("100"))
+        montos[tax.id] = monto
+        montos_sum += monto
+    residual = subtotal_bruto - fixed_total - neta - montos_sum
+    rows: list[tuple[uuid.UUID, Decimal, Decimal]] = []
+    for tax in taxes:
+        if tax.is_percent:
+            rows.append((tax.id, neta, montos[tax.id]))
+        else:
+            rows.append((tax.id, neta, tax.rate))
+    if percent_taxes:
+        # adjust-last: the residual lands on the LAST PERCENT tax's row,
+        # wherever fixed rows follow it in the stored order.
+        for i in range(len(rows) - 1, -1, -1):
+            if rows[i][0] in {t.id for t in percent_taxes}:
+                tid, base, monto = rows[i]
+                rows[i] = (tid, base, monto + residual)
+                break
+    else:
+        # No percent taxes: adjust-the-net keeps the identity exact.
+        neta += residual
+        rows = [(tid, neta, m) for tid, _, m in rows]
+    return rows
 
 
 def _get_open_cash_session(session: Session) -> CashRegisterSession | None:
@@ -514,14 +664,7 @@ def _create_document_in_tx(
 
         line_taxes: list[line_tax_row] = []
         for tax in taxes:
-            if tax.aplica_a == TaxAppliesTo.LINEA:
-                monto = (
-                    _money(subtotal_line * tax.rate / Decimal("100"))
-                    if tax.is_percent
-                    else tax.rate
-                )
-                line_taxes.append((tax.id, subtotal_line, monto))
-            else:
+            if tax.aplica_a != TaxAppliesTo.LINEA:
                 acc = doc_tax_acc.setdefault(
                     tax.id,
                     {
@@ -531,6 +674,9 @@ def _create_document_in_tx(
                     },
                 )
                 acc["base"] += subtotal_line
+        line_level = [t for t in taxes if t.aplica_a == TaxAppliesTo.LINEA]
+        if line_level:
+            line_taxes = _decompose_line_taxes(subtotal_line, line_level)
         line_specs.append(
             (
                 index,
@@ -1157,8 +1303,8 @@ def _apply_reference_cost(
     flows through the price chain atomically with the cost update.
     """
     product.costo_actual = pair.costo_actual
-    product.precio_venta = _compute_precio_venta(
-        product.costo_actual, product.margen_pct
+    product.precio_neto, product.precio_venta = _compute_product_prices(
+        session, product
     )
     session.add(product)
 

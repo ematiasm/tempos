@@ -150,6 +150,7 @@ export type BusinessSettingsPublic = {
     number_format: NumberFormat;
     logo_path?: (string | null);
     stock_policy: StockPolicy;
+    price_rounding: PriceRounding;
     default_margen_pct?: (string | null);
     warn_below_cost: boolean;
     require_barcode: boolean;
@@ -179,6 +180,7 @@ export type BusinessSettingsUpdate = {
     payment_method_default_id?: (string | null);
     number_format?: (NumberFormat | null);
     stock_policy?: (StockPolicy | null);
+    price_rounding?: (PriceRounding | null);
     default_margen_pct?: (number | string | null);
     warn_below_cost?: (boolean | null);
     require_barcode?: (boolean | null);
@@ -604,6 +606,7 @@ export type MarginRow = {
     name: string;
     units: string;
     revenue: string;
+    revenue_neto: string;
     cost: string;
     margin: string;
     margin_pct?: (string | null);
@@ -809,6 +812,8 @@ export type PermissionPublic = {
     description?: (string | null);
 };
 
+export type PriceRounding = 'none' | 'two_decimals' | 'psychological_90';
+
 export type PrintFormat = 'a4' | 'ticket80';
 
 export type PrivateUserCreate = {
@@ -865,7 +870,9 @@ export type ProductListItemPublic = {
     is_active: boolean;
     margen_pct: string;
     costo_actual: string;
+    precio_neto: string;
     precio_venta: string;
+    costo_con_impuestos: string;
     stock_current: string;
     stock_minimo?: (string | null);
     taxes?: Array<TaxPublic>;
@@ -882,7 +889,9 @@ export type ProductPublic = {
     is_active: boolean;
     margen_pct: string;
     costo_actual: string;
+    precio_neto: string;
     precio_venta: string;
+    costo_con_impuestos: string;
     stock_current: string;
     stock_minimo?: (string | null);
     stock_maximo: string;

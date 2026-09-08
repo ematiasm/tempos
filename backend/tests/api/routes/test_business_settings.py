@@ -177,6 +177,54 @@ def test_print_settings_length_limits(
     assert r.status_code == 200
 
 
+def test_fresh_settings_have_price_rounding_default_none(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    r = client.get(
+        f"{settings.API_V1_STR}/business-settings/", headers=superuser_token_headers
+    )
+    assert r.status_code == 200
+    assert r.json()["price_rounding"] == "none"
+
+
+def test_price_rounding_round_trip(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    for mode in ("none", "two_decimals", "psychological_90"):
+        r = client.patch(
+            f"{settings.API_V1_STR}/business-settings/",
+            headers=superuser_token_headers,
+            json={"price_rounding": mode},
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["price_rounding"] == mode
+        # the value persists on a fresh read
+        r = client.get(
+            f"{settings.API_V1_STR}/business-settings/",
+            headers=superuser_token_headers,
+        )
+        assert r.status_code == 200
+        assert r.json()["price_rounding"] == mode
+    # restore default
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={"price_rounding": "none"},
+    )
+    assert r.status_code == 200
+
+
+def test_price_rounding_invalid_value_rejected(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={"price_rounding": "bogus_mode"},
+    )
+    assert r.status_code == 422
+
+
 def test_fresh_settings_have_default_sell_config(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:

@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.db import engine, init_db
 from app.main import app
 from app.models import (
+    CONSUMIDOR_FINAL_NAME,
     AccountMovement,
     Attribute,
     AttributeValue,
@@ -19,7 +20,6 @@ from app.models import (
     BusinessSettings,
     CashRegisterSession,
     Category,
-    CONSUMIDOR_FINAL_NAME,
     Customer,
     CustomerAccountMovement,
     Document,

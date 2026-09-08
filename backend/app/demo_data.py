@@ -5,10 +5,11 @@ additive and idempotent: rows that already exist (matched by name/code) are
 skipped, and the caller owns the transaction (nothing is committed here).
 """
 
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlmodel import Session, select
 
+from app import crud
 from app.models import (
     Barcode,
     Category,
@@ -24,7 +25,9 @@ from app.models import (
 DEMO_CATEGORIES: tuple[str, ...] = ("Almacén", "Bebidas", "Limpieza")
 
 # (name, category, costo_actual, precio_venta, barcode)
-# Prices are ARS; precio_venta carries IVA inside (project pricing convention).
+# Prices are ARS góndola prices: IVA 21% inside the sale price. Margins are
+# derived by inverting the pricing chain (margin over neto, IVA on top), so the
+# stored rows stay consistent with the pricing-chain recompute.
 DEMO_PRODUCTS: tuple[tuple[str, str, str, str, str], ...] = (
     ("Coca-Cola 2.25 L", "Bebidas", "3000", "4200", "7790001000019"),
     ("Coca-Cola 500 ml", "Bebidas", "1150", "1600", "7790001000026"),
@@ -49,15 +52,21 @@ DEMO_SUPPLIER_NAME = "Distribuidora del Sur SRL"
 DEMO_SUPPLIER_CUIT = "30622145010"
 
 
-def _margin_pct(costo_actual: Decimal, precio_venta: Decimal) -> Decimal:
-    """Margin percent implied by the given cost and IVA-inclusive sale price.
+def _margin_pct_from_gondola(
+    costo_actual: Decimal, gondola: Decimal, percent_rates: Decimal
+) -> Decimal:
+    """Margin percent that inverts the pricing chain for the given góndola.
 
-    Keeps ``margen_pct`` consistent with the project's pricing convention
-    (``precio_venta = costo_actual * (1 + margen_pct / 100)``) so later cost
-    updates recompute the same sale price.
+    With the product's percent line taxes summing to ``percent_rates``, the
+    chain is ``góndola = neto + neto × percent_rates / 100``, so
+    ``neto = gondola / (1 + percent_rates / 100)`` and
+    ``margen_pct = round2((neto / costo_actual − 1) × 100)`` (ROUND_HALF_UP).
+    Later cost updates then recompute the same neto and góndola from this
+    margin consistently.
     """
-    return ((precio_venta / costo_actual - Decimal("1")) * Decimal("100")).quantize(
-        Decimal("0.01")
+    neto = gondola / (Decimal("1") + percent_rates / Decimal("100"))
+    return ((neto / costo_actual - Decimal("1")) * Decimal("100")).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
     )
 
 
@@ -91,18 +100,28 @@ def load_demo_data(session: Session) -> None:
         product = session.exec(select(Product).where(Product.name == name)).first()
         if not product:
             costo_actual = Decimal(cost)
-            precio_venta = Decimal(price)
+            gondola = Decimal(price)
+            # Target góndola (IVA 21% inside) → margin that inverts the pricing
+            # chain; the row is then built BY the chain math so recomputation
+            # from (costo, margen, taxes) is idempotent.
+            percent_rates = iva21.rate if iva21 is not None else Decimal("0")
+            margen_pct = _margin_pct_from_gondola(costo_actual, gondola, percent_rates)
             product = Product(
                 name=name,
                 category_id=categories[category_name].id,
                 uom_id=uom.id,
                 costo_actual=costo_actual,
-                margen_pct=_margin_pct(costo_actual, precio_venta),
-                precio_venta=precio_venta,
+                margen_pct=margen_pct,
             )
             session.add(product)
             if iva21 is not None:
                 session.add(ProductTax(product_id=product.id, tax_id=iva21.id))
+                # Exact chain math for the stored (neto, góndola) pair: flush
+                # the tax link first so the relationship is readable.
+                session.flush()
+                product.precio_neto, product.precio_venta = (
+                    crud._compute_product_prices(session, product)
+                )
         if not session.exec(select(Barcode).where(Barcode.code == barcode)).first():
             session.add(Barcode(code=barcode, product_id=product.id))
 

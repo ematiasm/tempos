@@ -37,6 +37,16 @@ from app.models import (
 router = APIRouter(prefix="/products", tags=["products"])
 
 
+def _ensure_single_iva(session: SessionDep, tax_ids: list[uuid.UUID]) -> None:
+    """Reject a second IVA tax before anything is persisted (400 code shape)."""
+    try:
+        crud.validate_product_tax_ids(session=session, tax_ids=tax_ids)
+    except crud.BusinessError as e:
+        raise HTTPException(
+            status_code=400, detail={"code": e.code, "message": e.message}
+        ) from e
+
+
 def _ensure_stock_maximo(minimo: Decimal | None, maximo: Decimal) -> None:
     """The maximum is permanent and must not fall below the minimum."""
     if minimo is not None and maximo < minimo:
@@ -239,6 +249,7 @@ def create_product(*, session: SessionDep, product_in: ProductCreate) -> Any:
         )
     _ensure_stock_maximo(product_in.stock_minimo, maximo)
     product_in.stock_maximo = maximo
+    _ensure_single_iva(session, product_in.tax_ids)
     product = crud.create_product(session=session, product_in=product_in)
     return product
 
@@ -284,6 +295,8 @@ def update_product(
     )
     if effective_maximo is not None:
         _ensure_stock_maximo(effective_minimo, effective_maximo)
+    if "tax_ids" in data and data["tax_ids"] is not None:
+        _ensure_single_iva(session, data["tax_ids"])
     product = crud.update_product(
         session=session, db_product=product, product_in=product_in
     )
