@@ -51,6 +51,7 @@ const formSchema = z.object({
   payment_method_default_id: z.string().optional(),
   number_format: z.enum(["es", "en"]),
   default_locale: z.enum(["es", "en"]),
+  price_rounding: z.enum(["none", "two_decimals", "psychological_90"]),
 })
 
 type FormData = z.infer<typeof formSchema>
@@ -115,6 +116,7 @@ function GeneralSettings() {
       payment_method_default_id: settings?.payment_method_default_id ?? "",
       number_format: settings?.number_format ?? "en",
       default_locale: settings?.default_locale ?? "en",
+      price_rounding: settings?.price_rounding ?? "none",
     },
     values: settings
       ? {
@@ -129,6 +131,7 @@ function GeneralSettings() {
           payment_method_default_id: settings.payment_method_default_id ?? "",
           number_format: settings.number_format,
           default_locale: settings.default_locale,
+          price_rounding: settings.price_rounding,
         }
       : undefined,
   })
@@ -146,6 +149,7 @@ function GeneralSettings() {
         payment_method_default_id: data.payment_method_default_id || null,
         number_format: data.number_format,
         default_locale: data.default_locale,
+        price_rounding: data.price_rounding,
       }
       if (data.default_iva) {
         requestBody.default_iva = parseFloat(data.default_iva)
@@ -424,6 +428,42 @@ function GeneralSettings() {
                       <SelectItem value="en">1,234.56</SelectItem>
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="price_rounding"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("admin.general.priceRounding")}</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={!isEditing}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        {t("admin.general.priceRoundingNone")}
+                      </SelectItem>
+                      <SelectItem value="two_decimals">
+                        {t("admin.general.priceRoundingTwoDecimals")}
+                      </SelectItem>
+                      <SelectItem value="psychological_90">
+                        {t("admin.general.priceRoundingPsychological")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground">
+                    {t("admin.general.priceRoundingHint")}
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

@@ -16,6 +16,7 @@ import {
 } from "@/client"
 import { buildCategoryRows } from "@/components/Admin/categoryColumns"
 import DeleteProduct from "@/components/Products/DeleteProduct"
+import PriceChainPreview from "@/components/Products/PriceChainPreview"
 import SupplierCostsTab from "@/components/Products/SupplierCostsTab"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -48,6 +49,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useT } from "@/i18n"
+import {
+  computePriceChain,
+  countSelectedIvas,
+  margenPctFromNeto,
+} from "@/lib/pricing"
 import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 
@@ -144,6 +150,11 @@ const ProductDetailSheet = ({
     criteriaMode: "all",
   })
 
+  // When the user is typing a net price directly, keep the raw draft here so
+  // keystrokes are not overwritten by the chain-derived value; it resets on
+  // blur or whenever the product changes.
+  const [netoDraft, setNetoDraft] = useState<string | null>(null)
+
   useEffect(() => {
     if (!product) return
     form.reset({
@@ -160,13 +171,40 @@ const ProductDetailSheet = ({
       allow_price_edit_in_sale: product.allow_price_edit_in_sale,
     })
     setPendingTaxIds(new Set((product.taxes ?? []).map((t) => t.id)))
+    setNetoDraft(null)
   }, [product, form])
 
   const costoStr = form.watch("costo_actual")
   const margenStr = form.watch("margen_pct")
   const costo = parseFloat(costoStr) || 0
   const margen = parseFloat(margenStr) || 0
-  const precioPreview = (costo * (1 + margen / 100)).toFixed(2)
+
+  // Editing the net price derives the margin (the stored input); the chain
+  // then recomputes the displayed neto from that margin, so both stay
+  // consistent. Negative margins are allowed (shown as a warning).
+  const handleNetoChange = (raw: string) => {
+    setNetoDraft(raw)
+    const neto = parseFloat(raw)
+    if (Number.isFinite(neto) && costo > 0) {
+      form.setValue("margen_pct", String(margenPctFromNeto(costo, neto)), {
+        shouldValidate: true,
+      })
+    }
+  }
+
+  const selectedTaxes = taxes.filter((tax) => pendingTaxIds.has(tax.id))
+  const chain = computePriceChain({
+    costo,
+    margenPct: margen,
+    taxes: selectedTaxes,
+    rounding: settingsData?.price_rounding,
+  })
+  // Backend rule mirrored in the UI: at most one tipo-IVA tax per product.
+  const multipleIvas = countSelectedIvas(taxes, Array.from(pendingTaxIds))
+  const ivaTaxes = taxes.filter((tax) => tax.tipo === "IVA")
+  const otherTaxes = taxes.filter((tax) => tax.tipo !== "IVA")
+  const selectedIvaId =
+    ivaTaxes.find((tax) => pendingTaxIds.has(tax.id))?.id ?? null
 
   const updateMutation = useMutation({
     mutationFn: (data: DetailsFormData) => {
@@ -308,10 +346,31 @@ const ProductDetailSheet = ({
   }
 
   const toggleTax = (taxId: string, checked: boolean) => {
+    const tax = taxes.find((t) => t.id === taxId)
     setPendingTaxIds((prev) => {
       const next = new Set(prev)
-      if (checked) next.add(taxId)
-      else next.delete(taxId)
+      if (checked) {
+        if (tax?.tipo === "IVA") {
+          // One-IVA rule: picking an IVA replaces any other selected IVA.
+          for (const other of taxes) {
+            if (other.tipo === "IVA" && other.id !== taxId)
+              next.delete(other.id)
+          }
+        }
+        next.add(taxId)
+      } else {
+        next.delete(taxId)
+      }
+      return next
+    })
+  }
+
+  const clearIvas = () => {
+    setPendingTaxIds((prev) => {
+      const next = new Set(prev)
+      for (const other of taxes) {
+        if (other.tipo === "IVA") next.delete(other.id)
+      }
       return next
     })
   }
@@ -487,14 +546,22 @@ const ProductDetailSheet = ({
                       )}
                     />
                     <FormItem>
-                      <FormLabel>{t("products.salePrice")}</FormLabel>
+                      <FormLabel>{t("products.netPrice")}</FormLabel>
                       <Input
-                        value={`$${precioPreview}`}
-                        disabled
-                        className="bg-muted"
+                        type="number"
+                        step="0.01"
+                        value={netoDraft ?? chain.precioNeto.toFixed(2)}
+                        onChange={(e) => handleNetoChange(e.target.value)}
+                        onBlur={() => setNetoDraft(null)}
                       />
                     </FormItem>
                   </div>
+                  <PriceChainPreview
+                    costoActual={costo}
+                    costoConImpuestos={chain.costoConImpuestos}
+                    precioNeto={chain.precioNeto}
+                    precioVenta={chain.precioVenta}
+                  />
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -609,7 +676,98 @@ const ProductDetailSheet = ({
                   {t("products.noTaxes")}
                 </p>
               )}
-              {taxes.map((tax: TaxPublic) => {
+              {multipleIvas > 1 && (
+                <p className="text-sm text-destructive">
+                  {t("errors.multiple_iva_taxes")}
+                </p>
+              )}
+              {/* Single-IVA picker (radio style): at most one tipo-IVA tax per
+                  product, backend rule `multiple_iva_taxes`. */}
+              {ivaTaxes.length > 0 && (
+                <div
+                  className={cn(
+                    "flex items-center gap-3 rounded border px-3 py-2",
+                    selectedIvaId === null ? "bg-muted" : "",
+                  )}
+                  data-testid="no-iva-option"
+                >
+                  <button
+                    type="button"
+                    onClick={clearIvas}
+                    className="flex flex-1 items-center gap-2 text-left cursor-pointer"
+                  >
+                    <span
+                      className={cn(
+                        "flex size-4 shrink-0 items-center justify-center rounded-full border",
+                        selectedIvaId === null
+                          ? "border-primary"
+                          : "border-muted-foreground/50",
+                      )}
+                    >
+                      {selectedIvaId === null && (
+                        <span className="size-2 rounded-full bg-primary" />
+                      )}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">
+                        {t("products.noIvaOption")}
+                      </span>
+                      <Badge variant="outline" className="text-xs">
+                        IVA
+                      </Badge>
+                    </div>
+                  </button>
+                </div>
+              )}
+              {ivaTaxes.map((tax: TaxPublic) => {
+                const isChecked = selectedIvaId === tax.id
+                return (
+                  <div
+                    key={tax.id}
+                    className={cn(
+                      "flex items-center gap-3 rounded border px-3 py-2",
+                      isChecked ? "bg-muted" : "",
+                    )}
+                  >
+                    <button
+                      type="button"
+                      data-testid={`iva-option-${tax.code}`}
+                      onClick={() => toggleTax(tax.id, !isChecked)}
+                      className="flex flex-1 items-start gap-2 text-left cursor-pointer"
+                    >
+                      <span
+                        className={cn(
+                          "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border",
+                          isChecked
+                            ? "border-primary"
+                            : "border-muted-foreground/50",
+                        )}
+                      >
+                        {isChecked && (
+                          <span className="size-2 rounded-full bg-primary" />
+                        )}
+                      </span>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">
+                            {tax.name}
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {tax.tipo}
+                          </Badge>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {tax.code} ·{" "}
+                          {tax.is_percent
+                            ? `${Number(tax.rate).toFixed(2)}%`
+                            : `$${Number(tax.rate).toFixed(2)}`}
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+                )
+              })}
+              {otherTaxes.map((tax: TaxPublic) => {
                 const isChecked = pendingTaxIds.has(tax.id)
                 return (
                   <div
@@ -647,7 +805,11 @@ const ProductDetailSheet = ({
               <SheetFooter>
                 <LoadingButton
                   type="button"
-                  disabled={!taxesDirty || saveTaxesMutation.isPending}
+                  disabled={
+                    !taxesDirty ||
+                    multipleIvas > 1 ||
+                    saveTaxesMutation.isPending
+                  }
                   loading={saveTaxesMutation.isPending}
                   onClick={() => saveTaxesMutation.mutate()}
                 >

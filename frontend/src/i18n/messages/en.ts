@@ -268,6 +268,8 @@ export const en: Messages = {
   "reports.product": "Product",
   "reports.units": "Units",
   "reports.revenue": "Revenue",
+  "reports.revenueGross": "Gross revenue",
+  "reports.revenueNeto": "Net revenue",
   "reports.cost": "Cost",
   "reports.margin": "Margin",
   "reports.marginPct": "Margin %",
@@ -565,6 +567,11 @@ export const en: Messages = {
   "products.margin": "Margin",
   "products.marginPct": "Margin %",
   "products.salePrice": "Sale Price",
+  "products.netPrice": "Net Price",
+  "products.negativeMarginWarning":
+    "Net price is below cost (negative margin).",
+  "products.costWithTaxes": "Cost with taxes",
+  "products.noIvaOption": "No VAT / 0%",
   "products.minStock": "Min Stock",
   "products.maxStock": "Max Stock",
   "products.stock": "Stock",
@@ -755,6 +762,9 @@ export const en: Messages = {
   "errors.product_not_found": "Product not found",
   "errors.stock_maximo_below_minimo":
     "The maximum stock cannot be lower than the minimum",
+  "errors.multiple_iva_taxes": "A product can only have one IVA-type tax",
+  "errors.invalid_fixed_tax_amount":
+    "A fixed-amount tax must be greater than zero",
   "errors.variant_not_found": "Variant not found in this product",
   "errors.quantity_must_be_positive":
     "Line quantity must be positive for this operation",
@@ -1222,6 +1232,12 @@ export const en: Messages = {
   "admin.general.selectTimezone": "Select timezone",
   "admin.general.timezoneHint":
     "Used for backup scheduling and backup file timestamps",
+  "admin.general.priceRounding": "Price rounding",
+  "admin.general.priceRoundingNone": "No rounding",
+  "admin.general.priceRoundingTwoDecimals": "Two decimals",
+  "admin.general.priceRoundingPsychological": "Psychological (.90)",
+  "admin.general.priceRoundingHint":
+    "Affects how the sale price (góndola) is computed. Existing products are repriced on their next edit or cost recompute.",
   "admin.general.numberFormat": "Number format",
   "admin.general.defaultLocale": "Default language",
   "admin.general.localeEs": "Español",

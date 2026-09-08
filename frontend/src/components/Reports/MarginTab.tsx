@@ -59,7 +59,8 @@ export function MarginTab() {
   const headerLabels = [
     t("reports.product"),
     t("reports.units"),
-    t("reports.revenue"),
+    t("reports.revenueGross"),
+    t("reports.revenueNeto"),
     t("reports.cost"),
     t("reports.margin"),
     t("reports.marginPct"),
@@ -74,6 +75,7 @@ export function MarginTab() {
         r.name,
         csvNumber(r.units),
         csvMoney(r.revenue),
+        csvMoney(r.revenue_neto),
         csvMoney(r.cost),
         csvMoney(r.margin),
         csvNumber(r.margin_pct),
@@ -93,13 +95,18 @@ export function MarginTab() {
       cell: ({ row }) => money(row.original.revenue, numberFormat),
     },
     {
-      accessorKey: "cost",
+      accessorKey: "revenue_neto",
       header: headerLabels[3],
+      cell: ({ row }) => money(row.original.revenue_neto, numberFormat),
+    },
+    {
+      accessorKey: "cost",
+      header: headerLabels[4],
       cell: ({ row }) => money(row.original.cost, numberFormat),
     },
     {
       accessorKey: "margin",
-      header: headerLabels[4],
+      header: headerLabels[5],
       cell: ({ row }) => (
         <span className={Number(row.original.margin) < 0 ? "text-red-600" : ""}>
           {money(row.original.margin, numberFormat)}
@@ -108,7 +115,7 @@ export function MarginTab() {
     },
     {
       accessorKey: "margin_pct",
-      header: headerLabels[5],
+      header: headerLabels[6],
       cell: ({ row }) => pct(row.original.margin_pct),
     },
   ]
@@ -159,6 +166,7 @@ export function MarginTab() {
               r.name,
               qty(r.units),
               money(r.revenue, numberFormat),
+              money(r.revenue_neto, numberFormat),
               money(r.cost, numberFormat),
               money(r.margin, numberFormat),
               pct(r.margin_pct),

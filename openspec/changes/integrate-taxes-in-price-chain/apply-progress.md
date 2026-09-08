@@ -88,3 +88,67 @@ This file was reconstructed by the second `sdd-apply` continuation run: the firs
 - Strict TDD active and followed per WU (evidence table above).
 - `actionContext` warnings: none beyond the inherited status fields; no `workspace-planning` mode; all edits inside `/home/mamull/tempos`.
 - Not done (by instruction): generate-client.sh, frontend validation, no commits.
+
+---
+
+## PR 2 slice — client regeneration + frontend (second run)
+
+Branch: `pricing-tax-chain-frontend` (stacked on PR 1 commit `9b16a63`). Delivery: 2 stacked PRs, PR 2 = WU6 + WU7 + WU9 frontend gates. Backend untouched in this slice.
+
+### WU6 — client regeneration (done first, per order)
+- `bash ./scripts/generate-client.sh` from repo root: `frontend/src/client/{types,schemas,sdk}.gen.ts` regenerated (+62/−7). New shapes: `PriceRounding` enum, `price_rounding` on BusinessSettingsPublic/Update, `revenue_neto` on MarginRow, `precio_neto` + `costo_con_impuestos` on ProductPublic/ProductListItemPublic.
+- `bunx tsc -p tsconfig.build.json --noEmit` passed immediately — no hand-written fixes needed.
+
+### WU7 — frontend (all six tasks)
+- New `frontend/src/lib/pricing.ts`: client-side mirror of the backend chain (`computePriceChain` — neto exact 2-dec, góndola with fixed taxes outside the divisor, `psychological_90` floor+0.90 idempotent; `costo_con_impuestos` single percent-IVA only) and `countSelectedIvas` guard.
+- New `frontend/src/components/Products/PriceChainPreview.tsx`: shared four-price display (Costo / Costo con impuestos / Precio neto / Precio venta).
+- `AddProduct.tsx`: radio-style single-IVA picker (IVA taxes + "Sin IVA / 0%" via `clearIvas`), other tipos stay checkbox multi-select; picking an IVA replaces any other selected IVA; submit disabled + inline `errors.multiple_iva_taxes` + toast + tab-jump guard when >1 IVA (defensive); the old sale-price-only preview replaced by neto input + four-price `PriceChainPreview` live-computed from costo/margen/taxes/`settings.price_rounding`.
+- `ProductDetailSheet.tsx` (edit AND detail — same form): same single-IVA picker on the Taxes tab (radio + "Sin IVA / 0%"), `Save taxes` disabled when `multipleIvas > 1`; details tab shows the four-price live chain preview (neto input + `PriceChainPreview`); `multiple_iva_taxes` / `invalid_fixed_tax_amount` surface via existing `handleError.bind(showErrorToast)` on `updateMutation`/`saveTaxesMutation`.
+- `productsColumns.tsx`: `Precio neto` column added before `Precio venta` (góndola kept).
+- `MarginTab.tsx`: `revenue_neto` column ("Ingreso neto") next to gross ("Ingreso bruto" — new `reports.revenueGross` label; old `reports.revenue` was only used here and is now unused); headers/CSV export/table columns/print rows all updated; margin column already computed over net by the backend (WU5).
+- `VatTab.tsx`: verified code-unchanged — it renders the backend `base` field, which is now the exact net decomposition.
+- `GeneralSettings.tsx`: `price_rounding` shadcn Select (Sin redondeo / Dos decimales / Psicológico (.90)) wired into schema/defaultValues/values-sync/requestBody, with hint copy about existing products repricing on next write/cost recompute.
+- `i18n/messages/{es,en}.ts` (+29 keys total): `products.netPrice`, `products.costWithTaxes`, `products.noIvaOption`, `errors.multiple_iva_taxes`, `errors.invalid_fixed_tax_amount`, `admin.general.priceRounding{,None,TwoDecimals,Psychological,Hint}`, `reports.revenueGross`, `reports.revenueNeto`.
+
+### WU9 — frontend gates
+- `cd frontend && bunx tsc -p tsconfig.build.json --noEmit`: **pass**.
+- `cd frontend && bun run lint` (biome): **pass** (exit 0; biome auto-fixed 4 formatting nits in the touched files).
+- `cd frontend && bunx playwright test`: **135 passed, 2 failed** — the 2 failures (`tests/sign-up.spec.ts` invalid/missing email, expecting "Invalid email address" but the form renders zod's "Invalid input") are **pre-existing**: reproduced in a clean worktree at PR 1 HEAD `9b16a63` with zero PR 2 changes. Out of scope for this slice (auth, untouched by the pricing chain); left unmodified.
+
+### Environment fixes needed to run e2e (dev stack only, no code changes)
+- The `backend` compose container had stale code (pre-PR-1); fixed by running `docker compose watch` in the background (parent-authorized), which synced the code and recreated the stack; prestart then ran `alembic upgrade head` + init successfully.
+- Demo products in the dev DB predated the chain (`precio_neto` 0); recomputed all 14 via `crud._compute_product_prices` inside the backend container (14/14 updated, chain-consistent). No OPEN cash sessions (3 CLOSED) — no `cash_session_already_open` issue.
+
+### Files changed (PR 2 slice, working tree, uncommitted; parent owns git)
+- `frontend/src/client/types.gen.ts`, `schemas.gen.ts`, `sdk.gen.ts` (generated, WU6)
+- `frontend/src/lib/pricing.ts` (new)
+- `frontend/src/components/Products/PriceChainPreview.tsx` (new)
+- `frontend/src/components/Products/AddProduct.tsx`
+- `frontend/src/components/Products/ProductDetailSheet.tsx`
+- `frontend/src/components/Products/productsColumns.tsx`
+- `frontend/src/components/Reports/MarginTab.tsx`
+- `frontend/src/components/Admin/GeneralSettings.tsx`
+- `frontend/src/i18n/messages/es.ts`, `frontend/src/i18n/messages/en.ts`
+
+### Deviations / notes
+- No unit tests for the frontend (no harness); per parent instruction strict TDD applies only where tests exist — Playwright is the check; no e2e specs needed adjustment (the only 2 failures are pre-existing and unrelated).
+- ProductDetailSheet shows the four prices as a live-computed preview (updates with form/unsaved tax edits) rather than the stored record values; when untouched it equals the stored four prices.
+- The 400-line budget: PR 2 slice is ~430 lines across 11 files (excluding generated client), mostly small UI wiring; single-PR exception already accepted by the user's 2-PR split.
+
+### Status
+- PR 2 scope (WU6, WU7, WU9 frontend gates) COMPLETE. All implementation-owned checkboxes for WU6/WU7/WU9-frontend are `[x]` in tasks.md (verified by re-read). Remaining unchecked rows are parent-owned gates only (bounded review, deployment-sequence verification, pre-archive walkthrough).
+- Strict TDD note: frontend has no unit-test harness; evidence is the Playwright run above plus tsc/biome.
+- `docker compose watch` is still running in the background on this machine (pid recorded in /tmp/compose-watch.log) — parent may want to stop it after the delivery gate.
+
+## Amendment — editable net price (post-verify follow-up)
+
+- User decision: make `Precio neto` editable (Add + Edit), frontend translates to
+  `margen_pct` (no API/schema change), negative margins allowed with a warning,
+  shipped inside PR 2 branch `pricing-tax-chain-frontend`.
+- Files: `frontend/src/lib/pricing.ts` (`margenPctFromNeto`, round2 HALF_UP),
+  `frontend/src/components/Products/PriceChainPreview.tsx` (negative-margin
+  warning row), `AddProduct.tsx` + `ProductDetailSheet.tsx` (draft-state neto
+  input deriving margen via `form.setValue`; draft resets on blur/open/product
+  change), i18n `products.negativeMarginWarning` es/en.
+- Validation: `bunx tsc -p tsconfig.build.json --noEmit` exit 0; `bun run lint`
+  clean (biome auto-formatted once, second run no fixes).

@@ -267,6 +267,8 @@ export const es = {
   "reports.product": "Producto",
   "reports.units": "Unidades",
   "reports.revenue": "Ingresos",
+  "reports.revenueGross": "Ingreso bruto",
+  "reports.revenueNeto": "Ingreso neto",
   "reports.cost": "Costo",
   "reports.margin": "Margen",
   "reports.marginPct": "Margen %",
@@ -568,6 +570,11 @@ export const es = {
   "products.margin": "Margen",
   "products.marginPct": "Margen %",
   "products.salePrice": "Precio de venta",
+  "products.netPrice": "Precio neto",
+  "products.negativeMarginWarning":
+    "El precio neto está por debajo del costo (margen negativo).",
+  "products.costWithTaxes": "Costo con impuestos",
+  "products.noIvaOption": "Sin IVA / 0%",
   "products.minStock": "Stock mín.",
   "products.maxStock": "Stock máx.",
   "products.stock": "Stock",
@@ -767,6 +774,10 @@ export const es = {
   "errors.product_not_found": "Producto no encontrado",
   "errors.stock_maximo_below_minimo":
     "El stock máximo no puede ser menor que el mínimo",
+  "errors.multiple_iva_taxes":
+    "Un producto solo puede tener un impuesto de tipo IVA",
+  "errors.invalid_fixed_tax_amount":
+    "Un impuesto de monto fijo debe ser mayor que cero",
   "errors.variant_not_found": "Variante no encontrada en este producto",
   "errors.quantity_must_be_positive":
     "La cantidad de la línea debe ser positiva para esta operación",
@@ -1255,6 +1266,12 @@ export const es = {
   "admin.general.selectTimezone": "Seleccionar zona horaria",
   "admin.general.timezoneHint":
     "Se usa para la programación de backups y las fechas de los archivos de respaldo",
+  "admin.general.priceRounding": "Redondeo de precios",
+  "admin.general.priceRoundingNone": "Sin redondeo",
+  "admin.general.priceRoundingTwoDecimals": "Dos decimales",
+  "admin.general.priceRoundingPsychological": "Psicológico (.90)",
+  "admin.general.priceRoundingHint":
+    "Afecta el cálculo del precio de venta (góndola). Los productos existentes se recalculan en su próxima edición o recálculo de costo.",
   "admin.general.numberFormat": "Formato de número",
   "admin.general.defaultLocale": "Idioma por defecto",
   "admin.general.localeEs": "Español",

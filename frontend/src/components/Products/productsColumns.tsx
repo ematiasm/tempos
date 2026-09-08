@@ -66,6 +66,15 @@ export const getProductsColumns = (
     ),
   },
   {
+    accessorKey: "precio_neto",
+    header: t("products.netPrice"),
+    cell: ({ row }) => (
+      <span className="text-muted-foreground">
+        ${formatMoney(Number(row.original.precio_neto), numberFormat)}
+      </span>
+    ),
+  },
+  {
     accessorKey: "precio_venta",
     header: t("products.salePrice"),
     cell: ({ row }) => (
