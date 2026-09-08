@@ -91,6 +91,13 @@ sort = "-Cover"
 [tool.coverage.html]
 show_contexts = true
 
+# mypy requires the blanket ``# type: ignore`` on the ``Settings()`` call
+# (pydantic-settings injects the required fields from .env at runtime); ty
+# does not report those errors, so with ``error-on-warning`` it would flag
+# the directive as unused. Keep the rule off to let both checkers pass.
+[tool.ty.rules]
+"unused-type-ignore-comment" = "ignore"
+
 [tool.ty.terminal]
 error-on-warning = true
 

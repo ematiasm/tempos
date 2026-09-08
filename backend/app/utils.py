@@ -27,7 +27,9 @@ def render_email_template(*, template_name: str, context: dict[str, Any]) -> str
         Path(__file__).parent / "email-templates" / "build" / template_name
     ).read_text()
     html_content = Template(template_str).render(context)
-    return html_content
+    # jinja2's Template.render is untyped (returns Any); pin the declared
+    # contract explicitly so strict mypy stays green across dependency bumps.
+    return str(html_content)
 
 
 def send_email(
