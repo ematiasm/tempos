@@ -1,6 +1,5 @@
 """Tests for the margin-over-net pricing chain (precio_neto / precio_venta)."""
 
-
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
@@ -87,9 +86,7 @@ def test_chain_margen_over_neto_with_iva21(
 ) -> None:
     """costo 100 / margen 50 / IVA 21% / none → neto 150.00, venta 181.50."""
     iva21 = _tax_id(client, superuser_token_headers, "IVA21")
-    product = _create_product(
-        client, superuser_token_headers, tax_ids=[iva21]
-    )
+    product = _create_product(client, superuser_token_headers, tax_ids=[iva21])
     assert product["precio_neto"] == "150.00"
     assert product["precio_venta"] == "181.50"
 
@@ -100,9 +97,7 @@ def test_chain_percent_and_fixed_coexist(
     """Fixed 2.00 is added once, outside the percent math: 150 + 31.50 + 2."""
     iva21 = _tax_id(client, superuser_token_headers, "IVA21")
     fixed = _create_fixed_tax(client, superuser_token_headers)
-    product = _create_product(
-        client, superuser_token_headers, tax_ids=[iva21, fixed]
-    )
+    product = _create_product(client, superuser_token_headers, tax_ids=[iva21, fixed])
     assert product["precio_neto"] == "150.00"
     assert product["precio_venta"] == "183.50"
 
@@ -148,12 +143,8 @@ def _confirm_reference_cost(
     assert r.status_code == 200, r.text
 
 
-def _read_product(
-    client: TestClient, headers: dict[str, str], product_id: str
-) -> dict:
-    r = client.get(
-        f"{settings.API_V1_STR}/products/{product_id}", headers=headers
-    )
+def _read_product(client: TestClient, headers: dict[str, str], product_id: str) -> dict:
+    r = client.get(f"{settings.API_V1_STR}/products/{product_id}", headers=headers)
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -194,9 +185,7 @@ def test_recompute_cost_change_via_reference_confirmation(
     """costo 200 → neto 300, venta 363.00 (chain from inputs, none mode)."""
     iva21 = _tax_id(client, superuser_token_headers, "IVA21")
     product = _create_product(client, superuser_token_headers, tax_ids=[iva21])
-    _confirm_reference_cost(
-        client, superuser_token_headers, product["id"], "200.00"
-    )
+    _confirm_reference_cost(client, superuser_token_headers, product["id"], "200.00")
     updated = _read_product(client, superuser_token_headers, product["id"])
     assert updated["costo_actual"] == "200.00"
     assert updated["precio_neto"] == "300.00"
@@ -212,9 +201,7 @@ def test_recompute_idempotent_under_psychological_90(
     product = _create_product(client, superuser_token_headers, tax_ids=[iva21])
     assert product["precio_venta"] == "181.90"
     # second recompute from the same inputs stays at the same góndola
-    _confirm_reference_cost(
-        client, superuser_token_headers, product["id"], "100.00"
-    )
+    _confirm_reference_cost(client, superuser_token_headers, product["id"], "100.00")
     updated = _read_product(client, superuser_token_headers, product["id"])
     assert updated["costo_actual"] == "100.00"
     assert updated["precio_neto"] == "150.00"
@@ -282,9 +269,7 @@ def test_exento_alone_accepted_zero_percent_chain(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
     exento = _tax_id(client, superuser_token_headers, "EXENTO")
-    product = _create_product(
-        client, superuser_token_headers, tax_ids=[exento]
-    )
+    product = _create_product(client, superuser_token_headers, tax_ids=[exento])
     assert product["precio_neto"] == "150.00"
     assert product["precio_venta"] == "150.00"
 
@@ -325,9 +310,7 @@ def test_iibb_coexists_with_single_iva(
     )
     assert r.status_code == 200, r.text
     iibb = r.json()["id"]
-    product = _create_product(
-        client, superuser_token_headers, tax_ids=[iva21, iibb]
-    )
+    product = _create_product(client, superuser_token_headers, tax_ids=[iva21, iibb])
     # 150.00 neto + 21% + 3% (both percent over the neto) = 186.00
     assert product["precio_neto"] == "150.00"
     assert product["precio_venta"] == "186.00"

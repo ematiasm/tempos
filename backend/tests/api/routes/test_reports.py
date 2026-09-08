@@ -135,7 +135,9 @@ def _set_timezone(
     assert r.status_code == 200, r.text
 
 
-def _iva_tax_id(client: TestClient, headers: dict[str, str], code: str = "IVA21") -> str:
+def _iva_tax_id(
+    client: TestClient, headers: dict[str, str], code: str = "IVA21"
+) -> str:
     r = client.get(
         f"{settings.API_V1_STR}/taxes/", headers=headers, params={"limit": 100}
     )
@@ -664,9 +666,7 @@ def test_reorder_orders_rows_alphabetically(
         "m" + random_lower_string()[:8],
     ]
     created = [
-        _create_product(
-            client, superuser_token_headers, name=name, stock_minimo="10"
-        )
+        _create_product(client, superuser_token_headers, name=name, stock_minimo="10")
         for name in names
     ]
     ids = {product["id"] for product in created}

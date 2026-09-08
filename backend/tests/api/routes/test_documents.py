@@ -23,7 +23,6 @@ from app.models import (
 from tests.utils.ledger import load_stock
 from tests.utils.utils import random_email, random_lower_string
 
-
 db_session: Session
 
 
@@ -417,9 +416,7 @@ def test_consumidor_final_credit_row_rejected(
                 "tax_ids": [],
             }
         ],
-        "payments": [
-            {"payment_method_id": str(credit_method.id), "monto": "1000.00"}
-        ],
+        "payments": [{"payment_method_id": str(credit_method.id), "monto": "1000.00"}],
     }
     r = client.post(
         f"{settings.API_V1_STR}/documents/",
@@ -519,15 +516,14 @@ def test_non_cf_credit_sale_still_allowed(
                 "tax_ids": [],
             }
         ],
-        "payments": [
-            {"payment_method_id": str(credit_method.id), "monto": "1000.00"}
-        ],
+        "payments": [{"payment_method_id": str(credit_method.id), "monto": "1000.00"}],
     }
     doc = _create_doc(client, superuser_token_headers, payload)
     assert doc["total"] == "1000.00"
-    assert _customer_saldo_str(
-        client, superuser_token_headers, customer["id"]
-    ) in ("1000.00", "1000")
+    assert _customer_saldo_str(client, superuser_token_headers, customer["id"]) in (
+        "1000.00",
+        "1000",
+    )
 
 
 def test_purchase_split_payment_multiple_methods_and_debt(
@@ -600,9 +596,7 @@ def test_purchase_full_cash_overpay_stays_permissive(
             "document_type_id": oc,
             "contraparte_id": supplier["id"],
             "lines": [{"product_id": product["id"], "cantidad": "1"}],  # 100.00
-            "payments": [
-                {"payment_method_id": _cash_method_id(db), "monto": "150.00"}
-            ],
+            "payments": [{"payment_method_id": _cash_method_id(db), "monto": "150.00"}],
         },
     )
     assert doc["total"] == "100.00"
@@ -760,7 +754,9 @@ def test_document_level_percepciones_add_to_total(
         {
             "document_type_id": type_id,
             "contraparte_id": customer["id"],
-            "lines": [{"product_id": product["id"], "cantidad": "2"}],  # 200.00 (neto 100 × 2)
+            "lines": [
+                {"product_id": product["id"], "cantidad": "2"}
+            ],  # 200.00 (neto 100 × 2)
         },
     )
     # percepción computed and added on top of the subtotal
@@ -1111,9 +1107,9 @@ def test_read_documents_filter_resolves_business_local_days(
     tck = _doc_type_id(client, superuser_token_headers, "TCK")
 
     settings_url = f"{settings.API_V1_STR}/business-settings/"
-    previous_tz = client.get(
-        settings_url, headers=superuser_token_headers
-    ).json()["timezone"]
+    previous_tz = client.get(settings_url, headers=superuser_token_headers).json()[
+        "timezone"
+    ]
     r = client.patch(
         settings_url,
         headers=superuser_token_headers,
@@ -1205,7 +1201,12 @@ def _create_fixed_tax(client: TestClient, headers: dict[str, str]) -> str:
 
 def _line_tax_rows(doc: dict) -> list[dict]:
     return [
-        {"tax_id": lt["tax_id"], "base": lt["base"], "monto": lt["monto"], "aplicado": lt["aplicado"]}
+        {
+            "tax_id": lt["tax_id"],
+            "base": lt["base"],
+            "monto": lt["monto"],
+            "aplicado": lt["aplicado"],
+        }
         for line in doc["lines"]
         for lt in line["taxes"]
     ]
@@ -1238,7 +1239,12 @@ def _sale_payload(
         "document_type_id": type_id,
         "contraparte_id": customer_id,
         "lines": [line],
-        "payments": [{"payment_method_id": _cash_method_id(db_session), "monto": monto or "9999.00"}],
+        "payments": [
+            {
+                "payment_method_id": _cash_method_id(db_session),
+                "monto": monto or "9999.00",
+            }
+        ],
     }
 
 
@@ -1428,10 +1434,7 @@ def test_void_nc_regenerates_only_aplicado_taxes(
     )
     original = r.json()
     iibb_row = next(
-        lt
-        for line in original["lines"]
-        for lt in line["taxes"]
-        if lt["tax_id"] == iibb
+        lt for line in original["lines"] for lt in line["taxes"] if lt["tax_id"] == iibb
     )
     assert iibb_row["monto"] == "4.50"
     _assert_identity(original)

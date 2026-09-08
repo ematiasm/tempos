@@ -97,12 +97,8 @@ def test_update_fixed_tax_nonpositive_rejected(
         assert r.status_code == 400, r.text
         assert r.json()["detail"]["code"] == "invalid_fixed_tax_amount"
     # the stored rate is untouched by the rejected updates
-    r = client.get(
-        f"{settings.API_V1_STR}/taxes/", headers=superuser_token_headers
-    )
-    stored = next(
-        row for row in r.json()["data"] if row["id"] == tax_id
-    )
+    r = client.get(f"{settings.API_V1_STR}/taxes/", headers=superuser_token_headers)
+    stored = next(row for row in r.json()["data"] if row["id"] == tax_id)
     assert stored["rate"] == "2.00"
     # percent taxes may carry a zero rate (e.g. IVA 0%)
     r = client.patch(
