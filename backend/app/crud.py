@@ -607,6 +607,18 @@ def _create_document_in_tx(
                 "quantity_must_be_positive",
                 "Line quantity must be positive for this operation",
             )
+        # Quantity precision: a line cannot carry more decimals than the
+        # product's UoM allows (e.g. 0.5 "unidad" with decimal_places=0).
+        uom = product.uom
+        if uom is not None:
+            qty = line_in.cantidad.normalize()
+            exponent = qty.as_tuple().exponent
+            decimals = -exponent if exponent < 0 else 0
+            if decimals > uom.decimal_places:
+                raise BusinessError(
+                    "line_qty_precision",
+                    "Line quantity exceeds the UoM decimal precision",
+                )
         precio = (
             line_in.precio_unit
             if line_in.precio_unit is not None

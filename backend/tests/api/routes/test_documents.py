@@ -126,6 +126,63 @@ def _create_doc(client: TestClient, headers: dict[str, str], payload: dict) -> d
     return r.json()
 
 
+def test_line_quantity_rejected_beyond_uom_precision(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """A line cannot carry more decimals than the product's UoM allows."""
+    customer = _create_customer(client, superuser_token_headers)
+    # _create_uom defaults to 0 decimal places.
+    product = _create_product(client, superuser_token_headers)
+    type_id = _doc_type_id(client, superuser_token_headers, "TCK")
+    payload = {
+        "document_type_id": type_id,
+        "contraparte_id": customer["id"],
+        "lines": [{"product_id": product["id"], "cantidad": "1.5"}],
+        "payments": [],
+    }
+    r = client.post(
+        f"{settings.API_V1_STR}/documents/", headers=superuser_token_headers, json=payload
+    )
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "line_qty_precision"
+
+
+def test_line_quantity_within_uom_precision_accepted(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    customer = _create_customer(client, superuser_token_headers)
+    uom = _create_uom(client, superuser_token_headers)
+    # raise the UoM precision to 2 decimals
+    r = client.patch(
+        f"{settings.API_V1_STR}/uoms/{uom['id']}",
+        headers=superuser_token_headers,
+        json={"decimal_places": 2},
+    )
+    assert r.status_code == 200, r.text
+    r = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json={
+            "name": random_lower_string()[:20],
+            "uom_id": uom["id"],
+            "margen_pct": "0.00",
+            "costo_actual": "100.00",
+            "tax_ids": [],
+        },
+    )
+    assert r.status_code == 200, r.text
+    product = r.json()
+    type_id = _doc_type_id(client, superuser_token_headers, "TCK")
+    payload = {
+        "document_type_id": type_id,
+        "contraparte_id": customer["id"],
+        "lines": [{"product_id": product["id"], "cantidad": "0.12"}],
+        "payments": [],
+    }
+    doc = _create_doc(client, superuser_token_headers, payload)
+    assert doc["lines"][0]["cantidad"] == "0.120"
+
+
 def test_create_sale_document_computes_totals_and_taxes(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
