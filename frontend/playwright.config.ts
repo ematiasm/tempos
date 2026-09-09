@@ -21,6 +21,12 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: process.env.CI ? 'blob' : 'html',
+  /* Slower CI runners (2 cores, docker + vite dev + browser on one box)
+     routinely miss the 5s default when a test waits for a dialog or a
+     redirect; give expectations double the budget there. */
+  expect: {
+    timeout: process.env.CI ? 10_000 : 5_000,
+  },
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
