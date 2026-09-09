@@ -97,11 +97,6 @@ class BackupRunState(enum.StrEnum):
     FAILED = "failed"
 
 
-class NumberFormat(enum.StrEnum):
-    ES = "es"
-    EN = "en"
-
-
 class StockPolicy(enum.StrEnum):
     BLOCK = "block"
     WARN = "warn"
@@ -207,7 +202,6 @@ class BusinessSettingsUpdate(SQLModel):
     timezone: str | None = Field(default=None, max_length=100)
     # Payment method preselected when creating a new sale/purchase.
     payment_method_default_id: uuid.UUID | None = None
-    number_format: NumberFormat | None = None
     stock_policy: StockPolicy | None = None
     # Shelf-price rounding mode applied at product price formation.
     price_rounding: PriceRounding | None = None
@@ -791,7 +785,6 @@ class BusinessSettings(SQLModel, table=True):
     payment_method_default_id: uuid.UUID | None = Field(
         default=None, foreign_key="paymentmethod.id"
     )
-    number_format: NumberFormat = Field(default=NumberFormat.EN, max_length=10)
     # Path (public, served under /uploads) to the business logo shown on vouchers.
     logo_path: str | None = Field(default=None, max_length=255)
     stock_policy: StockPolicy = Field(default=StockPolicy.WARN, max_length=10)
@@ -1500,7 +1493,6 @@ class BusinessSettingsPublic(SQLModel):
     default_iva: Decimal | None = None
     timezone: str
     payment_method_default_id: uuid.UUID | None = None
-    number_format: NumberFormat
     logo_path: str | None = None
     stock_policy: StockPolicy
     # Rounding mode applied to the shelf price (see BusinessSettings).

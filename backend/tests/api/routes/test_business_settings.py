@@ -19,9 +19,19 @@ def test_read_business_settings_singleton(
     assert body["id"] == 1
     assert body["allow_negative_stock"] is False
     assert body["enable_variants"] is False
-    assert body["number_format"] in ("es", "en")
     assert body["stock_policy"] in ("block", "warn")
     assert body["default_locale"] in ("es", "en")
+
+
+def test_number_format_setting_removed(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """number_format was removed: the business default_locale drives all formats."""
+    r = client.get(
+        f"{settings.API_V1_STR}/business-settings/", headers=superuser_token_headers
+    )
+    assert r.status_code == 200
+    assert "number_format" not in r.json()
 
 
 def test_update_business_settings(
@@ -65,7 +75,6 @@ def test_update_new_configuration_fields(
         f"{settings.API_V1_STR}/business-settings/",
         headers=superuser_token_headers,
         json={
-            "number_format": "es",
             "stock_policy": "block",
             "default_locale": "es",
             "payment_method_default_id": payment_methods[0]["id"],
@@ -73,7 +82,6 @@ def test_update_new_configuration_fields(
     )
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["number_format"] == "es"
     assert body["stock_policy"] == "block"
     assert body["default_locale"] == "es"
     assert body["payment_method_default_id"] == payment_methods[0]["id"]
@@ -83,7 +91,6 @@ def test_update_new_configuration_fields(
         f"{settings.API_V1_STR}/business-settings/",
         headers=superuser_token_headers,
         json={
-            "number_format": "en",
             "stock_policy": "warn",
             "default_locale": "en",
             "payment_method_default_id": None,
