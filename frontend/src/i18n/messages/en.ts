@@ -674,10 +674,6 @@ export const en: Messages = {
   "dashboard.welcome": "Welcome back, nice to see you again!!!",
 
   "settings.userSettings": "User Settings",
-  "settings.tabLanguage": "Language",
-  "settings.languageTitle": "Interface language",
-  "settings.languageHint":
-    "The language is stored in this browser. Spanish is the default.",
   "cash.open": "Open register",
   "cash.close": "Close register",
   "cash.openTitle": "Open daily cash register",
@@ -1238,7 +1234,6 @@ export const en: Messages = {
   "admin.general.priceRoundingPsychological": "Psychological (.90)",
   "admin.general.priceRoundingHint":
     "Affects how the sale price (góndola) is computed. Existing products are repriced on their next edit or cost recompute.",
-  "admin.general.numberFormat": "Number format",
   "admin.general.defaultLocale": "Default language",
   "admin.general.localeEs": "Español",
   "admin.general.localeEn": "English",

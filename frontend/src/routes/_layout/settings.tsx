@@ -3,7 +3,6 @@ import type { ComponentType } from "react"
 
 import ChangePassword from "@/components/UserSettings/ChangePassword"
 import DeleteAccount from "@/components/UserSettings/DeleteAccount"
-import LanguageSettings from "@/components/UserSettings/LanguageSettings"
 import UserInformation from "@/components/UserSettings/UserInformation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
@@ -29,11 +28,6 @@ const tabsConfig: {
     title: "settings.tabDangerZone",
     component: DeleteAccount,
   },
-  {
-    value: "language",
-    title: "settings.tabLanguage",
-    component: LanguageSettings,
-  },
 ]
 
 export const Route = createFileRoute("/_layout/settings")({
@@ -51,7 +45,7 @@ function UserSettings() {
   const t = useT()
   const { user: currentUser } = useAuth()
   const finalTabs = currentUser?.is_superuser
-    ? tabsConfig.slice(0, 3)
+    ? tabsConfig.slice(0, 2)
     : tabsConfig
 
   if (!currentUser) {

@@ -868,9 +868,6 @@ export const BusinessSettingsPublicSchema = {
             ],
             title: 'Payment Method Default Id'
         },
-        number_format: {
-            '$ref': '#/components/schemas/NumberFormat'
-        },
         logo_path: {
             anyOf: [
                 {
@@ -996,7 +993,7 @@ export const BusinessSettingsPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants', 'timezone', 'number_format', 'stock_policy', 'price_rounding', 'warn_below_cost', 'require_barcode', 'default_locale', 'default_print_format', 'sell_block_price_edit', 'sell_hide_date'],
+    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants', 'timezone', 'stock_policy', 'price_rounding', 'warn_below_cost', 'require_barcode', 'default_locale', 'default_print_format', 'sell_block_price_edit', 'sell_hide_date'],
     title: 'BusinessSettingsPublic'
 } as const;
 
@@ -1132,16 +1129,6 @@ export const BusinessSettingsUpdateSchema = {
                 }
             ],
             title: 'Payment Method Default Id'
-        },
-        number_format: {
-            anyOf: [
-                {
-                    '$ref': '#/components/schemas/NumberFormat'
-                },
-                {
-                    type: 'null'
-                }
-            ]
         },
         stock_policy: {
             anyOf: [
@@ -3475,12 +3462,6 @@ export const NewPasswordSchema = {
     type: 'object',
     required: ['token', 'new_password'],
     title: 'NewPassword'
-} as const;
-
-export const NumberFormatSchema = {
-    type: 'string',
-    enum: ['es', 'en'],
-    title: 'NumberFormat'
 } as const;
 
 export const OutstandingDocumentPublicSchema = {

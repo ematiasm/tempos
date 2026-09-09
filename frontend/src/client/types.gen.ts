@@ -147,7 +147,6 @@ export type BusinessSettingsPublic = {
     default_iva?: (string | null);
     timezone: string;
     payment_method_default_id?: (string | null);
-    number_format: NumberFormat;
     logo_path?: (string | null);
     stock_policy: StockPolicy;
     price_rounding: PriceRounding;
@@ -178,7 +177,6 @@ export type BusinessSettingsUpdate = {
     default_iva?: (number | string | null);
     timezone?: (string | null);
     payment_method_default_id?: (string | null);
-    number_format?: (NumberFormat | null);
     stock_policy?: (StockPolicy | null);
     price_rounding?: (PriceRounding | null);
     default_margen_pct?: (number | string | null);
@@ -602,8 +600,6 @@ export type NewPassword = {
     token: string;
     new_password: string;
 };
-
-export type NumberFormat = 'es' | 'en';
 
 /**
  * A document of a counterpart with a still-unpaid portion.

@@ -685,10 +685,6 @@ export const es = {
   "dashboard.welcome": "Bienvenido de nuevo, ¡qué bueno verte!",
 
   "settings.userSettings": "Configuración de usuario",
-  "settings.tabLanguage": "Idioma",
-  "settings.languageTitle": "Idioma de la interfaz",
-  "settings.languageHint":
-    "El idioma se guarda en este navegador. Español es el idioma por defecto.",
   "cash.open": "Abrir caja",
   "cash.close": "Cerrar caja",
   "cash.openTitle": "Abrir caja del día",
@@ -1272,7 +1268,6 @@ export const es = {
   "admin.general.priceRoundingPsychological": "Psicológico (.90)",
   "admin.general.priceRoundingHint":
     "Afecta el cálculo del precio de venta (góndola). Los productos existentes se recalculan en su próxima edición o recálculo de costo.",
-  "admin.general.numberFormat": "Formato de número",
   "admin.general.defaultLocale": "Idioma por defecto",
   "admin.general.localeEs": "Español",
   "admin.general.localeEn": "English",

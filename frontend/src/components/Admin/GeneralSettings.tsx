@@ -49,7 +49,6 @@ const formSchema = z.object({
   default_iva: z.string().optional().or(z.literal("")),
   timezone: z.string().min(1, { message: "Timezone is required" }),
   payment_method_default_id: z.string().optional(),
-  number_format: z.enum(["es", "en"]),
   default_locale: z.enum(["es", "en"]),
   price_rounding: z.enum(["none", "two_decimals", "psychological_90"]),
 })
@@ -114,7 +113,6 @@ function GeneralSettings() {
       default_iva: settings?.default_iva?.toString() ?? "",
       timezone: settings?.timezone ?? "America/Argentina/Buenos_Aires",
       payment_method_default_id: settings?.payment_method_default_id ?? "",
-      number_format: settings?.number_format ?? "en",
       default_locale: settings?.default_locale ?? "en",
       price_rounding: settings?.price_rounding ?? "none",
     },
@@ -129,7 +127,6 @@ function GeneralSettings() {
           default_iva: settings.default_iva?.toString() ?? "",
           timezone: settings.timezone,
           payment_method_default_id: settings.payment_method_default_id ?? "",
-          number_format: settings.number_format,
           default_locale: settings.default_locale,
           price_rounding: settings.price_rounding,
         }
@@ -147,7 +144,6 @@ function GeneralSettings() {
         condicion_fiscal: data.condicion_fiscal,
         timezone: data.timezone,
         payment_method_default_id: data.payment_method_default_id || null,
-        number_format: data.number_format,
         default_locale: data.default_locale,
         price_rounding: data.price_rounding,
       }
@@ -402,32 +398,6 @@ function GeneralSettings() {
                   <p className="text-sm text-muted-foreground">
                     {t("admin.general.timezoneHint")}
                   </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="number_format"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("admin.general.numberFormat")}</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={!isEditing}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="es">1.234,56</SelectItem>
-                      <SelectItem value="en">1,234.56</SelectItem>
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
