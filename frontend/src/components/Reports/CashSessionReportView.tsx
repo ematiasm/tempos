@@ -5,6 +5,7 @@ import {
   type CashSessionReport,
   OpenAPI,
 } from "@/client"
+import { useBusinessSettings } from "@/components/Sell/useBusinessSettings"
 import { useT } from "@/i18n"
 import { formatDateTimeStatic, moneyStatic } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -296,10 +297,13 @@ export function CashSessionReportDialog({
   onOpenChange,
 }: CashSessionReportDialogProps) {
   const t = useT()
+  const { settings } = useBusinessSettings()
+  const reportMargin = settings?.print_margin_report_mm ?? 10
   if (!open) return null
 
   return (
     <div className="voucher-overlay fixed inset-0 z-50 flex flex-col bg-background">
+      <style>{`@media print { @page { size: A4; margin: ${reportMargin}mm; } }`}</style>
       <div className="no-print flex items-center justify-between gap-3 border-b p-4">
         <h2 className="text-lg font-semibold">{t("cash.reportPreview")}</h2>
         <div className="flex gap-2">

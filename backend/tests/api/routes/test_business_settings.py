@@ -344,6 +344,7 @@ def test_fresh_settings_have_print_margin_defaults(
     body = r.json()
     assert body["print_margin_a4_mm"] == 12
     assert body["print_margin_ticket_mm"] == 4
+    assert body["print_margin_report_mm"] == 10
 
 
 def test_print_margins_round_trip(
@@ -358,6 +359,13 @@ def test_print_margins_round_trip(
     body = r.json()
     assert body["print_margin_a4_mm"] == 20
     assert body["print_margin_ticket_mm"] == 0
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={"print_margin_report_mm": 8},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["print_margin_report_mm"] == 8
     # values persist on a fresh read
     r = client.get(
         f"{settings.API_V1_STR}/business-settings/", headers=superuser_token_headers
@@ -371,6 +379,13 @@ def test_print_margins_round_trip(
         f"{settings.API_V1_STR}/business-settings/",
         headers=superuser_token_headers,
         json={"print_margin_a4_mm": 12, "print_margin_ticket_mm": 4},
+    )
+    assert r.status_code == 200, r.text
+    # restore the report margin too
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={"print_margin_report_mm": 10},
     )
     assert r.status_code == 200, r.text
 
@@ -388,6 +403,12 @@ def test_print_margins_bounds_rejected(
         f"{settings.API_V1_STR}/business-settings/",
         headers=superuser_token_headers,
         json={"print_margin_ticket_mm": 51},
+    )
+    assert r.status_code == 422
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={"print_margin_report_mm": -1},
     )
     assert r.status_code == 422
 

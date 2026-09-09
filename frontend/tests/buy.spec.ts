@@ -60,7 +60,9 @@ test("Buy at a new cost and apply the suggested cost change", async ({
   await expect(suggestion.getByText("$100,00 → $130,00")).toBeVisible()
 
   await suggestion
-    .getByRole("button", { name: `Aplicar $${newCost.toFixed(2).replace(".", ",")}` })
+    .getByRole("button", {
+      name: `Aplicar $${newCost.toFixed(2).replace(".", ",")}`,
+    })
     .click()
 
   await expect(page.getByText("Costo actualizado")).toBeVisible()
@@ -116,7 +118,9 @@ test("Buying from a new supplier promotes it to reference and updates the produc
   await expect(page.getByRole("heading", { name: /^\d{4}-OC-/ })).toBeVisible()
   await expect(page.getByText("Sugerencias de cambio de costo")).toBeVisible()
   await page
-    .getByRole("button", { name: `Aplicar $${newCost.toFixed(2).replace(".", ",")}` })
+    .getByRole("button", {
+      name: `Aplicar $${newCost.toFixed(2).replace(".", ",")}`,
+    })
     .click()
   await expect(page.getByText("Costo actualizado")).toBeVisible()
 

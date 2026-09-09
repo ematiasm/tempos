@@ -931,6 +931,10 @@ export const BusinessSettingsPublicSchema = {
             type: 'integer',
             title: 'Print Margin Ticket Mm'
         },
+        print_margin_report_mm: {
+            type: 'integer',
+            title: 'Print Margin Report Mm'
+        },
         voucher_footer: {
             anyOf: [
                 {
@@ -1001,7 +1005,7 @@ export const BusinessSettingsPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants', 'timezone', 'stock_policy', 'price_rounding', 'warn_below_cost', 'require_barcode', 'default_locale', 'default_print_format', 'print_margin_a4_mm', 'print_margin_ticket_mm', 'sell_block_price_edit', 'sell_hide_date'],
+    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants', 'timezone', 'stock_policy', 'price_rounding', 'warn_below_cost', 'require_barcode', 'default_locale', 'default_print_format', 'print_margin_a4_mm', 'print_margin_ticket_mm', 'print_margin_report_mm', 'sell_block_price_edit', 'sell_hide_date'],
     title: 'BusinessSettingsPublic'
 } as const;
 
@@ -1252,6 +1256,19 @@ export const BusinessSettingsUpdateSchema = {
                 }
             ],
             title: 'Print Margin Ticket Mm'
+        },
+        print_margin_report_mm: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 50,
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Print Margin Report Mm'
         },
         voucher_footer: {
             anyOf: [

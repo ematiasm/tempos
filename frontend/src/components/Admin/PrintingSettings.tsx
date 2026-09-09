@@ -58,6 +58,11 @@ function PrintingSettings() {
       .int({ message: t("admin.printing.marginInteger") })
       .min(0, { message: t("admin.printing.marginRange") })
       .max(50, { message: t("admin.printing.marginRange") }),
+    print_margin_report_mm: z
+      .number()
+      .int({ message: t("admin.printing.marginInteger") })
+      .min(0, { message: t("admin.printing.marginRange") })
+      .max(50, { message: t("admin.printing.marginRange") }),
   })
 
   type FormData = z.infer<typeof formSchema>
@@ -70,6 +75,7 @@ function PrintingSettings() {
       voucher_legends: settings?.voucher_legends ?? "",
       print_margin_a4_mm: settings?.print_margin_a4_mm ?? 12,
       print_margin_ticket_mm: settings?.print_margin_ticket_mm ?? 4,
+      print_margin_report_mm: settings?.print_margin_report_mm ?? 10,
     },
     values: settings
       ? {
@@ -78,6 +84,7 @@ function PrintingSettings() {
           voucher_legends: settings.voucher_legends ?? "",
           print_margin_a4_mm: settings.print_margin_a4_mm,
           print_margin_ticket_mm: settings.print_margin_ticket_mm,
+          print_margin_report_mm: settings.print_margin_report_mm,
         }
       : undefined,
   })
@@ -91,6 +98,7 @@ function PrintingSettings() {
           voucher_legends: data.voucher_legends.trim() || null,
           print_margin_a4_mm: data.print_margin_a4_mm,
           print_margin_ticket_mm: data.print_margin_ticket_mm,
+          print_margin_report_mm: data.print_margin_report_mm,
         },
       }),
     onSuccess: () => {
@@ -118,44 +126,111 @@ function PrintingSettings() {
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
-          className="flex max-w-2xl flex-col gap-4"
+          className="flex max-w-2xl flex-col gap-6"
         >
-          <FormField
-            control={form.control}
-            name="default_print_format"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("admin.printing.format")}</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger data-testid="printing-format">
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="a4">
-                      {t("admin.printing.formatA4")}
-                    </SelectItem>
-                    <SelectItem value="ticket80">
-                      {t("admin.printing.formatTicket")}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <section className="flex flex-col gap-4">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wide">
+                {t("admin.printing.groupVouchers")}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {t("admin.printing.groupVouchersHint")}
+              </p>
+            </div>
 
-          <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
-              name="print_margin_a4_mm"
+              name="default_print_format"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("admin.printing.marginA4")}</FormLabel>
+                  <FormLabel>{t("admin.printing.format")}</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="printing-format">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="a4">
+                        {t("admin.printing.formatA4")}
+                      </SelectItem>
+                      <SelectItem value="ticket80">
+                        {t("admin.printing.formatTicket")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="print_margin_a4_mm"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("admin.printing.marginA4")}</FormLabel>
+                    <FormControl>
+                      <Input
+                        data-testid="printing-margin-a4"
+                        type="number"
+                        min={0}
+                        max={50}
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                      />
+                    </FormControl>
+                    <p className="text-sm text-muted-foreground">
+                      {t("admin.printing.marginHint")}
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="print_margin_ticket_mm"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("admin.printing.marginTicket")}</FormLabel>
+                    <FormControl>
+                      <Input
+                        data-testid="printing-margin-ticket"
+                        type="number"
+                        min={0}
+                        max={50}
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-4">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wide">
+                {t("admin.printing.groupReports")}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {t("admin.printing.groupReportsHint")}
+              </p>
+            </div>
+
+            <FormField
+              control={form.control}
+              name="print_margin_report_mm"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("admin.printing.marginReport")}</FormLabel>
                   <FormControl>
                     <Input
-                      data-testid="printing-margin-a4"
+                      data-testid="printing-margin-report"
                       type="number"
                       min={0}
                       max={50}
@@ -163,35 +238,11 @@ function PrintingSettings() {
                       onChange={(e) => field.onChange(e.target.valueAsNumber)}
                     />
                   </FormControl>
-                  <p className="text-sm text-muted-foreground">
-                    {t("admin.printing.marginHint")}
-                  </p>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            <FormField
-              control={form.control}
-              name="print_margin_ticket_mm"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("admin.printing.marginTicket")}</FormLabel>
-                  <FormControl>
-                    <Input
-                      data-testid="printing-margin-ticket"
-                      type="number"
-                      min={0}
-                      max={50}
-                      {...field}
-                      onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+          </section>
 
           <FormField
             control={form.control}

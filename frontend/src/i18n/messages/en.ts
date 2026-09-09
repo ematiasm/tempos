@@ -884,6 +884,13 @@ export const en: Messages = {
   "admin.products.saveChanges": "Save changes",
   "admin.printing.title": "Printing",
   "admin.printing.subtitle": "Default voucher print format and printable texts",
+  "admin.printing.groupVouchers": "Vouchers",
+  "admin.printing.groupVouchersHint":
+    "Sale tickets, invoices, receipts: default format and margins",
+  "admin.printing.groupReports": "Reports",
+  "admin.printing.groupReportsHint":
+    "Reports and customer/supplier account statements",
+  "admin.printing.marginReport": "Reports margin (mm)",
   "admin.printing.marginA4": "A4 margin (mm)",
   "admin.printing.marginTicket": "Ticket 80mm margin (mm)",
   "admin.printing.marginHint": "Uniform page margin in millimeters (0–50)",

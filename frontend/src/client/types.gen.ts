@@ -158,6 +158,7 @@ export type BusinessSettingsPublic = {
     default_print_format: PrintFormat;
     print_margin_a4_mm: number;
     print_margin_ticket_mm: number;
+    print_margin_report_mm: number;
     voucher_footer?: (string | null);
     voucher_legends?: (string | null);
     sell_quick_method_ids?: (Array<(string)> | null);
@@ -189,6 +190,7 @@ export type BusinessSettingsUpdate = {
     default_print_format?: (PrintFormat | null);
     print_margin_a4_mm?: (number | null);
     print_margin_ticket_mm?: (number | null);
+    print_margin_report_mm?: (number | null);
     voucher_footer?: (string | null);
     voucher_legends?: (string | null);
     sell_quick_method_ids?: (Array<(string)> | null);

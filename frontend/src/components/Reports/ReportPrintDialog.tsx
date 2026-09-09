@@ -41,6 +41,7 @@ export function ReportPrintDialog({
 
   return (
     <div className="voucher-overlay fixed inset-0 z-50 flex flex-col bg-background">
+      <style>{`@media print { @page { size: A4; margin: ${settings?.print_margin_report_mm ?? 10}mm; } }`}</style>
       <div className="no-print flex items-center justify-between gap-3 border-b p-4">
         <h2 className="text-lg font-semibold">{t("reports.printPreview")}</h2>
         <div className="flex gap-2">

@@ -28,7 +28,7 @@ test("Add User button is visible", async ({ page }) => {
 })
 
 test.describe("Admin user management", () => {
-  test("Create a new user successfully", async ({ page }) => {
+  test("Create a new user successfully", async ({ page, request }) => {
     await gotoAdminUsers(page)
 
     const email = randomEmail()
@@ -50,9 +50,18 @@ test.describe("Admin user management", () => {
 
     const userRow = page.getByRole("row").filter({ hasText: email })
     await expect(userRow).toBeVisible()
+
+    // cleanup: leftover users accumulate in the shared dev DB and break
+    // getByText uniqueness in later runs
+    const users = await api
+      .get<{ id: string; email: string }>(request, "/users/?skip=0&limit=1000")
+      .then((r) => r.data)
+    for (const u of users) {
+      if (u.email === email) await api.delete(request, `/users/${u.id}`)
+    }
   })
 
-  test("Create a superuser", async ({ page }) => {
+  test("Create a superuser", async ({ page, request }) => {
     await gotoAdminUsers(page)
 
     const email = randomEmail()
@@ -74,9 +83,18 @@ test.describe("Admin user management", () => {
 
     const userRow = page.getByRole("row").filter({ hasText: email })
     await expect(userRow.getByText("Superusuario")).toBeVisible()
+
+    // cleanup: leftover users accumulate in the shared dev DB and break
+    // getByText uniqueness in later runs
+    const users = await api
+      .get<{ id: string; email: string }>(request, "/users/?skip=0&limit=1000")
+      .then((r) => r.data)
+    for (const u of users) {
+      if (u.email === email) await api.delete(request, `/users/${u.id}`)
+    }
   })
 
-  test("Edit a user successfully", async ({ page }) => {
+  test("Edit a user successfully", async ({ page, request }) => {
     await gotoAdminUsers(page)
 
     const email = randomEmail()
@@ -106,6 +124,15 @@ test.describe("Admin user management", () => {
       page.getByText("Usuario actualizado correctamente"),
     ).toBeVisible()
     await expect(page.getByText(updatedName)).toBeVisible()
+
+    // cleanup: leftover users accumulate in the shared dev DB and break
+    // getByText uniqueness in later runs
+    const users = await api
+      .get<{ id: string; email: string }>(request, "/users/?skip=0&limit=1000")
+      .then((r) => r.data)
+    for (const u of users) {
+      if (u.email === email || u.full_name === updatedName) await api.delete(request, `/users/${u.id}`)
+    }
   })
 
   test("Delete a user successfully", async ({ page }) => {

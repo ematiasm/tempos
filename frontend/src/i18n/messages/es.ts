@@ -907,6 +907,13 @@ export const es = {
   "admin.printing.title": "Impresión",
   "admin.printing.subtitle":
     "Formato de comprobantes por defecto y textos imprimibles",
+  "admin.printing.groupVouchers": "Comprobantes",
+  "admin.printing.groupVouchersHint":
+    "Tickets de venta, facturas, recibos: formato por defecto y márgenes",
+  "admin.printing.groupReports": "Informes",
+  "admin.printing.groupReportsHint":
+    "Reportes y estado de cuenta de clientes y proveedores",
+  "admin.printing.marginReport": "Margen informes (mm)",
   "admin.printing.marginA4": "Margen A4 (mm)",
   "admin.printing.marginTicket": "Margen ticket 80mm (mm)",
   "admin.printing.marginHint": "Margen uniforme de página en milímetros (0–50)",
