@@ -43,7 +43,7 @@ jobs:
     needs:
       - changes
     if: ${{ needs.changes.outputs.changed == 'true' }}
-    timeout-minutes: 15
+    timeout-minutes: 45
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -80,6 +80,15 @@ jobs:
     - run: docker compose down -v --remove-orphans
     - name: Run Playwright tests
       run: docker compose run --rm playwright bunx playwright test --fail-on-flaky-tests --trace=retain-on-failure --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+    - name: Upload test results (page snapshots and traces) on failure
+      if: ${{ !cancelled() && failure() }}
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: test-results-${{ matrix.shardIndex }}
+        path: frontend/test-results
+        include-hidden-files: true
+        retention-days: 1
+        if-no-files-found: ignore
     - run: docker compose down -v --remove-orphans
     - name: Upload blob report to GitHub Actions Artifacts
       if: ${{ !cancelled() }}
