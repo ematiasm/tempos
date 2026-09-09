@@ -19,6 +19,7 @@ from app.models import (
     BusinessSettings,
     BusinessSettingsPublic,
     Customer,
+    LocalePreference,
     TaxCondition,
 )
 
@@ -39,6 +40,8 @@ class SetupCreate(SQLModel):
     email: str | None = Field(default=None, max_length=255)
     cuit: str | None = Field(default=None, max_length=20)
     condicion_fiscal: TaxCondition
+    # Optional first-run language choice; NULL keeps the model default.
+    default_locale: LocalePreference | None = None
     load_demo_data: bool = False
 
 

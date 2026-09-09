@@ -5401,6 +5401,16 @@ export const SetupCreateSchema = {
         condicion_fiscal: {
             '$ref': '#/components/schemas/TaxCondition'
         },
+        default_locale: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/LocalePreference'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
         load_demo_data: {
             type: 'boolean',
             title: 'Load Demo Data',

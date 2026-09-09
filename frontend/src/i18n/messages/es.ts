@@ -755,6 +755,8 @@ export const es = {
     "Contanos los datos básicos de tu negocio para empezar a usar tempos.",
   "setup.submit": "Comenzar",
   "setup.completed": "Configuración inicial completada",
+  "setup.languageHint":
+    "El idioma se aplica a todo el sistema; podés cambiarlo después en Admin → General.",
   "setup.loadDemoData": "Cargar datos demo",
   "setup.loadDemoDataHint":
     "Carga categorías demo, 14 productos con códigos de barra (stock cero), un cliente y un proveedor para probar el sistema.",

@@ -58,6 +58,7 @@ const formSchema = z.object({
     .or(z.literal("")),
   cuit: z.string().optional(),
   condicion_fiscal: z.enum(["RI", "Monotributo", "Exento", "Consumidor Final"]),
+  default_locale: z.enum(["es", "en"]),
   load_demo_data: z.boolean(),
 })
 
@@ -120,6 +121,7 @@ function Setup() {
       email: "",
       cuit: "",
       condicion_fiscal: "Consumidor Final",
+      default_locale: "es",
       load_demo_data: false,
     },
   })
@@ -133,6 +135,7 @@ function Setup() {
         email: data.email || null,
         cuit: data.cuit || null,
         condicion_fiscal: data.condicion_fiscal,
+        default_locale: data.default_locale,
         load_demo_data: data.load_demo_data,
       }
       return SetupService.runSetup({ requestBody })
@@ -250,6 +253,35 @@ function Setup() {
                   )}
                 />
               </div>
+
+              <FormField
+                control={form.control}
+                name="default_locale"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("admin.general.defaultLocale")}</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="setup-language-select">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="es">
+                          {t("admin.general.localeEs")}
+                        </SelectItem>
+                        <SelectItem value="en">
+                          {t("admin.general.localeEn")}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-sm text-muted-foreground">
+                      {t("setup.languageHint")}
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField

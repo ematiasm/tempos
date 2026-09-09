@@ -76,12 +76,14 @@ def test_setup_creates_settings_and_default_customer(
         json={
             "business_name": "Mi Comercio",
             "condicion_fiscal": "Consumidor Final",
+            "default_locale": "es",
         },
     )
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["business_name"] == "Mi Comercio"
     assert body["condicion_fiscal"] == "Consumidor Final"
+    assert body["default_locale"] == "es"
 
     assert db.exec(select(BusinessSettings)).first() is not None
     default_customer = db.exec(
@@ -106,6 +108,7 @@ def test_setup_rejected_when_already_completed(
         json={
             "business_name": "Mi Comercio",
             "condicion_fiscal": "Consumidor Final",
+            "default_locale": "es",
         },
     )
     assert r.status_code == 200, r.text
@@ -288,6 +291,7 @@ def test_setup_requires_superuser(
         json={
             "business_name": "Mi Comercio",
             "condicion_fiscal": "Consumidor Final",
+            "default_locale": "es",
         },
     )
     assert r.status_code == 403

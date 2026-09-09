@@ -744,6 +744,8 @@ export const en: Messages = {
     "Tell us the basic details of your business to start using tempos.",
   "setup.submit": "Get started",
   "setup.completed": "First-run setup completed",
+  "setup.languageHint":
+    "The language applies to the whole system; you can change it later in Admin → General.",
   "setup.loadDemoData": "Load demo data",
   "setup.loadDemoDataHint":
     "Loads demo categories, 14 products with barcodes (zero stock), one customer and one supplier for testing.",

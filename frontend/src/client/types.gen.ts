@@ -1000,6 +1000,7 @@ export type SetupCreate = {
     email?: (string | null);
     cuit?: (string | null);
     condicion_fiscal: TaxCondition;
+    default_locale?: (LocalePreference | null);
     load_demo_data?: boolean;
 };
 

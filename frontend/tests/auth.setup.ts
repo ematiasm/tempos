@@ -16,7 +16,12 @@ setup("authenticate", async ({ page, request }) => {
     await api.post(request, "/setup/", {
       business_name: "tempos E2E",
       condicion_fiscal: "Consumidor Final",
+      default_locale: "es",
     })
+  } else {
+    // The suite is written against the Spanish UI; the backend pytest
+    // restore leaves default_locale = en, so pin it for determinism.
+    await api.patch(request, "/business-settings/", { default_locale: "es" })
   }
   await page.goto("/login")
   await page.getByTestId("email-input").fill(firstSuperuser)
