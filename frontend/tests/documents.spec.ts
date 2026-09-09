@@ -44,7 +44,7 @@ test("Void a sale issuing its credit note", async ({ page, request }) => {
 
   const detail = page.getByRole("dialog")
   await expect(detail.getByText(sale.numero)).toBeVisible()
-  await expect(detail.getByText("$150.00").first()).toBeVisible()
+  await expect(detail.getByText("$150,00").first()).toBeVisible()
 
   await detail.getByRole("button", { name: "Anular documento" }).click()
 

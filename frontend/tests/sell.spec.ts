@@ -351,10 +351,10 @@ test.describe("Sell flow", () => {
     await page.getByTestId("split-row-1-amount").fill("600")
 
     await expect(page.getByTestId("split-covered")).toHaveText(
-      "Cubierto: $1,000.00",
+      "Cubierto: $1.000,00",
     )
     await expect(page.getByTestId("split-remaining")).toHaveText(
-      "Restante: $0.00",
+      "Restante: $0,00",
     )
 
     await page.getByTestId("split-confirm").click()
@@ -391,7 +391,7 @@ test.describe("Sell flow", () => {
     await page.getByTestId("split-row-0-amount").fill("100")
 
     await expect(page.getByTestId("split-remaining")).toHaveText(
-      "Restante: $50.00",
+      "Restante: $50,00",
     )
     await expect(page.getByTestId("split-confirm")).toBeDisabled()
     await expect(page.getByTestId("sale-success-numero")).toHaveCount(0)
@@ -527,7 +527,7 @@ test.describe("Sell flow", () => {
     // cash 1500 on a total of 1000 -> vuelto 500
     await page.getByTestId("split-row-0-amount").fill("1500")
 
-    await expect(page.getByTestId("split-vuelto")).toHaveText("Vuelto: $500.00")
+    await expect(page.getByTestId("split-vuelto")).toHaveText("Vuelto: $500,00")
     await expect(page.getByTestId("split-confirm")).toBeEnabled()
 
     await page.getByTestId("split-confirm").click()
@@ -537,7 +537,7 @@ test.describe("Sell flow", () => {
     const numeroText = (await numero.textContent())?.trim() ?? ""
 
     // the vuelto is carried into the post-sale view
-    await expect(page.getByTestId("sale-vuelto")).toHaveText("Vuelto: $500.00")
+    await expect(page.getByTestId("sale-vuelto")).toHaveText("Vuelto: $500,00")
 
     // only the effective (capped) amount is posted: 1000, never 1500
     const docs = await readDocuments(request)
@@ -662,7 +662,7 @@ test.describe("Sell flow", () => {
     await page.getByTestId("split-payment-button").click()
     await expect(page.getByTestId("split-dialog")).toBeVisible()
 
-    const favorLabel = page.getByText("Usar $100.00 de crédito a favor")
+    const favorLabel = page.getByText("Usar $100,00 de crédito a favor")
     await expect(favorLabel).toBeVisible()
     await expect(favorLabel.locator("input")).toBeChecked()
 
@@ -673,7 +673,7 @@ test.describe("Sell flow", () => {
     await page.getByTestId("split-row-0-amount").fill("50")
 
     await expect(page.getByTestId("split-remaining")).toHaveText(
-      "Restante: $0.00",
+      "Restante: $0,00",
     )
     await page.getByTestId("split-confirm").click()
 
@@ -1129,12 +1129,12 @@ test.describe("Sell flow", () => {
       .click()
 
     await page.getByTestId("split-payment-button").click()
-    const favorLabel = page.getByText("Usar $100.00 de crédito a favor")
+    const favorLabel = page.getByText("Usar $100,00 de crédito a favor")
     await expect(favorLabel.locator("input")).toBeChecked()
 
     await page.getByTestId("split-row-0-amount").fill("50")
     await expect(page.getByTestId("split-remaining")).toHaveText(
-      "Restante: $0.00",
+      "Restante: $0,00",
     )
 
     await page.getByTestId("split-confirm").click()
@@ -1203,7 +1203,7 @@ test.describe("Sell flow", () => {
       await page.getByTestId("sale-success-numero").textContent()
     )?.trim()
     expect(numeroText).toMatch(/^\d{4}-F[ABC]-/)
-    await expect(page.getByTestId("sale-vuelto")).toHaveText("Vuelto: $500.00")
+    await expect(page.getByTestId("sale-vuelto")).toHaveText("Vuelto: $500,00")
     await expect(dialog.getByText(new RegExp(numeroText!))).toBeVisible()
   })
 

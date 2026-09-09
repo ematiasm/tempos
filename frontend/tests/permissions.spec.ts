@@ -68,4 +68,14 @@ test("restricted user keeps session and gets a filtered sidebar", async ({
   await page.goto("/catalog/products")
   await expect(page).toHaveURL(/\/catalog\/products$/)
   await expect(page.getByRole("heading", { name: "Productos" })).toBeVisible()
+
+  // Cleanup: leftover roles accumulate in the shared dev DB and bloat the
+  // Admin user dialog (its footer falls out of the viewport).
+  const users = await api
+    .get<{ id: string; email: string }>(request, "/users/?skip=0&limit=1000")
+    .then((r) => r.data)
+  for (const u of users) {
+    if (u.email === email) await api.delete(request, `/users/${u.id}`)
+  }
+  await api.delete(request, `/roles/${role.id}`)
 })

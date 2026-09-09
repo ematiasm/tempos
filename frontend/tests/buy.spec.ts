@@ -57,10 +57,10 @@ test("Buy at a new cost and apply the suggested cost change", async ({
 
   await expect(page.getByText("Sugerencias de cambio de costo")).toBeVisible()
   const suggestion = page.getByText(productName).locator("..").locator("..")
-  await expect(suggestion.getByText("$100.00 → $130.00")).toBeVisible()
+  await expect(suggestion.getByText("$100,00 → $130,00")).toBeVisible()
 
   await suggestion
-    .getByRole("button", { name: `Aplicar $${newCost.toFixed(2)}` })
+    .getByRole("button", { name: `Aplicar $${newCost.toFixed(2).replace(".", ",")}` })
     .click()
 
   await expect(page.getByText("Costo actualizado")).toBeVisible()
@@ -116,7 +116,7 @@ test("Buying from a new supplier promotes it to reference and updates the produc
   await expect(page.getByRole("heading", { name: /^\d{4}-OC-/ })).toBeVisible()
   await expect(page.getByText("Sugerencias de cambio de costo")).toBeVisible()
   await page
-    .getByRole("button", { name: `Aplicar $${newCost.toFixed(2)}` })
+    .getByRole("button", { name: `Aplicar $${newCost.toFixed(2).replace(".", ",")}` })
     .click()
   await expect(page.getByText("Costo actualizado")).toBeVisible()
 
@@ -198,13 +198,13 @@ test.describe("Buy split payment", () => {
 
     // Verify metrics
     await expect(page.getByTestId("split-covered")).toHaveText(
-      "Cubierto: $80.00",
+      "Cubierto: $80,00",
     )
     await expect(page.getByTestId("split-remaining")).toHaveText(
-      "Restante: $20.00",
+      "Restante: $20,00",
     )
 
-    // Confirm button enabled and says "Confirmar y adeudar $20.00"
+    // Confirm button enabled and says "Confirmar y adeudar $20,00"
     await expect(page.getByTestId("split-confirm")).toBeEnabled()
     await expect(page.getByTestId("split-confirm")).toHaveText(
       /Confirmar y adeudar/,

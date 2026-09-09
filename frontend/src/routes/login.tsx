@@ -24,7 +24,7 @@ import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { formatStatic, useT } from "@/i18n"
 
 const formSchema = z.object({
-  username: z.email(),
+  username: z.email({ message: "Invalid email address" }),
   password: z
     .string()
     .min(1, { message: "La contraseña es obligatoria" })
