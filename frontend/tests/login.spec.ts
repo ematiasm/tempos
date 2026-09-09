@@ -58,7 +58,9 @@ test("Log in with invalid email", async ({ page }) => {
   await fillForm(page, "invalidemail", firstSuperuserPassword)
   await page.getByRole("button", { name: "Iniciar sesión" }).click()
 
-  await expect(page.getByText("Invalid input")).toBeVisible()
+  // The client-side zod validation blocks the submit before it reaches
+  // the API, so the inline field error replaces the backend toast.
+  await expect(page.getByText("Invalid email address")).toBeVisible()
 })
 
 test("Log in with invalid password", async ({ page }) => {
