@@ -7,6 +7,7 @@ import { useT } from "@/i18n"
 import { moneyStatic } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import type { CartLine } from "./ProductSearch"
+import { clampQty, qtyStepFor } from "./useSellCart"
 
 interface CartTableProps {
   cart: CartLine[]
@@ -47,6 +48,7 @@ export function CartTable({
         </thead>
         <tbody className="divide-y">
           {cart.map((line, index) => {
+            const dp = line.product.uom?.decimal_places ?? 0
             const stock = line.variant
               ? Number(line.variant.stock_current)
               : Number(line.product.stock_current)
@@ -134,7 +136,7 @@ export function CartTable({
                       className="h-7 w-7"
                       onClick={() =>
                         onUpdateLine(index, {
-                          qty: Math.max(0.001, round2(line.qty - 1)),
+                          qty: clampQty(line.qty - qtyStepFor(dp), dp),
                         })
                       }
                     >
@@ -142,12 +144,17 @@ export function CartTable({
                     </Button>
                     <Input
                       type="number"
-                      step="0.001"
+                      step={dp > 0 ? String(1 / 10 ** dp) : "1"}
                       className="h-8 w-16 px-1 text-right"
                       value={line.qty}
                       onChange={(e) =>
                         onUpdateLine(index, {
                           qty: Number(e.target.value) || 0,
+                        })
+                      }
+                      onBlur={() =>
+                        onUpdateLine(index, {
+                          qty: clampQty(line.qty, dp),
                         })
                       }
                     />
@@ -157,7 +164,9 @@ export function CartTable({
                       size="icon"
                       className="h-7 w-7"
                       onClick={() =>
-                        onUpdateLine(index, { qty: round2(line.qty + 1) })
+                        onUpdateLine(index, {
+                          qty: clampQty(line.qty + qtyStepFor(dp), dp),
+                        })
                       }
                     >
                       <Plus className="h-3 w-3" />

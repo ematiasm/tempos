@@ -766,6 +766,8 @@ export const en: Messages = {
   "errors.variant_not_found": "Variant not found in this product",
   "errors.quantity_must_be_positive":
     "Line quantity must be positive for this operation",
+  "errors.line_qty_precision":
+    "Quantity exceeds the product unit's decimal precision",
   "errors.line_discount_exceeds": "Line discount exceeds the line amount",
   "errors.taxes_not_assigned":
     "The product does not have the requested taxes assigned",

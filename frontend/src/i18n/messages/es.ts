@@ -779,6 +779,8 @@ export const es = {
   "errors.variant_not_found": "Variante no encontrada en este producto",
   "errors.quantity_must_be_positive":
     "La cantidad de la línea debe ser positiva para esta operación",
+  "errors.line_qty_precision":
+    "La cantidad excede los decimales permitidos por la unidad del producto",
   "errors.line_discount_exceeds":
     "El descuento de línea supera el importe de la línea",
   "errors.taxes_not_assigned":
