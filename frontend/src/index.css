@@ -168,9 +168,8 @@
 [data-print-format="ticket80"] #voucher-print table {
   font-size: 11px;
 }
-[data-print-format="ticket80"] #voucher-print .voucher-totals {
-  width: 100%;
-  margin-left: 0;
+[data-print-format="ticket80"] #voucher-print .voucher-banner-total {
+  font-size: 20px;
 }
 @media print {
   [data-print-format="ticket80"] #voucher-print {

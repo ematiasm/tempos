@@ -923,6 +923,14 @@ export const BusinessSettingsPublicSchema = {
         default_print_format: {
             '$ref': '#/components/schemas/PrintFormat'
         },
+        print_margin_a4_mm: {
+            type: 'integer',
+            title: 'Print Margin A4 Mm'
+        },
+        print_margin_ticket_mm: {
+            type: 'integer',
+            title: 'Print Margin Ticket Mm'
+        },
         voucher_footer: {
             anyOf: [
                 {
@@ -993,7 +1001,7 @@ export const BusinessSettingsPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants', 'timezone', 'stock_policy', 'price_rounding', 'warn_below_cost', 'require_barcode', 'default_locale', 'default_print_format', 'sell_block_price_edit', 'sell_hide_date'],
+    required: ['id', 'business_name', 'condicion_fiscal', 'allow_negative_stock', 'enable_variants', 'timezone', 'stock_policy', 'price_rounding', 'warn_below_cost', 'require_barcode', 'default_locale', 'default_print_format', 'print_margin_a4_mm', 'print_margin_ticket_mm', 'sell_block_price_edit', 'sell_hide_date'],
     title: 'BusinessSettingsPublic'
 } as const;
 
@@ -1218,6 +1226,32 @@ export const BusinessSettingsUpdateSchema = {
                     type: 'null'
                 }
             ]
+        },
+        print_margin_a4_mm: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 50,
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Print Margin A4 Mm'
+        },
+        print_margin_ticket_mm: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 50,
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Print Margin Ticket Mm'
         },
         voucher_footer: {
             anyOf: [

@@ -12,7 +12,8 @@ import {
 } from "@/client"
 import { useBusinessSettings } from "@/components/Sell/useBusinessSettings"
 import { useT } from "@/i18n"
-import { formatDateStatic, moneyStatic } from "@/lib/format"
+import { LOCALE_TAGS } from "@/i18n/locale"
+import { formatDateStatic, getStaticLocale, moneyStatic } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 const qty = (value: string | number | null | undefined) =>
@@ -108,67 +109,87 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
   const lines = [...(document.lines ?? [])].sort((a, b) => a.orden - b.orden)
   const date = formatDateStatic(document.fecha)
 
+  const aggregatedLineTaxes = new Map<string, number>()
+  for (const line of lines) {
+    for (const tax of line.taxes ?? []) {
+      if (!tax.aplicado) continue
+      const key = taxNames.get(tax.tax_id) ?? t("voucher.tax")
+      aggregatedLineTaxes.set(
+        key,
+        (aggregatedLineTaxes.get(key) ?? 0) + Number(tax.monto),
+      )
+    }
+  }
+  const docTaxes = document.taxes ?? []
+  const timeLabel = new Intl.DateTimeFormat(LOCALE_TAGS[getStaticLocale()], {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(document.fecha))
+  const isVoided = document.estado === "voided"
+
   return (
     <div
       id="voucher-print"
       className="mx-auto max-w-[700px] bg-white text-black"
     >
-      <div className="border-b border-black pb-4 text-center">
+      {/* --- Header: logo, business name, CUIT (centered) --- */}
+      <div className="border-b-2 border-black pb-4 pt-2 text-center">
         {settings?.logo_path && (
           <img
             src={`${OpenAPI.BASE}${settings.logo_path}`}
             alt={settings.business_name}
-            className="mx-auto mb-2 max-h-20 object-contain"
+            className="mx-auto mb-3 max-h-20 object-contain"
           />
         )}
-        <h1 className="text-xl font-bold uppercase tracking-wide">
+        <h1 className="text-xl font-extrabold uppercase tracking-[0.2em]">
           {settings?.business_name ?? t("voucher.businessName")}
         </h1>
-        {settings?.cuit && <p className="text-sm">CUIT: {settings.cuit}</p>}
-        {settings?.address && <p className="text-sm">{settings.address}</p>}
-        {(settings?.phone || settings?.email) && (
-          <p className="text-sm">
-            {[settings.phone, settings.email].filter(Boolean).join(" · ")}
+        {settings?.cuit && (
+          <p className="mt-1 text-sm font-medium tracking-wider">
+            CUIT {settings.cuit}
+          </p>
+        )}
+        {(settings?.address || settings?.phone || settings?.email) && (
+          <p className="mt-1 text-xs text-black/60">
+            {[settings.address, settings.phone, settings.email]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
         )}
       </div>
 
-      <div className="flex items-start justify-between gap-4 border-b border-black py-4">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-wide">
-            {document.document_type.name}
-          </p>
-          <p className="font-mono text-2xl font-bold">{document.numero}</p>
-        </div>
-        <div className="text-right text-sm">
-          <p>
-            {t("voucher.date")}: {date}
-          </p>
-          <p>
-            {t("voucher.status")}:{" "}
-            <span className="capitalize">{document.estado}</span>
-          </p>
-          {document.parent_document_id && <p>{t("voucher.linkedDocument")}</p>}
-        </div>
+      {/* --- Document block: type · number, date · time, counterpart --- */}
+      <div className="border-b-2 border-black py-3">
+        <p className="text-base font-bold">
+          <span className="uppercase">{document.document_type.name}</span>
+          <span className="mx-1.5 text-black/50">·</span>
+          <span className="font-mono">{document.numero}</span>
+          {isVoided && (
+            <span
+              data-testid="voucher-voided"
+              className="ml-2 rounded border-2 border-black px-1.5 py-0.5 align-middle text-xs font-bold uppercase"
+            >
+              {t("voucher.voided")}
+            </span>
+          )}
+        </p>
+        <p className="mt-1 text-sm">
+          {date}
+          <span className="mx-1.5 text-black/50">·</span>
+          {timeLabel}
+        </p>
+        <p className="mt-1 text-sm font-medium">
+          {document.contraparte_name ?? t("voucher.consumidorFinal")}
+        </p>
+        {document.parent_document_id && (
+          <p className="text-xs text-black/60">{t("voucher.linkedDocument")}</p>
+        )}
       </div>
 
-      {document.contraparte_name && (
-        <div className="border-b border-black py-4 text-sm">
-          <p>
-            <span className="font-semibold">
-              {document.contraparte_type === "supplier"
-                ? t("voucher.supplier")
-                : t("voucher.customer")}
-              :
-            </span>{" "}
-            {document.contraparte_name}
-          </p>
-        </div>
-      )}
-
       {isReceipt ? (
-        <div className="border-b border-black py-3">
-          <p className="mb-2 text-sm font-semibold">
+        /* --- Receipt: allocation table (Saldo inicial / pagado / restante) --- */
+        <div className="border-b-2 border-black py-3">
+          <p className="mb-2 text-sm font-semibold uppercase tracking-wide">
             {t("voucher.allocationsTitle")}
           </p>
           <table className="w-full text-sm">
@@ -246,99 +267,124 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
           </table>
         </div>
       ) : (
-        <table className="w-full border-b border-black text-sm">
-          <thead>
-            <tr className="border-b border-black text-left">
-              <th className="py-2 pr-2 font-semibold">
-                {t("voucher.product")}
-              </th>
-              <th className="py-2 pr-2 text-right font-semibold">
-                {t("voucher.qty")}
-              </th>
-              <th className="py-2 pr-2 text-right font-semibold">
-                {t("voucher.unitPrice")}
-              </th>
-              <th className="py-2 pr-2 text-right font-semibold">
-                {t("voucher.disc")}
-              </th>
-              <th className="py-2 text-right font-semibold">
-                {t("voucher.subtotal")}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {lines.map((line) => (
-              <tr
-                key={line.id}
-                className="border-b border-dotted border-black/40"
-              >
-                <td className="py-2 pr-2">
-                  {line.product_name ?? line.product_id}
-                  {Number(line.descuento_pct) > 0 && (
-                    <span className="ml-1 text-xs">
-                      ({qty(line.descuento_pct)}%)
-                    </span>
-                  )}
-                  <div className="text-xs text-black/60">
-                    {(line.taxes ?? [])
-                      .filter((t) => t.aplicado)
-                      .map((tt) => taxNames.get(tt.tax_id) ?? t("voucher.tax"))
-                      .join(" · ")}
-                  </div>
-                </td>
-                <td className="py-2 pr-2 text-right">{qty(line.cantidad)}</td>
-                <td className="py-2 pr-2 text-right">
-                  {moneyStatic(line.precio_unit)}
-                </td>
-                <td className="py-2 pr-2 text-right">
-                  {moneyStatic(line.descuento_monto)}
-                </td>
-                <td className="py-2 text-right font-medium">
-                  {moneyStatic(line.subtotal_line)}
-                </td>
+        <>
+          {/* --- Items: PRODUCTO | CANT. × P. UNIT. | TOTAL --- */}
+          <table className="w-full border-b-2 border-black text-sm">
+            <thead>
+              <tr className="border-b-2 border-black text-left">
+                <th className="py-2 pr-2 font-bold uppercase">
+                  {t("voucher.product")}
+                </th>
+                <th className="py-2 pr-2 text-right font-bold uppercase">
+                  {t("voucher.qtyByUnit")}
+                </th>
+                <th className="py-2 text-right font-bold uppercase">
+                  {t("voucher.total")}
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {lines.map((line) => (
+                <tr key={line.id} className="align-top">
+                  <td className="py-2 pr-2">
+                    {line.product_name ?? line.product_id}
+                    {(Number(line.descuento_pct) > 0 ||
+                      (line.taxes ?? []).some((tt) => tt.aplicado)) && (
+                      <div className="text-xs text-black/60">
+                        {Number(line.descuento_pct) > 0 && (
+                          <span>
+                            {t("voucher.lineDiscount", {
+                              pct: qty(line.descuento_pct),
+                            })}
+                          </span>
+                        )}
+                        {Number(line.descuento_pct) > 0 &&
+                          (line.taxes ?? []).some((tt) => tt.aplicado) && (
+                            <span> · </span>
+                          )}
+                        {(line.taxes ?? [])
+                          .filter((tt) => tt.aplicado)
+                          .map(
+                            (tt) => taxNames.get(tt.tax_id) ?? t("voucher.tax"),
+                          )
+                          .join(" · ")}
+                      </div>
+                    )}
+                  </td>
+                  <td className="py-2 pr-2 text-right">
+                    {qty(line.cantidad)}
+                    <span className="mx-1 text-black/50">×</span>
+                    {moneyStatic(line.precio_unit)}
+                  </td>
+                  <td className="py-2 text-right font-medium">
+                    {moneyStatic(line.subtotal_line)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-      {(document.taxes ?? []).length > 0 && (
-        <div className="border-b border-black py-3 text-sm">
-          {document.taxes?.map((tax) => (
-            <div key={tax.id} className="flex justify-between py-0.5">
-              <span>
-                {taxNames.get(tax.tax_id) ?? t("voucher.tax")}
-                <span className="text-black/60">
-                  {" "}
-                  ({t("voucher.base", { base: moneyStatic(tax.base) })})
-                </span>
-              </span>
-              <span>{moneyStatic(tax.monto)}</span>
+          {/* --- Pre-total summary (small; the banner carries the total) --- */}
+          {(Number(document.descuento_total) > 0 || docTaxes.length > 0) && (
+            <div className="flex flex-col items-end gap-0.5 pt-3 text-sm">
+              <div className="flex w-56 justify-between">
+                <span>{t("voucher.subtotal")}</span>
+                <span>{moneyStatic(document.subtotal)}</span>
+              </div>
+              {Number(document.descuento_total) > 0 && (
+                <div className="flex w-56 justify-between">
+                  <span>{t("voucher.discount")}</span>
+                  <span>-{moneyStatic(document.descuento_total)}</span>
+                </div>
+              )}
+              {docTaxes.map((tax) => (
+                <div key={tax.id} className="flex w-56 justify-between">
+                  <span>{taxNames.get(tax.tax_id) ?? t("voucher.tax")}</span>
+                  <span>{moneyStatic(tax.monto)}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+
+          {/* --- Total banner (inverted) --- */}
+          <div className="mt-3 flex items-center justify-between bg-black px-4 py-2.5 text-white">
+            <span className="text-sm font-bold uppercase tracking-widest">
+              {t("voucher.totalPayable")}
+            </span>
+            <span className="voucher-banner-total font-mono text-2xl font-bold">
+              {moneyStatic(document.total)}
+            </span>
+          </div>
+
+          {/* --- Tax breakdown box (informational; IVA travels inside prices) --- */}
+          {(aggregatedLineTaxes.size > 0 || docTaxes.length > 0) && (
+            <div className="mt-3 border border-black px-3 py-2 text-sm">
+              <p className="mb-1 text-center text-xs font-bold uppercase tracking-wider">
+                {t("voucher.taxBreakdown")}
+              </p>
+              {[...aggregatedLineTaxes.entries()].map(([name, monto]) => (
+                <div key={name} className="flex justify-between py-0.5">
+                  <span>{name}</span>
+                  <span>{moneyStatic(monto)}</span>
+                </div>
+              ))}
+              {docTaxes.map((tax) => (
+                <div key={tax.id} className="flex justify-between py-0.5">
+                  <span>{taxNames.get(tax.tax_id) ?? t("voucher.tax")}</span>
+                  <span>{moneyStatic(tax.monto)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
-      <div className="voucher-totals ml-auto flex w-64 flex-col gap-1 py-4 text-sm">
-        <div className="flex justify-between">
-          <span>{t("voucher.subtotal")}</span>
-          <span>{moneyStatic(document.subtotal)}</span>
-        </div>
-        {Number(document.descuento_total) > 0 && (
-          <div className="flex justify-between">
-            <span>{t("voucher.discount")}</span>
-            <span>-{moneyStatic(document.descuento_total)}</span>
-          </div>
-        )}
-        <div className="flex justify-between border-t border-black pt-1 text-base font-bold">
-          <span>{t("voucher.total")}</span>
-          <span>{moneyStatic(document.total)}</span>
-        </div>
-      </div>
-
+      {/* --- Payments at issue --- */}
       {paidRows.length > 0 && (
-        <div className="border-t border-black py-3 text-sm">
-          <p className="mb-1 font-semibold">{t("voucher.payments")}</p>
+        <div className="border-b-2 border-black py-3 text-sm">
+          <p className="mb-1 font-semibold uppercase tracking-wide">
+            {t("voucher.payments")}
+          </p>
           {paidRows.map((payment) => (
             <div key={payment.id} className="flex justify-between py-0.5">
               <span>
@@ -351,16 +397,18 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
         </div>
       )}
 
+      {/* --- Balance pending --- */}
       {incoming.length === 0 && isDebtDocument && saldoPendiente > 0 && (
-        <div className="flex justify-between border-t border-black py-3 text-sm font-semibold">
+        <div className="flex justify-between border-b-2 border-black py-3 text-sm font-semibold">
           <span>{t("voucher.balancePending")}</span>
           <span>{moneyStatic(saldoPendiente)}</span>
         </div>
       )}
 
+      {/* --- Receipts applied after issue --- */}
       {incoming.length > 0 && (
-        <div className="border-t border-black py-3">
-          <p className="mb-2 text-sm font-semibold">
+        <div className="border-b-2 border-black py-3">
+          <p className="mb-2 text-sm font-semibold uppercase tracking-wide">
             {t("voucher.receiptsTitle")}
           </p>
           <table className="w-full text-sm">
@@ -438,14 +486,15 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
       )}
 
       {Number(document.favor_monto) > 0 && (
-        <div className="flex justify-between py-0.5 text-sm">
+        <div className="flex justify-between border-b-2 border-black py-2 text-sm">
           <span>{t("voucher.favorApplied")}</span>
           <span>{moneyStatic(Number(document.favor_monto))}</span>
         </div>
       )}
 
+      {/* --- Notes --- */}
       {document.notes && (
-        <div className="border-t border-black py-3 text-sm">
+        <div className="border-b border-dotted border-black/40 py-3 text-sm">
           <p className="mb-1 font-semibold">{t("voucher.notes")}</p>
           <p data-testid="voucher-notes" className="whitespace-pre-line">
             {document.notes}
@@ -453,27 +502,24 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
         </div>
       )}
 
-      {(settings?.voucher_footer || settings?.voucher_legends) && (
-        <div className="border-t border-black pt-3 text-center text-xs">
-          {settings?.voucher_footer && (
-            <p data-testid="voucher-footer" className="whitespace-pre-line">
-              {settings.voucher_footer}
-            </p>
-          )}
-          {settings?.voucher_legends && (
-            <div
-              data-testid="voucher-legends"
-              className="whitespace-pre-line text-black/60"
-            >
-              {settings.voucher_legends}
-            </div>
-          )}
-        </div>
-      )}
-
-      <p className="pt-8 text-center text-xs text-black/50">
-        {t("voucher.nonElectronic")} — tempos
-      </p>
+      {/* --- Footer: configured footer + legends + tagline --- */}
+      <div className="pt-3 text-center text-xs">
+        {settings?.voucher_footer && (
+          <p data-testid="voucher-footer" className="whitespace-pre-line">
+            {settings.voucher_footer}
+          </p>
+        )}
+        {settings?.voucher_legends && (
+          <div
+            data-testid="voucher-legends"
+            className="whitespace-pre-line text-black/60"
+          >
+            {settings.voucher_legends}
+          </div>
+        )}
+        <p className="pt-3 text-black/50">{t("voucher.nonElectronic")}</p>
+        <p className="font-semibold tracking-wide">tempos</p>
+      </div>
     </div>
   )
 }
@@ -507,10 +553,12 @@ export function PrintVoucherDialog({
 
   if (!open) return null
 
+  // Page margins come from the Admin > Printing settings (uniform, mm);
+  // the defaults mirror the previous hardcoded values.
   const atPage =
     format === "ticket80"
-      ? "size: 80mm auto; margin: 4mm 3mm"
-      : "size: A4; margin: 12mm"
+      ? `size: 80mm auto; margin: ${settings?.print_margin_ticket_mm ?? 4}mm`
+      : `size: A4; margin: ${settings?.print_margin_a4_mm ?? 12}mm`
 
   return (
     <div

@@ -12,6 +12,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import {
   Select,
@@ -47,6 +48,16 @@ function PrintingSettings() {
     voucher_legends: z
       .string()
       .max(500, { message: t("admin.printing.legendsTooLong") }),
+    print_margin_a4_mm: z
+      .number()
+      .int({ message: t("admin.printing.marginInteger") })
+      .min(0, { message: t("admin.printing.marginRange") })
+      .max(50, { message: t("admin.printing.marginRange") }),
+    print_margin_ticket_mm: z
+      .number()
+      .int({ message: t("admin.printing.marginInteger") })
+      .min(0, { message: t("admin.printing.marginRange") })
+      .max(50, { message: t("admin.printing.marginRange") }),
   })
 
   type FormData = z.infer<typeof formSchema>
@@ -57,12 +68,16 @@ function PrintingSettings() {
       default_print_format: settings?.default_print_format ?? "a4",
       voucher_footer: settings?.voucher_footer ?? "",
       voucher_legends: settings?.voucher_legends ?? "",
+      print_margin_a4_mm: settings?.print_margin_a4_mm ?? 12,
+      print_margin_ticket_mm: settings?.print_margin_ticket_mm ?? 4,
     },
     values: settings
       ? {
           default_print_format: settings.default_print_format,
           voucher_footer: settings.voucher_footer ?? "",
           voucher_legends: settings.voucher_legends ?? "",
+          print_margin_a4_mm: settings.print_margin_a4_mm,
+          print_margin_ticket_mm: settings.print_margin_ticket_mm,
         }
       : undefined,
   })
@@ -74,6 +89,8 @@ function PrintingSettings() {
           default_print_format: data.default_print_format as PrintFormat,
           voucher_footer: data.voucher_footer.trim() || null,
           voucher_legends: data.voucher_legends.trim() || null,
+          print_margin_a4_mm: data.print_margin_a4_mm,
+          print_margin_ticket_mm: data.print_margin_ticket_mm,
         },
       }),
     onSuccess: () => {
@@ -128,6 +145,53 @@ function PrintingSettings() {
               </FormItem>
             )}
           />
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="print_margin_a4_mm"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("admin.printing.marginA4")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      data-testid="printing-margin-a4"
+                      type="number"
+                      min={0}
+                      max={50}
+                      {...field}
+                      onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                    />
+                  </FormControl>
+                  <p className="text-sm text-muted-foreground">
+                    {t("admin.printing.marginHint")}
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="print_margin_ticket_mm"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("admin.printing.marginTicket")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      data-testid="printing-margin-ticket"
+                      type="number"
+                      min={0}
+                      max={50}
+                      {...field}
+                      onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
           <FormField
             control={form.control}
