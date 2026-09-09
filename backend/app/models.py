@@ -212,6 +212,9 @@ class BusinessSettingsUpdate(SQLModel):
     default_uom_id: uuid.UUID | None = None
     default_locale: LocalePreference | None = None
     default_print_format: PrintFormat | None = None
+    # Page margins (mm) for the voucher print profiles (uniform, 4 sides).
+    print_margin_a4_mm: int | None = Field(default=None, ge=0, le=50)
+    print_margin_ticket_mm: int | None = Field(default=None, ge=0, le=50)
     voucher_footer: str | None = Field(default=None, max_length=255)
     voucher_legends: str | None = Field(default=None, max_length=500)
     # Sell-screen configuration (see BusinessSettings for semantics).
@@ -811,6 +814,9 @@ class BusinessSettings(SQLModel, table=True):
     default_locale: LocalePreference = Field(default=LocalePreference.EN, max_length=5)
     # Voucher print profile preselected by the print dialog (A4 or 80mm).
     default_print_format: PrintFormat = Field(default=PrintFormat.A4, max_length=10)
+    # Page margins (mm) for the voucher print profiles (uniform, 4 sides).
+    print_margin_a4_mm: int = Field(default=12, ge=0, le=50)
+    print_margin_ticket_mm: int = Field(default=4, ge=0, le=50)
     # Footer text printed under the voucher totals; NULL renders nothing.
     voucher_footer: str | None = Field(default=None, max_length=255)
     # Extra legends (newline-separated) printed under the footer; NULL
@@ -1504,6 +1510,8 @@ class BusinessSettingsPublic(SQLModel):
     default_uom_id: uuid.UUID | None = None
     default_locale: LocalePreference
     default_print_format: PrintFormat
+    print_margin_a4_mm: int
+    print_margin_ticket_mm: int
     voucher_footer: str | None = None
     voucher_legends: str | None = None
     # Sell-screen configuration (see BusinessSettings for semantics).
