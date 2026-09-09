@@ -1,7 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { CheckCircle2, Mail, Printer } from "lucide-react"
 import { useEffect, useState } from "react"
-
 import type { DocumentPublic } from "@/client"
 import { DocumentsService, PaymentMethodsService } from "@/client"
 import { PrintVoucherDialog } from "@/components/Documents/VoucherPrint"
@@ -10,8 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
-import { useLocale, useT } from "@/i18n"
-import { money } from "@/lib/format"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import { hasPermission } from "@/lib/permissions"
 import { handleError } from "@/utils"
 
@@ -36,7 +35,6 @@ export function PostSaleDialog({
   onNewSale,
 }: PostSaleDialogProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const { user } = useAuth()
 
@@ -172,13 +170,13 @@ export function PostSaleDialog({
         </h2>
         <p className="text-muted-foreground">
           {t("sell.totaling", {
-            total: money(Number(doc.total), numberFormat),
+            total: moneyStatic(Number(doc.total)),
             customer: doc.contraparte_name ?? "",
           })}
         </p>
         {vuelto > 0 && (
           <p className="font-medium text-emerald-600" data-testid="sale-vuelto">
-            {t("sell.changeDue", { change: money(vuelto, numberFormat) })}
+            {t("sell.changeDue", { change: moneyStatic(vuelto) })}
           </p>
         )}
       </div>
@@ -197,7 +195,7 @@ export function PostSaleDialog({
                 {methodNames.get(payment.payment_method_id) ??
                   payment.payment_method_id}
               </span>
-              <span>{money(Number(payment.monto), numberFormat)}</span>
+              <span>{moneyStatic(Number(payment.monto))}</span>
             </div>
           ))}
         </div>
@@ -209,7 +207,7 @@ export function PostSaleDialog({
             <span className="text-muted-foreground">
               {t("voucher.balancePending")}
             </span>
-            <span>{money(pendingAmount, numberFormat)}</span>
+            <span>{moneyStatic(pendingAmount)}</span>
           </div>
         </div>
       )}

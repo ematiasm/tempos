@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Check, Plus, Star, Trash2 } from "lucide-react"
 import { useState } from "react"
-
 import type { SupplierProductPublic } from "@/client"
 import { SupplierProductsService, SuppliersService } from "@/client"
 import { Badge } from "@/components/ui/badge"
@@ -18,6 +17,7 @@ import {
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useT } from "@/i18n"
+import { formatDateStatic } from "@/lib/format"
 import { handleError } from "@/utils"
 
 interface SupplierCostsTabProps {
@@ -253,9 +253,7 @@ const SupplierCostsTab = ({
                     {pair.fecha_actualizacion && (
                       <span className="text-xs text-muted-foreground">
                         {t("products.updatedAt", {
-                          date: new Date(
-                            pair.fecha_actualizacion,
-                          ).toLocaleDateString(),
+                          date: formatDateStatic(pair.fecha_actualizacion),
                         })}
                       </span>
                     )}

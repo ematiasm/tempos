@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react"
-
 import type { ProductPublic, ProductVariantPublic } from "@/client"
 import { Button } from "@/components/ui/button"
 import {
@@ -11,8 +10,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { useLocale, useT } from "@/i18n"
-import { money } from "@/lib/format"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 
 interface QuantityModalProps {
   open: boolean
@@ -45,7 +44,6 @@ export function QuantityModal({
   onOpenChange,
 }: QuantityModalProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const [raw, setRaw] = useState("")
   const [error, setError] = useState<string | null>(null)
 
@@ -95,7 +93,7 @@ export function QuantityModal({
             <DialogDescription>
               {t("sell.qtyModal.hint", {
                 uom: uomName,
-                price: money(Number(product.precio_venta), numberFormat),
+                price: moneyStatic(Number(product.precio_venta)),
               })}
             </DialogDescription>
           </DialogHeader>

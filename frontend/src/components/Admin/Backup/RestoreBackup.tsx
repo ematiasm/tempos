@@ -1,11 +1,11 @@
 import { FileUp, Loader2 } from "lucide-react"
 import { type ChangeEvent, useRef, useState } from "react"
-
 import type { RestoreStatusPublic } from "@/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
-import { useLocale, useT } from "@/i18n"
+import { useT } from "@/i18n"
+import { formatDateTimeStatic } from "@/lib/format"
 
 interface RestoreBackupProps {
   restoreStatus?: RestoreStatusPublic
@@ -29,7 +29,6 @@ function RestoreBackup({
   onRestore,
 }: RestoreBackupProps) {
   const t = useT()
-  const { locale } = useLocale()
   const [file, setFile] = useState<File | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -91,7 +90,7 @@ function RestoreBackup({
           </span>
           {restoreStatus?.finished_at && (
             <span className="ml-2 text-green-600/70">
-              {new Date(restoreStatus.finished_at).toLocaleString(locale)}
+              {formatDateTimeStatic(restoreStatus.finished_at)}
             </span>
           )}
         </div>

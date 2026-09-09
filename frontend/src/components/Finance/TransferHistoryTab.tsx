@@ -5,7 +5,7 @@ import type { TransferPublic } from "@/client"
 import { FinancialAccountsService, TransfersService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
 import { ReportDateRange } from "@/components/Reports/ReportDateRange"
-import { type DateRangeValue, money } from "@/components/Reports/reportFormat"
+import type { DateRangeValue } from "@/components/Reports/reportFormat"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import {
@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
-import { useLocale, useT } from "@/i18n"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import { hasPermission } from "@/lib/permissions"
 
 interface TransferHistoryTabProps {
@@ -30,7 +31,6 @@ export function TransferHistoryTab({
   onAccountIdChange,
 }: TransferHistoryTabProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { user } = useAuth()
   // Both endpoints (financial accounts and transfers) require finance.read;
   // without it the queries do not fire and the tab renders its empty state.
@@ -89,7 +89,7 @@ export function TransferHistoryTab({
       header: t("common.amount"),
       cell: ({ row }) => (
         <span className="font-mono font-medium">
-          {money(row.original.monto, numberFormat)}
+          {moneyStatic(row.original.monto)}
         </span>
       ),
     },

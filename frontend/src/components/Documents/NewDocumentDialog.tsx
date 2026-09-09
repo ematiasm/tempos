@@ -9,7 +9,6 @@ import {
   Trash2,
 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
-
 import type {
   CostChangeSuggestion,
   DocumentPublic,
@@ -57,6 +56,7 @@ import {
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import { handleError } from "@/utils"
 
 interface NewDocumentDialogProps {
@@ -68,7 +68,6 @@ interface NewDocumentDialogProps {
 const EXCLUDED_PREFIXES = new Set(["NCV", "NCC", "RC", "RP"])
 
 const round2 = (n: number) => Math.round(n * 100) / 100
-const money = (n: number) => `$${n.toFixed(2)}`
 
 const INITIAL_STATE = {
   typeId: null as string | null,
@@ -457,7 +456,7 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
                 <h3 className="text-lg font-semibold">{created.numero}</h3>
                 <p className="text-muted-foreground">
                   {t("documents.totaling", {
-                    total: money(Number(created.total)),
+                    total: moneyStatic(Number(created.total)),
                     counterpart: created.contraparte_name ?? "",
                   })}
                 </p>
@@ -499,7 +498,7 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
                           <span className="ml-2 text-muted-foreground">
                             {s.previous_cost == null
                               ? t("buy.noPreviousCost")
-                              : `${money(Number(s.previous_cost))} → ${money(Number(s.suggested_cost))}`}
+                              : `${moneyStatic(Number(s.previous_cost))} → ${moneyStatic(Number(s.suggested_cost))}`}
                           </span>
                           {s.is_reference && (
                             <span className="ml-2 text-xs text-muted-foreground">
@@ -521,7 +520,7 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
                           {already
                             ? t("buy.applied")
                             : t("buy.apply", {
-                                cost: money(Number(s.suggested_cost)),
+                                cost: moneyStatic(Number(s.suggested_cost)),
                               })}
                         </LoadingButton>
                       </li>
@@ -581,7 +580,9 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
                       {isCustomerOp && selectedCustomer && (
                         <p className="mt-1 text-xs text-muted-foreground">
                           {t("sell.balance", {
-                            balance: money(Number(selectedCustomer.saldo)),
+                            balance: moneyStatic(
+                              Number(selectedCustomer.saldo),
+                            ),
                           })}
                         </p>
                       )}
@@ -759,7 +760,7 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
                                 )}
                                 {!isAdjustment && (
                                   <td className="px-3 py-2 text-right font-medium">
-                                    {money(lineTotal)}
+                                    {moneyStatic(lineTotal)}
                                   </td>
                                 )}
                                 <td className="px-2 py-2">
@@ -787,14 +788,14 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
                     <span className="text-muted-foreground">
                       {t("sell.subtotal")}
                     </span>
-                    <span>{money(subtotal)}</span>
+                    <span>{moneyStatic(subtotal)}</span>
                   </div>
                   {!isAdjustment && discountTotal > 0 && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
                         {t("sell.discount")}
                       </span>
-                      <span>-{money(discountTotal)}</span>
+                      <span>-{moneyStatic(discountTotal)}</span>
                     </div>
                   )}
                   {!isAdjustment && perceptions > 0 && (
@@ -802,19 +803,19 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
                       <span className="text-muted-foreground">
                         {t("sell.perceptions")}
                       </span>
-                      <span>{money(perceptions)}</span>
+                      <span>{moneyStatic(perceptions)}</span>
                     </div>
                   )}
                   <div className="flex justify-between border-t font-semibold">
                     <span>{t("sell.total")}</span>
-                    <span>{money(total)}</span>
+                    <span>{moneyStatic(total)}</span>
                   </div>
                   {appliedFavor > 0 && (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">
                         {t("sell.creditInFavor")}
                       </span>
-                      <span>-{money(appliedFavor)}</span>
+                      <span>-{moneyStatic(appliedFavor)}</span>
                     </div>
                   )}
                 </div>
@@ -868,10 +869,10 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
                             <p className="text-xs text-muted-foreground">
                               {isSupplierOp
                                 ? t("buy.onCreditHint", {
-                                    amount: money(total),
+                                    amount: moneyStatic(total),
                                   })
                                 : t("sell.onCreditHint", {
-                                    amount: money(total),
+                                    amount: moneyStatic(total),
                                   })}
                             </p>
                           </div>
@@ -895,17 +896,21 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
                               <p className="mt-1 text-xs text-muted-foreground">
                                 {isSupplierOp
                                   ? t("buy.onSupplierBalance", {
-                                      amount: money(round2(total - amount)),
+                                      amount: moneyStatic(
+                                        round2(total - amount),
+                                      ),
                                     })
                                   : t("sell.goOnBalance", {
-                                      amount: money(round2(total - amount)),
+                                      amount: moneyStatic(
+                                        round2(total - amount),
+                                      ),
                                     })}
                               </p>
                             )}
                             {cashChange > 0 && (
                               <p className="mt-1 text-xs text-emerald-600">
                                 {t("sell.changeDue", {
-                                  change: money(cashChange),
+                                  change: moneyStatic(cashChange),
                                 })}
                               </p>
                             )}

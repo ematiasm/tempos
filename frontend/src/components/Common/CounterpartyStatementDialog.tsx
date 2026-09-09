@@ -1,7 +1,6 @@
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query"
 import { ChevronDown, Mail, Printer } from "lucide-react"
 import { type FormEvent, Fragment, useEffect, useState } from "react"
-
 import {
   type CounterpartStatementPublic,
   type CustomerPublic,
@@ -12,7 +11,7 @@ import {
   type SupplierPublic,
   SuppliersService,
 } from "@/client"
-import { money, qty } from "@/components/Reports/reportFormat"
+import { qty } from "@/components/Reports/reportFormat"
 import { useBusinessSettings } from "@/components/Sell/useBusinessSettings"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -27,8 +26,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import useCustomToast from "@/hooks/useCustomToast"
-import { useLocale, useT } from "@/i18n"
-import type { NumberFormat } from "@/lib/format"
+import { useT } from "@/i18n"
+import {
+  formatDateStatic,
+  formatDateTimeStatic,
+  moneyStatic,
+} from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 
@@ -47,26 +50,11 @@ const firstDayOfMonthISO = () => {
   return toISODate(new Date(now.getFullYear(), now.getMonth(), 1))
 }
 
-/** Plain dates (yyyy-mm-dd) are formatted as-is to avoid day drift; datetimes go through Date. */
-const formatDate = (value: string) => {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const [year, month, day] = value.split("-")
-    return `${day}/${month}/${year}`
-  }
-  return new Date(value).toLocaleDateString("es-AR")
-}
-
-const formatDateTime = (value: string) =>
-  new Date(value).toLocaleString("es-AR")
-
 /** Credit-note amounts reduce the balance: render them with a minus sign. */
-const negMoney = (
-  value: string | number | null | undefined,
-  format: NumberFormat,
-) =>
+const negMoney = (value: string | number | null | undefined): string =>
   value == null || value === "" || Number(value) === 0
-    ? money(value, format)
-    : `-${money(value, format)}`
+    ? moneyStatic(value)
+    : `-${moneyStatic(value)}`
 
 function useCounterpartyStatement(
   counterpartId: string,
@@ -103,19 +91,17 @@ function useCounterpartyStatement(
 function StatementStat({
   label,
   value,
-  numberFormat,
   negative = false,
 }: {
   label: string
   value: string
-  numberFormat: NumberFormat
   negative?: boolean
 }) {
   return (
     <div className="rounded-lg border p-3">
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className="mt-0.5 block font-mono text-sm font-medium">
-        {negative ? negMoney(value, numberFormat) : money(value, numberFormat)}
+        {negative ? negMoney(value) : moneyStatic(value)}
       </span>
     </div>
   )
@@ -126,13 +112,11 @@ function StatementDocumentRow({
   expanded,
   onToggle,
   t,
-  numberFormat,
 }: {
   doc: StatementDocumentPublic
   expanded: boolean
   onToggle: () => void
   t: ReturnType<typeof useT>
-  numberFormat: NumberFormat
 }) {
   const lines = doc.lines ?? []
   return (
@@ -146,20 +130,18 @@ function StatementDocumentRow({
         <div className="flex flex-col gap-0.5">
           <span className="font-mono text-sm">{doc.numero}</span>
           <span className="text-xs text-muted-foreground">
-            {formatDate(doc.fecha)} · {doc.type_name}
+            {formatDateStatic(doc.fecha)} · {doc.type_name}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-28 text-right font-mono text-sm text-muted-foreground">
-            {doc.kind === "nota" ? "—" : money(doc.pagado, numberFormat)}
+            {doc.kind === "nota" ? "—" : moneyStatic(doc.pagado)}
           </span>
           <span className="w-28 text-right font-mono text-sm text-muted-foreground">
-            {doc.kind === "nota" ? "—" : money(doc.pendiente, numberFormat)}
+            {doc.kind === "nota" ? "—" : moneyStatic(doc.pendiente)}
           </span>
           <span className="w-28 text-right font-mono text-sm font-medium">
-            {doc.kind === "nota"
-              ? negMoney(doc.total, numberFormat)
-              : money(doc.total, numberFormat)}
+            {doc.kind === "nota" ? negMoney(doc.total) : moneyStatic(doc.total)}
           </span>
           <ChevronDown
             className={cn(
@@ -198,12 +180,12 @@ function StatementDocumentRow({
                   {qty(line.cantidad)}
                 </td>
                 <td className="px-3 py-1.5 text-right font-mono">
-                  {money(line.precio_unit, numberFormat)}
+                  {moneyStatic(line.precio_unit)}
                 </td>
                 <td className="px-3 py-1.5 text-right font-mono">
                   {doc.kind === "nota"
-                    ? negMoney(line.subtotal_line, numberFormat)
-                    : money(line.subtotal_line, numberFormat)}
+                    ? negMoney(line.subtotal_line)
+                    : moneyStatic(line.subtotal_line)}
                 </td>
               </tr>
             ))}
@@ -259,7 +241,6 @@ function StatementPrintContent({
   type: StatementCounterpartType
 }) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { settings } = useBusinessSettings()
   const isCustomer = type === "customer"
   const totals = statement.totals
@@ -273,8 +254,8 @@ function StatementPrintContent({
   const mainTotal = isCustomer ? totals.total_ventas : totals.total_compras
   const periodText =
     statement.date_from || statement.date_to
-      ? `${statement.date_from ? formatDate(statement.date_from) : "—"} — ${
-          statement.date_to ? formatDate(statement.date_to) : "—"
+      ? `${statement.date_from ? formatDateStatic(statement.date_from) : "—"} — ${
+          statement.date_to ? formatDateStatic(statement.date_to) : "—"
         }`
       : t("counterparty.statement.fullHistory")
 
@@ -340,7 +321,7 @@ function StatementPrintContent({
           </p>
           <p>
             {t("counterparty.statement.generatedAt", {
-              date: formatDateTime(statement.generated_at),
+              date: formatDateTimeStatic(statement.generated_at),
             })}
           </p>
         </div>
@@ -349,19 +330,19 @@ function StatementPrintContent({
       <div className="ml-auto flex w-64 flex-col gap-1 border-b border-black py-4 text-sm">
         <div className="flex justify-between">
           <span>{mainTotalLabel}</span>
-          <span>{money(mainTotal, numberFormat)}</span>
+          <span>{moneyStatic(mainTotal)}</span>
         </div>
         <div className="flex justify-between">
           <span>{t("counterparty.statement.notes")}</span>
-          <span>{negMoney(totals.total_notas, numberFormat)}</span>
+          <span>{negMoney(totals.total_notas)}</span>
         </div>
         <div className="flex justify-between">
           <span>{t("counterparty.statement.payments")}</span>
-          <span>{money(totals.total_pagos, numberFormat)}</span>
+          <span>{moneyStatic(totals.total_pagos)}</span>
         </div>
         <div className="flex justify-between border-t border-black pt-1 text-base font-bold">
           <span>{t("counterparty.statement.currentBalance")}</span>
-          <span>{money(totals.saldo_actual, numberFormat)}</span>
+          <span>{moneyStatic(totals.saldo_actual)}</span>
         </div>
       </div>
 
@@ -402,22 +383,18 @@ function StatementPrintContent({
                 <Fragment key={doc.id}>
                   <tr className="border-b border-black font-semibold">
                     <td className="py-2 pr-2 font-mono">{doc.numero}</td>
-                    <td className="py-2 pr-2">{formatDate(doc.fecha)}</td>
+                    <td className="py-2 pr-2">{formatDateStatic(doc.fecha)}</td>
                     <td className="py-2 pr-2">{doc.type_name}</td>
                     <td className="py-2 text-right">
-                      {doc.kind === "nota"
-                        ? "—"
-                        : money(doc.pagado, numberFormat)}
+                      {doc.kind === "nota" ? "—" : moneyStatic(doc.pagado)}
+                    </td>
+                    <td className="py-2 text-right">
+                      {doc.kind === "nota" ? "—" : moneyStatic(doc.pendiente)}
                     </td>
                     <td className="py-2 text-right">
                       {doc.kind === "nota"
-                        ? "—"
-                        : money(doc.pendiente, numberFormat)}
-                    </td>
-                    <td className="py-2 text-right">
-                      {doc.kind === "nota"
-                        ? negMoney(doc.total, numberFormat)
-                        : money(doc.total, numberFormat)}
+                        ? negMoney(doc.total)
+                        : moneyStatic(doc.total)}
                     </td>
                   </tr>
                   {(doc.lines ?? []).map((line, index) => (
@@ -427,12 +404,12 @@ function StatementPrintContent({
                     >
                       <td className="py-1 pr-2 pl-5" colSpan={5}>
                         {line.product_name ?? "—"} · {qty(line.cantidad)} ×{" "}
-                        {money(line.precio_unit, numberFormat)}
+                        {moneyStatic(line.precio_unit)}
                       </td>
                       <td className="py-1 text-right">
                         {doc.kind === "nota"
-                          ? negMoney(line.subtotal_line, numberFormat)
-                          : money(line.subtotal_line, numberFormat)}
+                          ? negMoney(line.subtotal_line)
+                          : moneyStatic(line.subtotal_line)}
                       </td>
                     </tr>
                   ))}
@@ -476,12 +453,14 @@ function StatementPrintContent({
                   className="border-b border-dotted border-black/40"
                 >
                   <td className="py-2 pr-2 font-mono">{receipt.numero}</td>
-                  <td className="py-2 pr-2">{formatDate(receipt.fecha)}</td>
+                  <td className="py-2 pr-2">
+                    {formatDateStatic(receipt.fecha)}
+                  </td>
                   <td className="py-2 pr-2">
                     {(receipt.payment_method_names ?? []).join(" · ") || "—"}
                   </td>
                   <td className="py-2 text-right">
-                    {money(receipt.total, numberFormat)}
+                    {moneyStatic(receipt.total)}
                   </td>
                 </tr>
               ))}
@@ -509,7 +488,6 @@ export function CounterpartyStatementDialog({
   onOpenChange,
 }: CounterpartyStatementDialogProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
   const [dateFrom, setDateFrom] = useState(firstDayOfMonthISO)
@@ -667,27 +645,21 @@ export function CounterpartyStatementDialog({
                       saldo < 0 && "text-green-600",
                     )}
                   >
-                    {money(totals.saldo_actual, numberFormat)}
+                    {moneyStatic(totals.saldo_actual)}
                   </span>
                 </CardContent>
               </Card>
 
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                <StatementStat
-                  label={mainTotalLabel}
-                  value={mainTotal}
-                  numberFormat={numberFormat}
-                />
+                <StatementStat label={mainTotalLabel} value={mainTotal} />
                 <StatementStat
                   label={t("counterparty.statement.notes")}
                   value={totals.total_notas}
-                  numberFormat={numberFormat}
                   negative
                 />
                 <StatementStat
                   label={t("counterparty.statement.payments")}
                   value={totals.total_pagos}
-                  numberFormat={numberFormat}
                 />
               </div>
 
@@ -723,7 +695,6 @@ export function CounterpartyStatementDialog({
                         expanded={expanded.has(doc.id)}
                         onToggle={() => toggleDocument(doc.id)}
                         t={t}
-                        numberFormat={numberFormat}
                       />
                     ))}
                   </div>
@@ -750,13 +721,13 @@ export function CounterpartyStatementDialog({
                             {receipt.numero}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {formatDate(receipt.fecha)}
+                            {formatDateStatic(receipt.fecha)}
                             {(receipt.payment_method_names ?? []).length > 0 &&
                               ` · ${(receipt.payment_method_names ?? []).join(" · ")}`}
                           </span>
                         </div>
                         <span className="font-mono text-sm font-medium">
-                          {money(receipt.total, numberFormat)}
+                          {moneyStatic(receipt.total)}
                         </span>
                       </li>
                     ))}

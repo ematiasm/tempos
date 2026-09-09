@@ -1,5 +1,5 @@
-import { useLocale, useT } from "@/i18n"
-import { money } from "@/lib/format"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 interface PriceChainPreviewProps {
@@ -23,7 +23,6 @@ const PriceChainPreview = ({
   className,
 }: PriceChainPreviewProps) => {
   const t = useT()
-  const { numberFormat } = useLocale()
 
   const items = [
     { label: t("products.cost"), value: costoActual },
@@ -46,7 +45,7 @@ const PriceChainPreview = ({
                 item.strong && "text-base text-primary",
               )}
             >
-              {money(item.value, numberFormat)}
+              {moneyStatic(item.value)}
             </span>
           </div>
         ))}

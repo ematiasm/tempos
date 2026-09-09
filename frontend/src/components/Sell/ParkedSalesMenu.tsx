@@ -1,6 +1,5 @@
 import { Archive, Save } from "lucide-react"
 import { useState } from "react"
-
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -16,8 +15,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { useLocale, useT } from "@/i18n"
-import { formatMoney } from "@/lib/format"
+import { useT } from "@/i18n"
+import { formatDateTimeStatic, formatMoneyStatic } from "@/lib/format"
 import type { ParkedSale } from "./parkedSales"
 import { computeTotals } from "./useSellCart"
 
@@ -44,7 +43,6 @@ export function ParkedSalesMenu({
   onDiscard,
 }: ParkedSalesMenuProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const [open, setOpen] = useState(false)
   const [pendingDiscard, setPendingDiscard] = useState<ParkedSale | null>(null)
 
@@ -126,10 +124,10 @@ export function ParkedSalesMenu({
                           count: entry.snapshot.cart.length,
                         })}
                         {" · "}
-                        {`$${formatMoney(total, numberFormat)}`}
+                        {`$${formatMoneyStatic(total)}`}
                         {" · "}
                         {t("sell.parked.parkedAt", {
-                          time: new Date(entry.parkedAt).toLocaleString(),
+                          time: formatDateTimeStatic(entry.parkedAt),
                         })}
                       </span>
                     </button>

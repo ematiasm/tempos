@@ -17,7 +17,6 @@ import { ReportDateRange } from "@/components/Reports/ReportDateRange"
 import { ReportPrintDialog } from "@/components/Reports/ReportPrintDialog"
 import {
   type DateRangeValue,
-  money,
   pct,
   qty,
 } from "@/components/Reports/reportFormat"
@@ -25,12 +24,12 @@ import { useBusinessSettings } from "@/components/Sell/useBusinessSettings"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
-import { useLocale, useT } from "@/i18n"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import { hasPermission } from "@/lib/permissions"
 
 export function MarginTab() {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { user } = useAuth()
   const { settings } = useBusinessSettings()
   // GET /reports/margin requires report.view; without it the query does not
@@ -92,24 +91,24 @@ export function MarginTab() {
     {
       accessorKey: "revenue",
       header: headerLabels[2],
-      cell: ({ row }) => money(row.original.revenue, numberFormat),
+      cell: ({ row }) => moneyStatic(row.original.revenue),
     },
     {
       accessorKey: "revenue_neto",
       header: headerLabels[3],
-      cell: ({ row }) => money(row.original.revenue_neto, numberFormat),
+      cell: ({ row }) => moneyStatic(row.original.revenue_neto),
     },
     {
       accessorKey: "cost",
       header: headerLabels[4],
-      cell: ({ row }) => money(row.original.cost, numberFormat),
+      cell: ({ row }) => moneyStatic(row.original.cost),
     },
     {
       accessorKey: "margin",
       header: headerLabels[5],
       cell: ({ row }) => (
         <span className={Number(row.original.margin) < 0 ? "text-red-600" : ""}>
-          {money(row.original.margin, numberFormat)}
+          {moneyStatic(row.original.margin)}
         </span>
       ),
     },
@@ -134,7 +133,7 @@ export function MarginTab() {
           {!isLoading && rows.length > 0 && (
             <span className="text-sm text-muted-foreground">
               {t("reports.totalMargin", {
-                margin: money(totalMargin, numberFormat),
+                margin: moneyStatic(totalMargin),
               })}
             </span>
           )}
@@ -165,16 +164,16 @@ export function MarginTab() {
             rows: rows.map((r) => [
               r.name,
               qty(r.units),
-              money(r.revenue, numberFormat),
-              money(r.revenue_neto, numberFormat),
-              money(r.cost, numberFormat),
-              money(r.margin, numberFormat),
+              moneyStatic(r.revenue),
+              moneyStatic(r.revenue_neto),
+              moneyStatic(r.cost),
+              moneyStatic(r.margin),
               pct(r.margin_pct),
             ]),
             totals: [
               {
                 label: t("reports.margin"),
-                value: money(totalMargin, numberFormat),
+                value: moneyStatic(totalMargin),
               },
             ],
           },

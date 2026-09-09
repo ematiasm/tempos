@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query"
 import { Wallet } from "lucide-react"
 import { FinancialAccountsService } from "@/client"
-import { money } from "@/components/Reports/reportFormat"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
-import { useLocale, useT } from "@/i18n"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import { hasPermission } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 
@@ -16,7 +16,6 @@ interface AccountsCardsProps {
 
 export function AccountsCards({ selectedId, onSelect }: AccountsCardsProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { user } = useAuth()
   // GET /financial-accounts requires finance.read; without it the query does
   // not fire and the panel renders its empty state (no 403 toast).
@@ -71,7 +70,7 @@ export function AccountsCards({ selectedId, onSelect }: AccountsCardsProps) {
                     {account.currency}
                   </p>
                   <p className="font-mono text-sm font-semibold">
-                    {money(account.saldo, numberFormat)}
+                    {moneyStatic(account.saldo)}
                   </p>
                 </div>
               </CardContent>

@@ -15,22 +15,18 @@ import { safeTimeZone, thisMonthRange } from "@/components/Reports/datePresets"
 import { ReportActions } from "@/components/Reports/ReportActions"
 import { ReportDateRange } from "@/components/Reports/ReportDateRange"
 import { ReportPrintDialog } from "@/components/Reports/ReportPrintDialog"
-import {
-  type DateRangeValue,
-  money,
-  pct,
-} from "@/components/Reports/reportFormat"
+import { type DateRangeValue, pct } from "@/components/Reports/reportFormat"
 import { useBusinessSettings } from "@/components/Sell/useBusinessSettings"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
-import { useLocale, useT } from "@/i18n"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import { hasPermission } from "@/lib/permissions"
 
 export function VatTab() {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { user } = useAuth()
   const { settings } = useBusinessSettings()
   // GET /reports/vat requires report.view; without it the query does not
@@ -99,7 +95,7 @@ export function VatTab() {
       cell: ({ row }) =>
         row.original.is_percent
           ? pct(row.original.rate)
-          : money(row.original.rate, numberFormat),
+          : moneyStatic(row.original.rate),
     },
     {
       accessorKey: "applies_to",
@@ -111,15 +107,13 @@ export function VatTab() {
     {
       accessorKey: "base",
       header: headerLabels[5],
-      cell: ({ row }) => money(row.original.base, numberFormat),
+      cell: ({ row }) => moneyStatic(row.original.base),
     },
     {
       accessorKey: "monto",
       header: headerLabels[6],
       cell: ({ row }) => (
-        <span className="font-medium">
-          {money(row.original.monto, numberFormat)}
-        </span>
+        <span className="font-medium">{moneyStatic(row.original.monto)}</span>
       ),
     },
     { accessorKey: "count", header: headerLabels[7] },
@@ -142,7 +136,7 @@ export function VatTab() {
         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
           <h3 className="text-sm font-semibold">{title}</h3>
           <span className="text-sm text-muted-foreground">
-            {t("reports.amount")}: {money(total, numberFormat)}
+            {t("reports.amount")}: {moneyStatic(total)}
           </span>
         </div>
         <DataTable columns={columns} data={sectionRows} />
@@ -181,16 +175,16 @@ export function VatTab() {
               r.tax_code ?? "—",
               r.tax_name ?? "—",
               r.tipo ?? "—",
-              r.is_percent ? pct(r.rate) : money(r.rate, numberFormat),
+              r.is_percent ? pct(r.rate) : moneyStatic(r.rate),
               r.applies_to ?? "—",
-              money(r.base, numberFormat),
-              money(r.monto, numberFormat),
+              moneyStatic(r.base),
+              moneyStatic(r.monto),
               String(r.count),
             ]),
             totals: [
               {
                 label: t("reports.vatIncludedTotal"),
-                value: money(lineTotal, numberFormat),
+                value: moneyStatic(lineTotal),
               },
             ],
           },
@@ -201,16 +195,16 @@ export function VatTab() {
               r.tax_code ?? "—",
               r.tax_name ?? "—",
               r.tipo ?? "—",
-              r.is_percent ? pct(r.rate) : money(r.rate, numberFormat),
+              r.is_percent ? pct(r.rate) : moneyStatic(r.rate),
               r.applies_to ?? "—",
-              money(r.base, numberFormat),
-              money(r.monto, numberFormat),
+              moneyStatic(r.base),
+              moneyStatic(r.monto),
               String(r.count),
             ]),
             totals: [
               {
                 label: t("reports.vatPerceptionsTotal"),
-                value: money(docTotal, numberFormat),
+                value: moneyStatic(docTotal),
               },
             ],
           },

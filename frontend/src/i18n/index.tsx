@@ -9,13 +9,17 @@ import {
   useState,
 } from "react"
 import { IntlProvider, useIntl } from "react-intl"
-
 import { BusinessSettingsService } from "@/client"
-import { type NumberFormat, numberFormatFor, setStaticLocale } from "@/lib/format"
+import {
+  type NumberFormat,
+  numberFormatFor,
+  setStaticLocale,
+} from "@/lib/format"
 import { en } from "./messages/en"
 import { es, type Messages } from "./messages/es"
 
 export { LOCALE_TAGS, locales, toLocale } from "./locale"
+
 import { LOCALE_TAGS, type Locale, toLocale } from "./locale"
 export type MessageId = keyof Messages
 
@@ -52,6 +56,7 @@ export function formatStatic(
 
 interface LocaleContextValue {
   locale: Locale
+  /** Derived from the locale; convenience for existing call sites. */
   numberFormat: NumberFormat
   /** Business timezone from settings; undefined = browser-local fallback. */
   timezone: string | undefined

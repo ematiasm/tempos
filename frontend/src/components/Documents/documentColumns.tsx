@@ -1,12 +1,10 @@
 import type { ColumnDef } from "@tanstack/react-table"
 import { Eye } from "lucide-react"
-
 import type { DocumentPublic } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { useT } from "@/i18n"
-import type { NumberFormat } from "@/lib/format"
-import { formatMoney } from "@/lib/format"
+import { formatDateStatic, formatMoneyStatic } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export type DocumentTableData = DocumentPublic & {
@@ -15,7 +13,6 @@ export type DocumentTableData = DocumentPublic & {
 
 export function getColumns(
   t: ReturnType<typeof useT>,
-  numberFormat: NumberFormat,
 ): ColumnDef<DocumentTableData>[] {
   return [
     {
@@ -45,7 +42,7 @@ export function getColumns(
       header: t("documents.date"),
       cell: ({ row }) => (
         <span className="text-muted-foreground text-sm">
-          {new Date(row.original.fecha).toLocaleDateString("es-AR")}
+          {formatDateStatic(row.original.fecha)}
         </span>
       ),
     },
@@ -61,7 +58,7 @@ export function getColumns(
       header: () => <div className="text-right">{t("documents.total")}</div>,
       cell: ({ row }) => (
         <div className="text-right font-mono text-sm">
-          ${formatMoney(Number(row.original.total), numberFormat)}
+          ${formatMoneyStatic(Number(row.original.total))}
         </div>
       ),
     },

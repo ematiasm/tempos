@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { DatabaseBackup, Download, RefreshCw, Trash2 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
-
 import {
   type ApiError,
   type BackupPublic,
@@ -29,8 +28,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import useCustomToast from "@/hooks/useCustomToast"
-import { useLocale, useT } from "@/i18n"
+import { useT } from "@/i18n"
 import { downloadBackup } from "@/lib/downloadBackup"
+import { formatDateTimeStatic } from "@/lib/format"
 import { handleError } from "@/utils"
 
 interface BackupsListProps {
@@ -107,7 +107,6 @@ function DeleteBackupDialog({
 
 function BackupsList({ isRestoring, onRestore }: BackupsListProps) {
   const t = useT()
-  const { locale } = useLocale()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [downloading, setDownloading] = useState<string | null>(null)
@@ -214,7 +213,7 @@ function BackupsList({ isRestoring, onRestore }: BackupsListProps) {
               <TableRow key={backup.id}>
                 <TableCell>
                   {backup.created_at
-                    ? new Date(backup.created_at).toLocaleString(locale)
+                    ? formatDateTimeStatic(backup.created_at)
                     : "—"}
                 </TableCell>
                 <TableCell>

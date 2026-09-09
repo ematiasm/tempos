@@ -1,10 +1,8 @@
 import type { ColumnDef } from "@tanstack/react-table"
-
 import type { ProductListItemPublic } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import type { useT } from "@/i18n"
-import type { NumberFormat } from "@/lib/format"
-import { formatMoney, formatNumber } from "@/lib/format"
+import { formatMoneyStatic, formatNumberStatic } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export type ProductRow = ProductListItemPublic & {
@@ -14,7 +12,6 @@ export type ProductRow = ProductListItemPublic & {
 export const getProductsColumns = (
   t: ReturnType<typeof useT>,
   onOpen: (product: ProductListItemPublic) => void,
-  numberFormat: NumberFormat,
 ): ColumnDef<ProductRow>[] => [
   {
     accessorKey: "name",
@@ -52,7 +49,7 @@ export const getProductsColumns = (
     header: t("products.cost"),
     cell: ({ row }) => (
       <span className="text-muted-foreground">
-        ${formatMoney(Number(row.original.costo_actual), numberFormat)}
+        ${formatMoneyStatic(Number(row.original.costo_actual))}
       </span>
     ),
   },
@@ -61,7 +58,7 @@ export const getProductsColumns = (
     header: t("products.margin"),
     cell: ({ row }) => (
       <span className="text-muted-foreground">
-        {formatNumber(Number(row.original.margen_pct), numberFormat)}%
+        {formatNumberStatic(Number(row.original.margen_pct))}%
       </span>
     ),
   },
@@ -70,7 +67,7 @@ export const getProductsColumns = (
     header: t("products.netPrice"),
     cell: ({ row }) => (
       <span className="text-muted-foreground">
-        ${formatMoney(Number(row.original.precio_neto), numberFormat)}
+        ${formatMoneyStatic(Number(row.original.precio_neto))}
       </span>
     ),
   },
@@ -79,7 +76,7 @@ export const getProductsColumns = (
     header: t("products.salePrice"),
     cell: ({ row }) => (
       <span className="font-medium">
-        ${formatMoney(Number(row.original.precio_venta), numberFormat)}
+        ${formatMoneyStatic(Number(row.original.precio_venta))}
       </span>
     ),
   },
@@ -94,7 +91,7 @@ export const getProductsColumns = (
       const isLow = min !== null && stock <= min
       return (
         <span className={cn("font-medium", isLow && "text-red-500")}>
-          {formatNumber(stock, numberFormat, 0)}
+          {formatNumberStatic(stock, 0)}
           {isLow && (
             <span className="ml-1 text-xs">{t("products.lowStock")}</span>
           )}

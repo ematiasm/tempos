@@ -1,5 +1,4 @@
 import { useState } from "react"
-
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -7,23 +6,16 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import useAuth from "@/hooks/useAuth"
-import { useLocale, useT } from "@/i18n"
-import { formatMoney } from "@/lib/format"
+import { useT } from "@/i18n"
+import { formatDateTimeStatic, moneyStatic } from "@/lib/format"
 import { hasPermission } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 import CloseCashDialog from "./CloseCashDialog"
 import OpenCashDialog from "./OpenCashDialog"
 import { useOpenCashSession } from "./useOpenCashSession"
 
-const money = (
-  value: number | string | null | undefined,
-  format: "es" | "en",
-) =>
-  value == null || value === "" ? "—" : `$${formatMoney(Number(value), format)}`
-
 export function CashRegisterBar() {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { user } = useAuth()
   const [openOpen, setOpenOpen] = useState(false)
   const [openClose, setOpenClose] = useState(false)
@@ -50,11 +42,11 @@ export function CashRegisterBar() {
         {isOpen && session && (
           <span className="text-xs text-muted-foreground">
             {t("cash.openedAt", {
-              time: new Date(session.opened_at).toLocaleString(),
+              time: formatDateTimeStatic(session.opened_at),
             })}
             {" · "}
             {t("cash.openingAmountLabel", {
-              amount: money(session.opening_amount, numberFormat),
+              amount: moneyStatic(session.opening_amount),
             })}
             {session.opened_by_name ? ` · ${session.opened_by_name}` : ""}
           </span>

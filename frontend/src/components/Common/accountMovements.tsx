@@ -1,16 +1,14 @@
 import { useQuery } from "@tanstack/react-query"
 import type { ColumnDef } from "@tanstack/react-table"
 import { useMemo } from "react"
-
 import {
   type CustomerAccountMovementPublic,
   CustomersService,
   type SupplierAccountMovementPublic,
   SuppliersService,
 } from "@/client"
-import { money } from "@/components/Reports/reportFormat"
 import type { useT } from "@/i18n"
-import type { NumberFormat } from "@/lib/format"
+import { formatDateTimeStatic, moneyStatic } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export type AccountMovementType = "customer" | "supplier"
@@ -80,16 +78,13 @@ export function useMovementRows(
 
 export function movementColumns(
   t: ReturnType<typeof useT>,
-  numberFormat: NumberFormat,
 ): ColumnDef<MovementRow>[] {
   return [
     {
       accessorKey: "fecha",
       header: t("currentAccount.date"),
       cell: ({ row }) =>
-        row.original.fecha
-          ? new Date(row.original.fecha).toLocaleString("es-AR")
-          : "—",
+        row.original.fecha ? formatDateTimeStatic(row.original.fecha) : "—",
     },
     {
       accessorKey: "documento",
@@ -114,7 +109,7 @@ export function movementColumns(
                 : "",
           )}
         >
-          {money(row.original.monto, numberFormat)}
+          {moneyStatic(row.original.monto)}
         </span>
       ),
     },
@@ -123,7 +118,7 @@ export function movementColumns(
       header: t("currentAccount.balance"),
       cell: ({ row }) => (
         <span className="font-mono text-sm font-medium">
-          {money(row.original.saldo, numberFormat)}
+          {moneyStatic(row.original.saldo)}
         </span>
       ),
     },

@@ -12,7 +12,7 @@ import {
 } from "@/components/Reports/csv"
 import { ReportActions } from "@/components/Reports/ReportActions"
 import { ReportPrintDialog } from "@/components/Reports/ReportPrintDialog"
-import { money, qty } from "@/components/Reports/reportFormat"
+import { qty } from "@/components/Reports/reportFormat"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import {
@@ -24,12 +24,12 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
-import { useLocale, useT } from "@/i18n"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import { hasPermission } from "@/lib/permissions"
 
 export function ReorderTab() {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { user } = useAuth()
   // The reorder report requires report.view; the filter dropdowns hit
   // supplier.read / category.read endpoints. Each query is gated on the
@@ -137,14 +137,14 @@ export function ReorderTab() {
     {
       accessorKey: "reference_cost",
       header: headerLabels[7],
-      cell: ({ row }) => money(row.original.reference_cost, numberFormat),
+      cell: ({ row }) => moneyStatic(row.original.reference_cost),
     },
     {
       accessorKey: "estimated_cost",
       header: headerLabels[8],
       cell: ({ row }) => (
         <span className="font-medium">
-          {money(row.original.estimated_cost, numberFormat)}
+          {moneyStatic(row.original.estimated_cost)}
         </span>
       ),
     },
@@ -210,7 +210,7 @@ export function ReorderTab() {
           <span className="text-sm text-muted-foreground pb-1">
             {t("reports.itemsOrderEst", {
               count: rows.length,
-              total: money(estimatedTotal, numberFormat),
+              total: moneyStatic(estimatedTotal),
             })}
           </span>
         )}
@@ -249,13 +249,13 @@ export function ReorderTab() {
               r.name,
               r.sku ?? "—",
               qty(r.missing),
-              money(r.reference_cost, numberFormat),
-              money(r.estimated_cost, numberFormat),
+              moneyStatic(r.reference_cost),
+              moneyStatic(r.estimated_cost),
             ]),
             totals: [
               {
                 label: t("reports.orderEstLabel"),
-                value: money(estimatedTotal, numberFormat),
+                value: moneyStatic(estimatedTotal),
               },
             ],
           },

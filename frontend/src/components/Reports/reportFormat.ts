@@ -1,10 +1,11 @@
-import { formatMoney, type NumberFormat } from "@/lib/format"
+import { moneyStatic } from "@/lib/format"
 
-export const money = (
-  value: string | number | null | undefined,
-  format: NumberFormat,
-): string =>
-  value == null || value === "" ? "—" : `$${formatMoney(Number(value), format)}`
+/**
+ * Null-safe formatting helpers for report tables. Numbers/money delegate to
+ * the shared locale-derived static helpers in `@/lib/format`.
+ */
+export const money = (value: string | number | null | undefined): string =>
+  moneyStatic(value)
 
 export const qty = (value: string | number | null | undefined): string =>
   value == null || value === "" ? "—" : String(Number(value))

@@ -1,9 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
-
 import { PaymentsService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
-import { money } from "@/components/Reports/reportFormat"
 import {
   Dialog,
   DialogContent,
@@ -12,7 +10,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useLocale, useT } from "@/i18n"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 
 interface ReceiptAllocationsDialogProps {
   receiptId: string | null
@@ -28,7 +27,6 @@ export function ReceiptAllocationsDialog({
   onOpenChange,
 }: ReceiptAllocationsDialogProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { data, isLoading } = useQuery({
     queryFn: () =>
       PaymentsService.readReceiptAllocations({
@@ -87,7 +85,7 @@ export function ReceiptAllocationsDialog({
                 header: t("currentAccount.amount"),
                 cell: ({ row }) => (
                   <span className="font-mono">
-                    {money(row.original.monto, numberFormat)}
+                    {moneyStatic(row.original.monto)}
                   </span>
                 ),
               },

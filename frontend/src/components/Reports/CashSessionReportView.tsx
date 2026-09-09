@@ -1,20 +1,13 @@
 import { useQuery } from "@tanstack/react-query"
 import { Printer } from "lucide-react"
-
 import {
   BusinessSettingsService,
   type CashSessionReport,
   OpenAPI,
 } from "@/client"
-import { useLocale, useT } from "@/i18n"
-import { formatMoney } from "@/lib/format"
+import { useT } from "@/i18n"
+import { formatDateTimeStatic, moneyStatic } from "@/lib/format"
 import { cn } from "@/lib/utils"
-
-const money = (
-  value: string | number | null | undefined,
-  format: "es" | "en",
-) =>
-  value == null || value === "" ? "—" : `$${formatMoney(Number(value), format)}`
 
 function PerUserTable({
   title,
@@ -24,7 +17,6 @@ function PerUserTable({
   rows: CashSessionReport["sales"]
 }) {
   const t = useT()
-  const { numberFormat } = useLocale()
   if (!rows || rows.length === 0) return null
   const total = rows.reduce((acc, r) => acc + Number(r.total), 0)
   const count = rows.reduce((acc, r) => acc + r.count, 0)
@@ -50,15 +42,13 @@ function PerUserTable({
             <tr key={row.user_id}>
               <td className="py-0.5 pr-2">{row.user_name}</td>
               <td className="py-0.5 pr-2 text-right">{row.count}</td>
-              <td className="py-0.5 text-right">
-                {money(row.total, numberFormat)}
-              </td>
+              <td className="py-0.5 text-right">{moneyStatic(row.total)}</td>
             </tr>
           ))}
           <tr className="border-t border-black font-semibold">
             <td className="py-0.5 pr-2">{t("cash.reportSubtotal")}</td>
             <td className="py-0.5 pr-2 text-right">{count}</td>
-            <td className="py-0.5 text-right">{money(total, numberFormat)}</td>
+            <td className="py-0.5 text-right">{moneyStatic(total)}</td>
           </tr>
         </tbody>
       </table>
@@ -68,7 +58,6 @@ function PerUserTable({
 
 function ReportSection({ report }: { report: CashSessionReport }) {
   const t = useT()
-  const { numberFormat } = useLocale()
   return (
     <div className="flex flex-col gap-4">
       <PerUserTable title={t("cash.reportSales")} rows={report.sales ?? []} />
@@ -122,13 +111,13 @@ function ReportSection({ report }: { report: CashSessionReport }) {
                     {m.financial_account_name}
                   </td>
                   <td className="py-0.5 pr-2 text-right">
-                    {money(m.ingresos, numberFormat)}
+                    {moneyStatic(m.ingresos)}
                   </td>
                   <td className="py-0.5 pr-2 text-right">
-                    {money(m.egresos, numberFormat)}
+                    {moneyStatic(m.egresos)}
                   </td>
                   <td className="py-0.5 text-right font-medium">
-                    {money(m.net, numberFormat)}
+                    {moneyStatic(m.net)}
                   </td>
                 </tr>
               ))}
@@ -163,15 +152,13 @@ function ReportSection({ report }: { report: CashSessionReport }) {
               {(report.movements ?? []).map((m, index) => (
                 <tr key={index}>
                   <td className="py-0.5 pr-2">
-                    {new Date(m.fecha).toLocaleString()}
+                    {formatDateTimeStatic(m.fecha)}
                   </td>
                   <td className="py-0.5 pr-2">{m.concept}</td>
                   <td className="py-0.5 pr-2 text-black/70">
                     {m.financial_account_name ?? "—"}
                   </td>
-                  <td className="py-0.5 text-right">
-                    {money(m.monto, numberFormat)}
-                  </td>
+                  <td className="py-0.5 text-right">{moneyStatic(m.monto)}</td>
                 </tr>
               ))}
             </tbody>
@@ -188,7 +175,6 @@ export function CashSessionReportView({
   report: CashSessionReport
 }) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { data: settings } = useQuery({
     queryFn: () => BusinessSettingsService.readBusinessSettings(),
     queryKey: ["business-settings"],
@@ -215,11 +201,11 @@ export function CashSessionReportView({
         <p className="text-base font-semibold">{t("cash.reportTitle")}</p>
         <p className="text-sm text-black/60">
           {t("cash.openedAt", {
-            time: new Date(session.opened_at).toLocaleString(),
+            time: formatDateTimeStatic(session.opened_at),
           })}
           {session.closed_at
             ? ` — ${t("cash.closedAt", {
-                time: new Date(session.closed_at).toLocaleString(),
+                time: formatDateTimeStatic(session.closed_at),
               })}`
             : ""}
         </p>
@@ -249,7 +235,7 @@ export function CashSessionReportView({
         <div className="flex justify-between">
           <span className="text-black/60">{t("cash.openingAmountLabel")}</span>
           <span className="font-medium">
-            {money(session.opening_amount, numberFormat)}
+            {moneyStatic(session.opening_amount)}
           </span>
         </div>
         <div className="flex justify-between">
@@ -262,13 +248,13 @@ export function CashSessionReportView({
         <div className="flex justify-between">
           <span className="text-black/60">{t("cash.expected")}</span>
           <span className="font-mono font-medium">
-            {money(report.expected_amount, numberFormat)}
+            {moneyStatic(report.expected_amount)}
           </span>
         </div>
         <div className="flex justify-between">
           <span className="text-black/60">{t("cash.countedAmount")}</span>
           <span className="font-mono font-medium">
-            {money(report.counted_amount, numberFormat)}
+            {moneyStatic(report.counted_amount)}
           </span>
         </div>
         <div
@@ -279,7 +265,7 @@ export function CashSessionReportView({
           )}
         >
           <span>{t("cash.difference")}</span>
-          <span className="font-mono">{money(difference, numberFormat)}</span>
+          <span className="font-mono">{moneyStatic(difference)}</span>
         </div>
         {session.notes && (
           <div className="flex justify-between pt-1">

@@ -13,7 +13,7 @@ import {
 } from "@/components/Customers/customerColumns"
 import PendingUsers from "@/components/Pending/PendingUsers"
 import { Input } from "@/components/ui/input"
-import { formatStatic, useLocale, useT } from "@/i18n"
+import { formatStatic, useT } from "@/i18n"
 
 function getCustomersQueryOptions() {
   return {
@@ -31,7 +31,6 @@ export const Route = createFileRoute("/_layout/customers")({
 
 function CustomersContent() {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { data: customers } = useSuspenseQuery(getCustomersQueryOptions())
   const [search, setSearch] = useState("")
   const [openCustomerId, setOpenCustomerId] = useState<string | null>(null)
@@ -65,9 +64,7 @@ function CustomersContent() {
         />
       </div>
       <DataTable
-        columns={getColumns(t, numberFormat, (customer) =>
-          setOpenCustomerId(customer.id),
-        )}
+        columns={getColumns(t, (customer) => setOpenCustomerId(customer.id))}
         data={rows}
       />
       <CounterpartyDetailSheet

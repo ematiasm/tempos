@@ -13,8 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { useLocale, useT } from "@/i18n"
-import { money } from "@/lib/format"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 
 interface SellSidebarProps {
   customers: CustomerPublic[]
@@ -64,7 +64,6 @@ export function SellSidebar({
   children,
 }: SellSidebarProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
 
   return (
     <div className="flex w-full flex-col gap-4 rounded-lg border p-4 lg:w-[340px]">
@@ -89,7 +88,7 @@ export function SellSidebar({
           {selectedCustomer && Number(selectedCustomer.saldo) !== 0 && (
             <p className="mt-1 text-xs text-muted-foreground">
               {t("sell.balance", {
-                balance: money(Number(selectedCustomer.saldo), numberFormat),
+                balance: moneyStatic(Number(selectedCustomer.saldo)),
               })}
             </p>
           )}
@@ -143,12 +142,12 @@ export function SellSidebar({
       <div className="flex flex-col gap-1 rounded-md bg-muted/40 p-3 text-sm">
         <div className="flex justify-between">
           <span className="text-muted-foreground">{t("sell.subtotal")}</span>
-          <span>{money(subtotal, numberFormat)}</span>
+          <span>{moneyStatic(subtotal)}</span>
         </div>
         {discountTotal > 0 && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">{t("sell.discount")}</span>
-            <span>-{money(discountTotal, numberFormat)}</span>
+            <span>-{moneyStatic(discountTotal)}</span>
           </div>
         )}
         {perceptions > 0 && (
@@ -156,19 +155,19 @@ export function SellSidebar({
             <span className="text-muted-foreground">
               {t("sell.perceptions")}
             </span>
-            <span>{money(perceptions, numberFormat)}</span>
+            <span>{moneyStatic(perceptions)}</span>
           </div>
         )}
         <div className="flex justify-between border-t font-semibold">
           <span>{t("sell.total")}</span>
-          <span>{money(total, numberFormat)}</span>
+          <span>{moneyStatic(total)}</span>
         </div>
         {appliedFavor > 0 && (
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">
               {t("sell.creditInFavor")}
             </span>
-            <span>-{money(appliedFavor, numberFormat)}</span>
+            <span>-{moneyStatic(appliedFavor)}</span>
           </div>
         )}
       </div>

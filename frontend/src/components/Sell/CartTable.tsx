@@ -3,8 +3,8 @@ import { round2 } from "@/components/Payments/paymentMath"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useLocale, useT } from "@/i18n"
-import { money } from "@/lib/format"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import type { CartLine } from "./ProductSearch"
 
@@ -31,7 +31,6 @@ export function CartTable({
   warnBelowCost = false,
 }: CartTableProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
 
   return (
     <div className="overflow-hidden rounded-lg border">
@@ -181,7 +180,7 @@ export function CartTable({
                   />
                 </td>
                 <td className="px-3 py-2 text-right font-medium">
-                  {money(lineTotal, numberFormat)}
+                  {moneyStatic(lineTotal)}
                 </td>
                 <td className="px-2 py-2">
                   <Button

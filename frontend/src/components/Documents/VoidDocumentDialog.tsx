@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Ban } from "lucide-react"
 import { useEffect, useState } from "react"
-
 import type { DocumentPublic } from "@/client"
 import { DocumentsService } from "@/client"
 import { Button } from "@/components/ui/button"
@@ -18,8 +17,8 @@ import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import { Skeleton } from "@/components/ui/skeleton"
 import useCustomToast from "@/hooks/useCustomToast"
-import { useLocale, useT } from "@/i18n"
-import { formatMoney } from "@/lib/format"
+import { useT } from "@/i18n"
+import { formatMoneyStatic } from "@/lib/format"
 import { handleError } from "@/utils"
 
 interface VoidDocumentDialogProps {
@@ -36,7 +35,6 @@ const VoidDocumentDialog = ({
   onVoided,
 }: VoidDocumentDialogProps) => {
   const t = useT()
-  const { numberFormat } = useLocale()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [quantities, setQuantities] = useState<Record<string, string>>({})
@@ -117,7 +115,7 @@ const VoidDocumentDialog = ({
                   <div className="flex-1 text-sm">
                     <span className="text-muted-foreground">
                       {Number(line.cantidad)} ×{" "}
-                      {formatMoney(Number(line.precio_unit), numberFormat)}
+                      {formatMoneyStatic(Number(line.precio_unit))}
                     </span>
                     <span className="ml-2 text-xs">
                       {t("documents.left", { pending })}

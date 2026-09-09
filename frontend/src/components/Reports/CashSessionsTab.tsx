@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query"
 import type { ColumnDef } from "@tanstack/react-table"
 import { Eye } from "lucide-react"
 import { useState } from "react"
-
 import {
   type CashSessionPublic,
   type CashSessionStatus,
@@ -10,7 +9,6 @@ import {
 } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
 import { CashSessionReportDialog } from "@/components/Reports/CashSessionReportView"
-import { money } from "@/components/Reports/reportFormat"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -23,7 +21,8 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
-import { useLocale, useT } from "@/i18n"
+import { useT } from "@/i18n"
+import { formatDateTimeStatic, moneyStatic } from "@/lib/format"
 import { hasPermission } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 
@@ -65,7 +64,6 @@ function ReportDialog({
 
 export function CashSessionsTab() {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { user } = useAuth()
   // The sessions list lives in the reports panel but reads from the
   // cash-sessions endpoint (cash.read): both permissions are required, so an
@@ -89,14 +87,14 @@ export function CashSessionsTab() {
     {
       accessorKey: "opened_at",
       header: t("cash.openedAtShort"),
-      cell: ({ row }) => new Date(row.original.opened_at).toLocaleString(),
+      cell: ({ row }) => formatDateTimeStatic(row.original.opened_at),
     },
     {
       accessorKey: "closed_at",
       header: t("cash.closedAtShort"),
       cell: ({ row }) =>
         row.original.closed_at
-          ? new Date(row.original.closed_at).toLocaleString()
+          ? formatDateTimeStatic(row.original.closed_at)
           : "—",
     },
     {
@@ -107,17 +105,17 @@ export function CashSessionsTab() {
     {
       accessorKey: "opening_amount",
       header: t("cash.openingAmountLabel"),
-      cell: ({ row }) => money(row.original.opening_amount, numberFormat),
+      cell: ({ row }) => moneyStatic(row.original.opening_amount),
     },
     {
       accessorKey: "expected_amount",
       header: t("cash.expected"),
-      cell: ({ row }) => money(row.original.expected_amount, numberFormat),
+      cell: ({ row }) => moneyStatic(row.original.expected_amount),
     },
     {
       accessorKey: "counted_amount",
       header: t("cash.counted"),
-      cell: ({ row }) => money(row.original.counted_amount, numberFormat),
+      cell: ({ row }) => moneyStatic(row.original.counted_amount),
     },
     {
       accessorKey: "difference",
@@ -132,7 +130,7 @@ export function CashSessionsTab() {
               diff > 0 && "text-emerald-600",
             )}
           >
-            {money(row.original.difference, numberFormat)}
+            {moneyStatic(row.original.difference)}
           </span>
         )
       },

@@ -14,17 +14,17 @@ import { safeTimeZone, thisMonthRange } from "@/components/Reports/datePresets"
 import { ReportActions } from "@/components/Reports/ReportActions"
 import { ReportDateRange } from "@/components/Reports/ReportDateRange"
 import { ReportPrintDialog } from "@/components/Reports/ReportPrintDialog"
-import { type DateRangeValue, money } from "@/components/Reports/reportFormat"
+import type { DateRangeValue } from "@/components/Reports/reportFormat"
 import { useBusinessSettings } from "@/components/Sell/useBusinessSettings"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
-import { useLocale, useT } from "@/i18n"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import { hasPermission } from "@/lib/permissions"
 
 export function SalesPerDayTab() {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { user } = useAuth()
   const { settings } = useBusinessSettings()
   // GET /reports/sales-per-day requires report.view; without it the query
@@ -84,20 +84,18 @@ export function SalesPerDayTab() {
     {
       accessorKey: "subtotal",
       header: headerLabels[2],
-      cell: ({ row }) => money(row.original.subtotal, numberFormat),
+      cell: ({ row }) => moneyStatic(row.original.subtotal),
     },
     {
       accessorKey: "descuento_total",
       header: headerLabels[3],
-      cell: ({ row }) => money(row.original.descuento_total, numberFormat),
+      cell: ({ row }) => moneyStatic(row.original.descuento_total),
     },
     {
       accessorKey: "total",
       header: headerLabels[4],
       cell: ({ row }) => (
-        <span className="font-medium">
-          {money(row.original.total, numberFormat)}
-        </span>
+        <span className="font-medium">{moneyStatic(row.original.total)}</span>
       ),
     },
     {
@@ -106,7 +104,7 @@ export function SalesPerDayTab() {
       header: headerLabels[5],
       cell: ({ row }) =>
         row.original.count > 0
-          ? money(Number(row.original.total) / row.original.count, numberFormat)
+          ? moneyStatic(Number(row.original.total) / row.original.count)
           : "—",
     },
   ]
@@ -135,13 +133,13 @@ export function SalesPerDayTab() {
               {avgTicket != null && (
                 <span>
                   {t("reports.avgTicketTotal", {
-                    amount: money(avgTicket, numberFormat),
+                    amount: moneyStatic(avgTicket),
                   })}
                 </span>
               )}
               <span className="font-semibold text-foreground">
                 {t("reports.grandTotal", {
-                  total: money(grandTotal, numberFormat),
+                  total: moneyStatic(grandTotal),
                 })}
               </span>
             </div>
@@ -173,22 +171,20 @@ export function SalesPerDayTab() {
             rows: rows.map((r) => [
               csvDate(r.fecha),
               String(r.count),
-              money(r.subtotal, numberFormat),
-              money(r.descuento_total, numberFormat),
-              money(r.total, numberFormat),
-              r.count > 0
-                ? money(Number(r.total) / r.count, numberFormat)
-                : "—",
+              moneyStatic(r.subtotal),
+              moneyStatic(r.descuento_total),
+              moneyStatic(r.total),
+              r.count > 0 ? moneyStatic(Number(r.total) / r.count) : "—",
             ]),
             totals: [
               { label: t("reports.sales"), value: String(totalSales) },
               {
                 label: t("reports.avgTicket"),
-                value: avgTicket != null ? money(avgTicket, numberFormat) : "—",
+                value: avgTicket != null ? moneyStatic(avgTicket) : "—",
               },
               {
                 label: t("reports.total"),
-                value: money(grandTotal, numberFormat),
+                value: moneyStatic(grandTotal),
               },
             ],
           },

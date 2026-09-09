@@ -14,7 +14,7 @@ import { safeTimeZone, thisMonthRange } from "@/components/Reports/datePresets"
 import { ReportActions } from "@/components/Reports/ReportActions"
 import { ReportDateRange } from "@/components/Reports/ReportDateRange"
 import { ReportPrintDialog } from "@/components/Reports/ReportPrintDialog"
-import { type DateRangeValue, money } from "@/components/Reports/reportFormat"
+import type { DateRangeValue } from "@/components/Reports/reportFormat"
 import { useBusinessSettings } from "@/components/Sell/useBusinessSettings"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -28,7 +28,8 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
-import { useLocale, useT } from "@/i18n"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import { hasPermission } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 
@@ -38,7 +39,6 @@ interface MovementsTabProps {
 
 export function MovementsTab({ initialAccountId }: MovementsTabProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { user } = useAuth()
   const { settings } = useBusinessSettings()
   // Both endpoints (financial accounts and account movements) require
@@ -158,7 +158,7 @@ export function MovementsTab({ initialAccountId }: MovementsTabProps) {
               : "text-red-600",
           )}
         >
-          {money(row.original.monto, numberFormat)}
+          {moneyStatic(row.original.monto)}
         </span>
       ),
     },
@@ -208,7 +208,7 @@ export function MovementsTab({ initialAccountId }: MovementsTabProps) {
               <SelectItem value="all">{t("reports.allAccounts")}</SelectItem>
               {(accounts?.data ?? []).map((a) => (
                 <SelectItem key={a.id} value={a.id}>
-                  {a.name} ({money(a.saldo, numberFormat)})
+                  {a.name} ({moneyStatic(a.saldo)})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -217,13 +217,13 @@ export function MovementsTab({ initialAccountId }: MovementsTabProps) {
         {!isLoading && rows.length > 0 && (
           <div className="flex flex-col gap-0.5 pb-1 text-xs text-muted-foreground">
             <span className="text-emerald-600">
-              {t("reports.in", { amount: money(inflows, numberFormat) })}
+              {t("reports.in", { amount: moneyStatic(inflows) })}
             </span>
             <span className="text-red-600">
-              {t("reports.out", { amount: money(outflows, numberFormat) })}
+              {t("reports.out", { amount: moneyStatic(outflows) })}
             </span>
             <span className="font-semibold text-foreground">
-              {t("reports.net", { amount: money(total, numberFormat) })}{" "}
+              {t("reports.net", { amount: moneyStatic(total) })}{" "}
               {accountName ? `· ${accountName}` : ""}
             </span>
           </div>
@@ -260,21 +260,21 @@ export function MovementsTab({ initialAccountId }: MovementsTabProps) {
               r.payment_method_name ?? "—",
               r.counterpart_name ?? "—",
               r.tipo ?? "—",
-              money(r.monto, numberFormat),
+              moneyStatic(r.monto),
               r.conciliado ? t("reports.conciliated") : t("reports.pending"),
             ]),
             totals: [
               {
                 label: t("reports.inflows"),
-                value: money(inflows, numberFormat),
+                value: moneyStatic(inflows),
               },
               {
                 label: t("reports.outflows"),
-                value: money(outflows, numberFormat),
+                value: moneyStatic(outflows),
               },
               {
                 label: t("reports.netTotal"),
-                value: money(total, numberFormat),
+                value: moneyStatic(total),
               },
             ],
           },

@@ -69,19 +69,32 @@ export function money(value: number, format: NumberFormat): string {
   return `$${formatMoney(value, format)}`
 }
 
+type NumberLike = string | number | null | undefined
+
+function isEmpty(value: NumberLike): boolean {
+  return value == null || value === ""
+}
+
+/**
+ * Static (locale-mirror) variants. Null-safe like the former
+ * `reportFormat.money`: empty/nullish values render as an em dash.
+ */
 export function formatNumberStatic(
-  value: number,
+  value: NumberLike,
   fractionDigits?: number,
 ): string {
-  return formatNumber(value, getStaticNumberFormat(), fractionDigits)
+  if (isEmpty(value)) return "—"
+  return formatNumber(Number(value), getStaticNumberFormat(), fractionDigits)
 }
 
-export function formatMoneyStatic(value: number): string {
-  return formatMoney(value, getStaticNumberFormat())
+export function formatMoneyStatic(value: NumberLike): string {
+  if (isEmpty(value)) return "—"
+  return formatMoney(Number(value), getStaticNumberFormat())
 }
 
-export function moneyStatic(value: number): string {
-  return `$${formatMoneyStatic(value)}`
+export function moneyStatic(value: NumberLike): string {
+  if (isEmpty(value)) return "—"
+  return `$${formatMoneyStatic(Number(value))}`
 }
 
 // --- Dates & times ---

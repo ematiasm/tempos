@@ -10,7 +10,6 @@ import { CounterpartyStatementDialog } from "@/components/Common/CounterpartySta
 import { CONSUMIDOR_FINAL_NAME } from "@/components/Common/conditionOptions"
 import { DataTable } from "@/components/Common/DataTable"
 import { ReceiptDialog } from "@/components/Payments/ReceiptDialog"
-import { money } from "@/components/Reports/reportFormat"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -22,7 +21,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useLocale, useT } from "@/i18n"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 interface CounterpartyDetailSheetProps {
@@ -56,7 +56,6 @@ export function CounterpartyDetailSheet({
   onOpenChange,
 }: CounterpartyDetailSheetProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { data, isLoading } = useAccountMovements(
     counterpart?.id ?? "",
     type,
@@ -146,7 +145,7 @@ export function CounterpartyDetailSheet({
                 value={
                   Number(creditLimit) === 0
                     ? t("customers.noLimit")
-                    : money(creditLimit, numberFormat)
+                    : moneyStatic(creditLimit)
                 }
               />
             )}
@@ -165,14 +164,14 @@ export function CounterpartyDetailSheet({
                 saldo < 0 && "text-green-600",
               )}
             >
-              {money(saldo, numberFormat)}
+              {moneyStatic(saldo)}
             </span>
             {creditLimit != null && (
               <span className="text-xs text-muted-foreground">
                 {t("customers.creditLimit")}:{" "}
                 {Number(creditLimit) === 0
                   ? t("customers.noLimit")
-                  : money(creditLimit, numberFormat)}
+                  : moneyStatic(creditLimit)}
               </span>
             )}
           </CardContent>
@@ -223,10 +222,7 @@ export function CounterpartyDetailSheet({
             </p>
           ) : (
             <div className="mt-2">
-              <DataTable
-                columns={movementColumns(t, numberFormat)}
-                data={rows}
-              />
+              <DataTable columns={movementColumns(t)} data={rows} />
             </div>
           )}
         </div>

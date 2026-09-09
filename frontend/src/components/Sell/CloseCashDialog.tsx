@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useMemo, useState } from "react"
-
 import { type CashSessionPublic, CashSessionsService } from "@/client"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,8 +15,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
-import { useLocale, useT } from "@/i18n"
-import { formatMoney } from "@/lib/format"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 import {
@@ -33,19 +32,12 @@ interface CloseCashDialogProps {
   session: CashSessionPublic | null
 }
 
-const money = (
-  value: number | string | null | undefined,
-  format: "es" | "en",
-) =>
-  value == null || value === "" ? "—" : `$${formatMoney(Number(value), format)}`
-
 export function CloseCashDialog({
   open,
   onOpenChange,
   session,
 }: CloseCashDialogProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
@@ -125,12 +117,12 @@ export function CloseCashDialog({
           <div className="flex justify-between">
             <span className="text-muted-foreground">{t("cash.expected")}</span>
             <span className="font-mono" data-testid="cash-expected">
-              {money(expected, numberFormat)}
+              {moneyStatic(expected)}
             </span>
           </div>
           <div className="flex justify-between border-t pt-1">
             <span className="text-muted-foreground">{t("cash.counted")}</span>
-            <span className="font-mono">{money(countedNum, numberFormat)}</span>
+            <span className="font-mono">{moneyStatic(countedNum)}</span>
           </div>
           <div className="flex justify-between border-t pt-1 font-medium">
             <span className="text-muted-foreground">
@@ -144,7 +136,7 @@ export function CloseCashDialog({
               )}
               data-testid="cash-difference"
             >
-              {money(difference, numberFormat)}
+              {moneyStatic(difference)}
             </span>
           </div>
         </div>

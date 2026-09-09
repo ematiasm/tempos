@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useT } from "@/i18n"
+import { formatDateStatic, moneyStatic } from "@/lib/format"
 
 export interface DocumentRef {
   id: string
@@ -79,12 +80,10 @@ const BlockedByDocumentsDialog = ({
                   <TableCell className="font-mono text-xs">
                     {doc.numero}
                   </TableCell>
-                  <TableCell>
-                    {new Date(doc.fecha).toLocaleDateString("es-AR")}
-                  </TableCell>
+                  <TableCell>{formatDateStatic(doc.fecha)}</TableCell>
                   <TableCell>{doc.type_name}</TableCell>
                   <TableCell className="text-right">
-                    ${Number(doc.total).toLocaleString("es-AR")}
+                    ${moneyStatic(doc.total)}
                   </TableCell>
                   <TableCell className="capitalize">{doc.estado}</TableCell>
                 </TableRow>

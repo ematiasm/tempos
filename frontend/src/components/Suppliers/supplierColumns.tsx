@@ -1,10 +1,8 @@
 import type { ColumnDef } from "@tanstack/react-table"
-
 import type { SupplierPublic } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import type { useT } from "@/i18n"
-import type { NumberFormat } from "@/lib/format"
-import { formatMoney } from "@/lib/format"
+import { formatMoneyStatic } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { SupplierActionsMenu } from "./SupplierActionsMenu"
 
@@ -12,7 +10,6 @@ export type SupplierTableData = SupplierPublic
 
 export function getColumns(
   t: ReturnType<typeof useT>,
-  numberFormat: NumberFormat,
   onOpen?: (supplier: SupplierTableData) => void,
 ): ColumnDef<SupplierTableData>[] {
   return [
@@ -69,7 +66,7 @@ export function getColumns(
               saldo < 0 && "text-green-600",
             )}
           >
-            ${formatMoney(saldo, numberFormat)}
+            ${formatMoneyStatic(saldo)}
           </div>
         )
       },

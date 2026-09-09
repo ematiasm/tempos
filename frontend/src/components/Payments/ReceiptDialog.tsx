@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { HandCoins } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
-
 import type { CounterpartType } from "@/client"
 import {
   CashSessionsService,
@@ -10,7 +9,6 @@ import {
   PaymentsService,
   SuppliersService,
 } from "@/client"
-import { money } from "@/components/Reports/reportFormat"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -33,7 +31,8 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import useCustomToast from "@/hooks/useCustomToast"
-import { useLocale, useT } from "@/i18n"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 
@@ -55,7 +54,6 @@ export function ReceiptDialog({
   onCreated,
 }: ReceiptDialogProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
@@ -301,7 +299,7 @@ export function ReceiptDialog({
                           Number(doc.pendiente) > 0 && "text-destructive",
                         )}
                       >
-                        {money(Number(doc.pendiente), numberFormat)}
+                        {moneyStatic(Number(doc.pendiente))}
                       </span>
                     </li>
                   ))}
@@ -320,7 +318,7 @@ export function ReceiptDialog({
               <span className="text-xs text-muted-foreground">
                 {t("payments.totalOutstanding")}:{" "}
                 <span className="font-mono">
-                  {money(totalOutstanding, numberFormat)}
+                  {moneyStatic(totalOutstanding)}
                 </span>
               </span>
             </div>

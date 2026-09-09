@@ -1,6 +1,5 @@
 import { ReceiptText } from "lucide-react"
 import { useState } from "react"
-
 import type { CustomerPublic, SupplierPublic } from "@/client"
 import {
   movementColumns,
@@ -8,7 +7,6 @@ import {
   useMovementRows,
 } from "@/components/Common/accountMovements"
 import { DataTable } from "@/components/Common/DataTable"
-import { money } from "@/components/Reports/reportFormat"
 import {
   Dialog,
   DialogContent,
@@ -18,7 +16,8 @@ import {
 } from "@/components/ui/dialog"
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useLocale, useT } from "@/i18n"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 
 interface AccountMovementsDialogProps {
   counterpart: CustomerPublic | SupplierPublic
@@ -32,7 +31,6 @@ export function AccountMovementsDialog({
   onClose,
 }: AccountMovementsDialogProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const [open, setOpen] = useState(false)
 
   const { data, isLoading } = useAccountMovements(counterpart.id, type, open)
@@ -64,12 +62,12 @@ export function AccountMovementsDialog({
             <DialogTitle>{t("currentAccount.title")}</DialogTitle>
             <DialogDescription>
               {counterpart.razon_social} · {t("currentAccount.balance")}:{" "}
-              {money(counterpart.saldo, numberFormat)}
+              {moneyStatic(counterpart.saldo)}
               {creditLimit != null && (
                 <>
                   {" "}
                   · {t("currentAccount.creditLimit")}:{" "}
-                  {money(creditLimit, numberFormat)}
+                  {moneyStatic(creditLimit)}
                 </>
               )}
             </DialogDescription>
@@ -81,7 +79,7 @@ export function AccountMovementsDialog({
               {t("currentAccount.empty")}
             </p>
           ) : (
-            <DataTable columns={movementColumns(t, numberFormat)} data={rows} />
+            <DataTable columns={movementColumns(t)} data={rows} />
           )}
         </DialogContent>
       </Dialog>

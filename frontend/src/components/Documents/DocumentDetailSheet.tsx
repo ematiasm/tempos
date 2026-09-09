@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Ban, FileCheck, Printer } from "lucide-react"
 import { useState } from "react"
-
 import type { DocumentPublic } from "@/client"
 import {
   DocumentsService,
@@ -22,12 +21,9 @@ import {
 } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import useCustomToast from "@/hooks/useCustomToast"
-import { useLocale, useT } from "@/i18n"
-import { formatMoney } from "@/lib/format"
+import { useT } from "@/i18n"
+import { formatDateStatic, moneyStatic } from "@/lib/format"
 import { handleError } from "@/utils"
-
-const money = (value: string | number, format: "es" | "en") =>
-  `$${formatMoney(Number(value), format)}`
 
 interface DocumentDetailSheetProps {
   document: DocumentPublic | null
@@ -41,7 +37,6 @@ const DocumentDetailSheet = ({
   onOpenChange,
 }: DocumentDetailSheetProps) => {
   const t = useT()
-  const { numberFormat } = useLocale()
   const [voidOpen, setVoidOpen] = useState(false)
   const [printOpen, setPrintOpen] = useState(false)
   const queryClient = useQueryClient()
@@ -136,8 +131,7 @@ const DocumentDetailSheet = ({
         <SheetHeader>
           <SheetTitle className="font-mono">{document.numero}</SheetTitle>
           <SheetDescription>
-            {document.document_type.name} ·{" "}
-            {new Date(document.fecha).toLocaleDateString("es-AR")} ·{" "}
+            {document.document_type.name} · {formatDateStatic(document.fecha)} ·{" "}
             {document.contraparte_name ?? t("documents.noCounterpart")} ·{" "}
             <span className="capitalize">{document.estado}</span>
           </SheetDescription>
@@ -154,11 +148,10 @@ const DocumentDetailSheet = ({
                       {line.product_name ?? line.product_id}
                     </span>
                     <span className="text-muted-foreground whitespace-nowrap">
-                      {Number(line.cantidad)} ×{" "}
-                      {money(line.precio_unit, numberFormat)}
+                      {Number(line.cantidad)} × {moneyStatic(line.precio_unit)}
                     </span>
                     <span className="font-mono whitespace-nowrap w-24 text-right">
-                      {money(line.subtotal_line, numberFormat)}
+                      {moneyStatic(line.subtotal_line)}
                     </span>
                   </div>
                   <div className="mt-1 flex items-center gap-2">
@@ -170,7 +163,7 @@ const DocumentDetailSheet = ({
                     {(line.taxes ?? []).map((tax) => (
                       <Badge key={tax.id} variant="outline" className="text-xs">
                         {taxNames.get(tax.tax_id) ?? t("documents.tax")}{" "}
-                        {money(tax.monto, numberFormat)}
+                        {moneyStatic(tax.monto)}
                       </Badge>
                     ))}
                   </div>
@@ -195,13 +188,11 @@ const DocumentDetailSheet = ({
                       <span className="text-muted-foreground">
                         ·{" "}
                         {t("documents.base", {
-                          base: money(tax.base, numberFormat),
+                          base: moneyStatic(tax.base),
                         })}
                       </span>
                     </span>
-                    <span className="font-mono">
-                      {money(tax.monto, numberFormat)}
-                    </span>
+                    <span className="font-mono">{moneyStatic(tax.monto)}</span>
                   </li>
                 ))}
               </ul>
@@ -214,7 +205,7 @@ const DocumentDetailSheet = ({
                 {t("documents.subtotal")}
               </span>
               <span className="font-mono">
-                {money(document.subtotal, numberFormat)}
+                {moneyStatic(document.subtotal)}
               </span>
             </div>
             {Number(document.descuento_total) > 0 && (
@@ -223,21 +214,19 @@ const DocumentDetailSheet = ({
                   {t("documents.discount")}
                 </span>
                 <span className="font-mono">
-                  -{money(document.descuento_total, numberFormat)}
+                  -{moneyStatic(document.descuento_total)}
                 </span>
               </div>
             )}
             <div className="flex w-64 justify-between border-t pt-1 font-medium">
               <span>{t("documents.total")}</span>
-              <span className="font-mono">
-                {money(document.total, numberFormat)}
-              </span>
+              <span className="font-mono">{moneyStatic(document.total)}</span>
             </div>
             {Number(document.favor_monto) > 0 && (
               <div className="flex w-64 justify-between text-sm text-muted-foreground">
                 <span>{t("sell.creditInFavor")}</span>
                 <span className="font-mono">
-                  -{money(Number(document.favor_monto), numberFormat)}
+                  -{moneyStatic(Number(document.favor_monto))}
                 </span>
               </div>
             )}
@@ -259,7 +248,7 @@ const DocumentDetailSheet = ({
                         payment.payment_method_id}
                     </span>
                     <span className="font-mono">
-                      {money(payment.monto, numberFormat)}
+                      {moneyStatic(payment.monto)}
                     </span>
                   </li>
                 ))}
@@ -270,9 +259,7 @@ const DocumentDetailSheet = ({
           {showPending && (
             <div className="flex items-center justify-between rounded border px-3 py-2 text-sm font-medium">
               <span>{t("documents.balancePending")}</span>
-              <span className="font-mono">
-                {money(pendingAmount, numberFormat)}
-              </span>
+              <span className="font-mono">{moneyStatic(pendingAmount)}</span>
             </div>
           )}
 
@@ -300,13 +287,11 @@ const DocumentDetailSheet = ({
                       </span>
                       <span className="text-muted-foreground">
                         {allocation.fecha
-                          ? new Date(allocation.fecha).toLocaleDateString(
-                              "es-AR",
-                            )
+                          ? formatDateStatic(allocation.fecha)
                           : "—"}
                       </span>
                       <span className="font-mono">
-                        {money(allocation.monto, numberFormat)}
+                        {moneyStatic(allocation.monto)}
                       </span>
                     </li>
                   ))}
@@ -336,13 +321,11 @@ const DocumentDetailSheet = ({
                       <span className="font-mono">{allocation.numero}</span>
                       <span className="text-muted-foreground">
                         {allocation.fecha
-                          ? new Date(allocation.fecha).toLocaleDateString(
-                              "es-AR",
-                            )
+                          ? formatDateStatic(allocation.fecha)
                           : "—"}
                       </span>
                       <span className="font-mono">
-                        {money(allocation.monto, numberFormat)}
+                        {moneyStatic(allocation.monto)}
                       </span>
                     </li>
                   ))}

@@ -14,18 +14,18 @@ import { safeTimeZone, thisMonthRange } from "@/components/Reports/datePresets"
 import { ReportActions } from "@/components/Reports/ReportActions"
 import { ReportDateRange } from "@/components/Reports/ReportDateRange"
 import { ReportPrintDialog } from "@/components/Reports/ReportPrintDialog"
-import { type DateRangeValue, money } from "@/components/Reports/reportFormat"
+import type { DateRangeValue } from "@/components/Reports/reportFormat"
 import { useBusinessSettings } from "@/components/Sell/useBusinessSettings"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
-import { useLocale, useT } from "@/i18n"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import { hasPermission } from "@/lib/permissions"
 
 export function SalesByPaymentTab() {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { user } = useAuth()
   const { settings } = useBusinessSettings()
   // GET /reports/sales-by-payment requires report.view; without it the query
@@ -95,9 +95,7 @@ export function SalesByPaymentTab() {
       accessorKey: "monto",
       header: headerLabels[2],
       cell: ({ row }) => (
-        <span className="font-medium">
-          {money(row.original.monto, numberFormat)}
-        </span>
+        <span className="font-medium">{moneyStatic(row.original.monto)}</span>
       ),
     },
   ]
@@ -119,7 +117,7 @@ export function SalesByPaymentTab() {
               <span>{t("reports.paymentCount", { count: totalPayments })}</span>
               <span className="font-semibold text-foreground">
                 {t("reports.grandTotal", {
-                  total: money(grandTotal, numberFormat),
+                  total: moneyStatic(grandTotal),
                 })}
               </span>
             </div>
@@ -153,13 +151,13 @@ export function SalesByPaymentTab() {
                 ? r.method_name
                 : `${r.method_name} (${t("reports.onCredit")})`,
               String(r.count),
-              money(r.monto, numberFormat),
+              moneyStatic(r.monto),
             ]),
             totals: [
               { label: t("reports.payments"), value: String(totalPayments) },
               {
                 label: t("reports.total"),
-                value: money(grandTotal, numberFormat),
+                value: moneyStatic(grandTotal),
               },
             ],
           },

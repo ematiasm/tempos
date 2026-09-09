@@ -20,8 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useLocale, useT } from "@/i18n"
-import { money } from "@/lib/format"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import {
   buildMethodIndex,
   capCashRows,
@@ -79,26 +79,24 @@ interface SplitPaymentDialogProps {
 
 function useSplitCopy(party: SplitPaymentParty) {
   const t = useT()
-  const { numberFormat } = useLocale()
   return {
     t,
-    numberFormat,
-    format: (n: number) => money(n, numberFormat),
+    format: (n: number) => moneyStatic(n),
     debt: (amount: number) =>
       party === "supplier"
         ? t("payments.split.debtSupplier", {
-            amount: money(amount, numberFormat),
+            amount: moneyStatic(amount),
           })
         : t("payments.split.debtCustomer", {
-            amount: money(amount, numberFormat),
+            amount: moneyStatic(amount),
           }),
     credit: (amount: number) =>
       party === "supplier"
         ? t("payments.split.creditOurs", {
-            amount: money(amount, numberFormat),
+            amount: moneyStatic(amount),
           })
         : t("payments.split.creditCustomer", {
-            amount: money(amount, numberFormat),
+            amount: moneyStatic(amount),
           }),
   }
 }
@@ -125,12 +123,7 @@ export function SplitPaymentDialog({
   pending,
   onConfirm,
 }: SplitPaymentDialogProps) {
-  const {
-    t,
-    numberFormat,
-    debt: debtCopy,
-    credit: creditCopy,
-  } = useSplitCopy(party)
+  const { t, debt: debtCopy, credit: creditCopy } = useSplitCopy(party)
 
   const [rows, setRows] = useState<SplitRowInput[]>([])
   const [useCredit, setUseCredit] = useState(false)
@@ -202,7 +195,7 @@ export function SplitPaymentDialog({
       ? t("errors.credit_exceeds_total")
       : metrics.uncovered && (counter || blockCredit)
         ? t("payments.split.uncovered", {
-            amount: money(metrics.remaining, numberFormat),
+            amount: moneyStatic(metrics.remaining),
           })
         : !counter && blockCredit && metrics.overpaid > 0
           ? t("errors.consumidor_final_no_credit")
@@ -242,7 +235,7 @@ export function SplitPaymentDialog({
         <DialogHeader>
           <DialogTitle>{t("payments.split.title")}</DialogTitle>
           <DialogDescription>
-            {t("sell.total")}: {money(total, numberFormat)}
+            {t("sell.total")}: {moneyStatic(total)}
           </DialogDescription>
         </DialogHeader>
 
@@ -314,7 +307,7 @@ export function SplitPaymentDialog({
               className="h-3.5 w-3.5"
             />
             {t("sell.useCredit", {
-              credit: money(creditInFavor, numberFormat),
+              credit: moneyStatic(creditInFavor),
             })}
           </label>
         )}
@@ -326,7 +319,7 @@ export function SplitPaymentDialog({
             </span>
             <span data-testid="split-covered">
               {t("payments.split.covered", {
-                amount: money(coveredShown, numberFormat),
+                amount: moneyStatic(coveredShown),
               })}
             </span>
           </div>
@@ -336,7 +329,7 @@ export function SplitPaymentDialog({
             </span>
             <span data-testid="split-remaining">
               {t("payments.split.remaining", {
-                amount: money(Math.max(metrics.remaining, 0), numberFormat),
+                amount: moneyStatic(Math.max(metrics.remaining, 0)),
               })}
             </span>
           </div>
@@ -345,7 +338,7 @@ export function SplitPaymentDialog({
               <span>{t("sell.changeDue", { change: "" }).trimEnd()}</span>
               <span data-testid="split-vuelto">
                 {t("sell.changeDue", {
-                  change: money(metrics.vuelto, numberFormat),
+                  change: moneyStatic(metrics.vuelto),
                 })}
               </span>
             </div>
@@ -394,7 +387,7 @@ export function SplitPaymentDialog({
           >
             {debt > 0
               ? t("payments.split.confirmDebt", {
-                  amount: money(debt, numberFormat),
+                  amount: moneyStatic(debt),
                 })
               : t("payments.split.confirm")}
           </LoadingButton>

@@ -16,8 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { useLocale, useT } from "@/i18n"
-import { money } from "@/lib/format"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 
 interface BelowCostDialogProps {
   open: boolean
@@ -35,7 +35,6 @@ interface BelowCostDialogProps {
 
 /** One below-cost cart line rendered as a report row. */
 function BelowCostRow({ line }: { line: CartLine }) {
-  const { numberFormat } = useLocale()
   const cost = Number(line.product.costo_actual)
   const effectivePrice = line.unitPrice * (1 - line.discountPct / 100)
   const loss = Number(((cost - effectivePrice) * line.qty).toFixed(2))
@@ -46,13 +45,13 @@ function BelowCostRow({ line }: { line: CartLine }) {
     <TableRow>
       <TableCell className="py-1.5">{variantLabel}</TableCell>
       <TableCell className="py-1.5 text-right tabular-nums">
-        {money(effectivePrice, numberFormat)}
+        {moneyStatic(effectivePrice)}
       </TableCell>
       <TableCell className="py-1.5 text-right tabular-nums">
-        {money(cost, numberFormat)}
+        {moneyStatic(cost)}
       </TableCell>
       <TableCell className="py-1.5 text-right tabular-nums text-amber-600">
-        {money(loss, numberFormat)}
+        {moneyStatic(loss)}
       </TableCell>
     </TableRow>
   )
@@ -74,7 +73,6 @@ export function BelowCostDialog({
   onOpenChange,
 }: BelowCostDialogProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const hasDocRow = docBelow !== null && docBelow !== undefined
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -110,13 +108,13 @@ export function BelowCostDialog({
                   {t("sell.belowCostDialog.docTotal")}
                 </TableCell>
                 <TableCell className="py-1.5 text-right tabular-nums">
-                  {money(docBelow.revenue, numberFormat)}
+                  {moneyStatic(docBelow.revenue)}
                 </TableCell>
                 <TableCell className="py-1.5 text-right tabular-nums">
-                  {money(docBelow.cost, numberFormat)}
+                  {moneyStatic(docBelow.cost)}
                 </TableCell>
                 <TableCell className="py-1.5 text-right tabular-nums text-amber-600">
-                  {money(docBelow.cost - docBelow.revenue, numberFormat)}
+                  {moneyStatic(docBelow.cost - docBelow.revenue)}
                 </TableCell>
               </TableRow>
             )}

@@ -1,14 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Loader2, Search, ShoppingCart } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
-
 import type { ProductPublic, ProductVariantPublic } from "@/client"
 import { ProductsService } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useLocale, useT } from "@/i18n"
-import { formatMoney } from "@/lib/format"
+import { useT } from "@/i18n"
+import { formatMoneyStatic } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export interface CartLine {
@@ -45,7 +44,6 @@ const ProductSearch = ({
   scanEnter = false,
 }: ProductSearchProps) => {
   const t = useT()
-  const { numberFormat } = useLocale()
   const queryClient = useQueryClient()
   const [query, setQuery] = useState("")
   const [debouncedQuery, setDebouncedQuery] = useState("")
@@ -286,7 +284,7 @@ const ProductSearch = ({
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold">
-                      ${formatMoney(Number(product.precio_venta), numberFormat)}
+                      ${formatMoneyStatic(Number(product.precio_venta))}
                     </span>
                     <span className="inline-flex h-8 items-center gap-1 rounded-md bg-secondary px-3 text-sm font-medium text-secondary-foreground">
                       <ShoppingCart className="h-3 w-3" />

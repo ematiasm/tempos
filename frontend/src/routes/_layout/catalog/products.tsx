@@ -17,7 +17,7 @@ import AddProduct from "@/components/Products/AddProduct"
 import ProductDetailSheet from "@/components/Products/ProductDetailSheet"
 import { getProductsColumns } from "@/components/Products/productsColumns"
 import { Input } from "@/components/ui/input"
-import { formatStatic, useLocale, useT } from "@/i18n"
+import { formatStatic, useT } from "@/i18n"
 import { cn } from "@/lib/utils"
 
 const PAGE_SIZE = 50
@@ -183,7 +183,6 @@ function TreeRow({
 
 function ProductsContent() {
   const t = useT()
-  const { numberFormat } = useLocale()
   const [searchInput, setSearchInput] = useState("")
   const [q, setQ] = useState("")
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
@@ -233,10 +232,8 @@ function ProductsContent() {
     [products, categoryMap],
   )
 
-  const columns = getProductsColumns(
-    t,
-    (product) => setOpenProductId(product.id),
-    numberFormat,
+  const columns = getProductsColumns(t, (product) =>
+    setOpenProductId(product.id),
   )
 
   const tree = useMemo(() => buildCategoryTree(categories), [categories])

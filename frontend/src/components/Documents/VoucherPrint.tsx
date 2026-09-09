@@ -11,15 +11,9 @@ import {
   TaxesService,
 } from "@/client"
 import { useBusinessSettings } from "@/components/Sell/useBusinessSettings"
-import { useLocale, useT } from "@/i18n"
-import { formatMoney } from "@/lib/format"
+import { useT } from "@/i18n"
+import { formatDateStatic, moneyStatic } from "@/lib/format"
 import { cn } from "@/lib/utils"
-
-const money = (
-  value: string | number | null | undefined,
-  format: "es" | "en",
-) =>
-  value == null || value === "" ? "—" : `$${formatMoney(Number(value), format)}`
 
 const qty = (value: string | number | null | undefined) =>
   value == null || value === "" ? "—" : String(Number(value))
@@ -30,7 +24,6 @@ interface VoucherPrintProps {
 
 export function VoucherPrint({ document }: VoucherPrintProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const { data: settings } = useQuery({
     queryFn: () => BusinessSettingsService.readBusinessSettings(),
     queryKey: ["business-settings"],
@@ -113,7 +106,7 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
     paidAtIssue -
     incomingPaid
   const lines = [...(document.lines ?? [])].sort((a, b) => a.orden - b.orden)
-  const date = new Date(document.fecha).toLocaleDateString("es-AR")
+  const date = formatDateStatic(document.fecha)
 
   return (
     <div
@@ -205,23 +198,22 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
                     <span className="font-mono">{allocation.numero}</span>
                     {allocation.fecha && (
                       <div className="text-xs text-black/60">
-                        {new Date(allocation.fecha).toLocaleDateString("es-AR")}
+                        {formatDateStatic(allocation.fecha)}
                       </div>
                     )}
                   </td>
                   <td className="py-2 pr-2 text-right">
-                    {money(allocation.saldo_inicial, numberFormat)}
+                    {moneyStatic(allocation.saldo_inicial)}
                   </td>
                   <td className="py-2 pr-2 text-right">
-                    {money(allocation.monto, numberFormat)}
+                    {moneyStatic(allocation.monto)}
                   </td>
                   <td className="py-2 text-right">
                     {allocation.saldo_inicial == null
                       ? "—"
-                      : money(
+                      : moneyStatic(
                           Number(allocation.saldo_inicial) -
                             Number(allocation.monto),
-                          numberFormat,
                         )}
                   </td>
                 </tr>
@@ -230,17 +222,13 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
                 <tr className="border-b border-black font-semibold">
                   <td className="py-2 pr-2">{t("voucher.totals")}</td>
                   <td className="py-2 pr-2 text-right">
-                    {allocations.length > 0
-                      ? money(totalInitial, numberFormat)
-                      : ""}
+                    {allocations.length > 0 ? moneyStatic(totalInitial) : ""}
                   </td>
                   <td className="py-2 pr-2 text-right">
-                    {money(totalPaid, numberFormat)}
+                    {moneyStatic(totalPaid)}
                   </td>
                   <td className="py-2 text-right">
-                    {allocations.length > 0
-                      ? money(totalRemaining, numberFormat)
-                      : ""}
+                    {allocations.length > 0 ? moneyStatic(totalRemaining) : ""}
                   </td>
                 </tr>
               )}
@@ -249,7 +237,7 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
                   <td className="py-2 pr-2">{t("voucher.onAccount")}</td>
                   <td className="py-2 pr-2 text-right" />
                   <td className="py-2 pr-2 text-right">
-                    {money(onAccount, numberFormat)}
+                    {moneyStatic(onAccount)}
                   </td>
                   <td className="py-2 text-right" />
                 </tr>
@@ -300,13 +288,13 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
                 </td>
                 <td className="py-2 pr-2 text-right">{qty(line.cantidad)}</td>
                 <td className="py-2 pr-2 text-right">
-                  {money(line.precio_unit, numberFormat)}
+                  {moneyStatic(line.precio_unit)}
                 </td>
                 <td className="py-2 pr-2 text-right">
-                  {money(line.descuento_monto, numberFormat)}
+                  {moneyStatic(line.descuento_monto)}
                 </td>
                 <td className="py-2 text-right font-medium">
-                  {money(line.subtotal_line, numberFormat)}
+                  {moneyStatic(line.subtotal_line)}
                 </td>
               </tr>
             ))}
@@ -322,10 +310,10 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
                 {taxNames.get(tax.tax_id) ?? t("voucher.tax")}
                 <span className="text-black/60">
                   {" "}
-                  ({t("voucher.base", { base: money(tax.base, numberFormat) })})
+                  ({t("voucher.base", { base: moneyStatic(tax.base) })})
                 </span>
               </span>
-              <span>{money(tax.monto, numberFormat)}</span>
+              <span>{moneyStatic(tax.monto)}</span>
             </div>
           ))}
         </div>
@@ -334,17 +322,17 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
       <div className="voucher-totals ml-auto flex w-64 flex-col gap-1 py-4 text-sm">
         <div className="flex justify-between">
           <span>{t("voucher.subtotal")}</span>
-          <span>{money(document.subtotal, numberFormat)}</span>
+          <span>{moneyStatic(document.subtotal)}</span>
         </div>
         {Number(document.descuento_total) > 0 && (
           <div className="flex justify-between">
             <span>{t("voucher.discount")}</span>
-            <span>-{money(document.descuento_total, numberFormat)}</span>
+            <span>-{moneyStatic(document.descuento_total)}</span>
           </div>
         )}
         <div className="flex justify-between border-t border-black pt-1 text-base font-bold">
           <span>{t("voucher.total")}</span>
-          <span>{money(document.total, numberFormat)}</span>
+          <span>{moneyStatic(document.total)}</span>
         </div>
       </div>
 
@@ -357,7 +345,7 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
                 {methodNames.get(payment.payment_method_id) ??
                   payment.payment_method_id}
               </span>
-              <span>{money(payment.monto, numberFormat)}</span>
+              <span>{moneyStatic(payment.monto)}</span>
             </div>
           ))}
         </div>
@@ -366,7 +354,7 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
       {incoming.length === 0 && isDebtDocument && saldoPendiente > 0 && (
         <div className="flex justify-between border-t border-black py-3 text-sm font-semibold">
           <span>{t("voucher.balancePending")}</span>
-          <span>{money(saldoPendiente, numberFormat)}</span>
+          <span>{moneyStatic(saldoPendiente)}</span>
         </div>
       )}
 
@@ -404,23 +392,22 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
                     </span>
                     {allocation.fecha && (
                       <div className="text-xs text-black/60">
-                        {new Date(allocation.fecha).toLocaleDateString("es-AR")}
+                        {formatDateStatic(allocation.fecha)}
                       </div>
                     )}
                   </td>
                   <td className="py-2 pr-2 text-right">
-                    {money(allocation.saldo_inicial, numberFormat)}
+                    {moneyStatic(allocation.saldo_inicial)}
                   </td>
                   <td className="py-2 pr-2 text-right">
-                    {money(allocation.monto, numberFormat)}
+                    {moneyStatic(allocation.monto)}
                   </td>
                   <td className="py-2 text-right">
                     {allocation.saldo_inicial == null
                       ? "—"
-                      : money(
+                      : moneyStatic(
                           Number(allocation.saldo_inicial) -
                             Number(allocation.monto),
-                          numberFormat,
                         )}
                   </td>
                 </tr>
@@ -428,13 +415,13 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
               <tr className="border-b border-black font-semibold">
                 <td className="py-2 pr-2">{t("voucher.totals")}</td>
                 <td className="py-2 pr-2 text-right">
-                  {money(incomingInitial, numberFormat)}
+                  {moneyStatic(incomingInitial)}
                 </td>
                 <td className="py-2 pr-2 text-right">
-                  {money(incomingPaid, numberFormat)}
+                  {moneyStatic(incomingPaid)}
                 </td>
                 <td className="py-2 text-right">
-                  {money(incomingRemaining, numberFormat)}
+                  {moneyStatic(incomingRemaining)}
                 </td>
               </tr>
               <tr className="font-semibold">
@@ -442,7 +429,7 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
                   {t("voucher.balancePending")}
                 </td>
                 <td className="py-2 text-right">
-                  {money(Math.max(0, saldoPendiente), numberFormat)}
+                  {moneyStatic(Math.max(0, saldoPendiente))}
                 </td>
               </tr>
             </tbody>
@@ -453,7 +440,7 @@ export function VoucherPrint({ document }: VoucherPrintProps) {
       {Number(document.favor_monto) > 0 && (
         <div className="flex justify-between py-0.5 text-sm">
           <span>{t("voucher.favorApplied")}</span>
-          <span>{money(Number(document.favor_monto), numberFormat)}</span>
+          <span>{moneyStatic(Number(document.favor_monto))}</span>
         </div>
       )}
 

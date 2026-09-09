@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { formatStatic, useLocale, useT } from "@/i18n"
+import { formatStatic, useT } from "@/i18n"
 
 interface DocumentFilters {
   typeId: string | null
@@ -64,7 +64,6 @@ export const Route = createFileRoute("/_layout/documents")({
 
 function DocumentsContent() {
   const t = useT()
-  const { numberFormat } = useLocale()
   const [filters, setFilters] = useState<DocumentFilters>(NO_FILTERS)
   const { data: documents } = useSuspenseQuery(
     getDocumentsQueryOptions(filters),
@@ -208,7 +207,7 @@ function DocumentsContent() {
           </Button>
         </div>
       </div>
-      <DataTable columns={getColumns(t, numberFormat)} data={rows} />
+      <DataTable columns={getColumns(t)} data={rows} />
       <DocumentDetailSheet
         document={selected}
         open={selected !== null}

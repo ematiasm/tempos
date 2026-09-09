@@ -1,6 +1,5 @@
 import { Check, ChevronsUpDown } from "lucide-react"
 import { type RefObject, useImperativeHandle, useMemo, useState } from "react"
-
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -15,8 +14,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { useLocale, useT } from "@/i18n"
-import { money } from "@/lib/format"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export interface CounterpartOption {
@@ -60,7 +59,6 @@ export function CounterpartCombobox({
   controlsRef,
 }: CounterpartComboboxProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
 
@@ -152,7 +150,7 @@ export function CounterpartCombobox({
                       {item.documento && (
                         <span className="font-mono">{item.documento}</span>
                       )}
-                      <span>{money(Number(item.saldo), numberFormat)}</span>
+                      <span>{moneyStatic(Number(item.saldo))}</span>
                     </span>
                   </span>
                 </CommandItem>

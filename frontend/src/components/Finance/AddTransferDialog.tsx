@@ -4,9 +4,7 @@ import { ArrowLeftRight } from "lucide-react"
 import { useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-
 import { FinancialAccountsService, TransfersService } from "@/client"
-import { money } from "@/components/Reports/reportFormat"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -36,7 +34,8 @@ import {
 } from "@/components/ui/select"
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
-import { useLocale, useT } from "@/i18n"
+import { useT } from "@/i18n"
+import { moneyStatic } from "@/lib/format"
 import { hasPermission } from "@/lib/permissions"
 import { handleError } from "@/utils"
 
@@ -76,7 +75,6 @@ export function AddTransferDialog({
   onCreated,
 }: AddTransferDialogProps) {
   const t = useT()
-  const { numberFormat } = useLocale()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const { user } = useAuth()
@@ -178,7 +176,7 @@ export function AddTransferDialog({
                       <SelectContent>
                         {accountOptions().map((a) => (
                           <SelectItem key={a.id} value={a.id}>
-                            {a.name} ({money(a.saldo, numberFormat)})
+                            {a.name} ({moneyStatic(a.saldo)})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -212,7 +210,7 @@ export function AddTransferDialog({
                         {accountOptions(form.watch("from_account_id")).map(
                           (a) => (
                             <SelectItem key={a.id} value={a.id}>
-                              {a.name} ({money(a.saldo, numberFormat)})
+                              {a.name} ({moneyStatic(a.saldo)})
                             </SelectItem>
                           ),
                         )}

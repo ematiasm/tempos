@@ -1,11 +1,9 @@
 import type { ColumnDef } from "@tanstack/react-table"
-
 import type { CustomerPublic } from "@/client"
 import { CONSUMIDOR_FINAL_NAME } from "@/components/Common/conditionOptions"
 import { Badge } from "@/components/ui/badge"
 import type { useT } from "@/i18n"
-import type { NumberFormat } from "@/lib/format"
-import { formatMoney } from "@/lib/format"
+import { formatMoneyStatic } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { CustomerActionsMenu } from "./CustomerActionsMenu"
 
@@ -13,7 +11,6 @@ export type CustomerTableData = CustomerPublic
 
 export function getColumns(
   t: ReturnType<typeof useT>,
-  numberFormat: NumberFormat,
   onOpen?: (customer: CustomerTableData) => void,
 ): ColumnDef<CustomerTableData>[] {
   return [
@@ -75,7 +72,7 @@ export function getColumns(
               saldo < 0 && "text-green-600",
             )}
           >
-            ${formatMoney(saldo, numberFormat)}
+            ${formatMoneyStatic(saldo)}
           </div>
         )
       },
@@ -89,7 +86,7 @@ export function getColumns(
         <div className="text-right text-muted-foreground text-sm">
           {Number(row.original.limite_credito ?? 0) === 0
             ? t("customers.noLimit")
-            : `$${formatMoney(Number(row.original.limite_credito ?? 0), numberFormat)}`}
+            : `$${formatMoneyStatic(Number(row.original.limite_credito ?? 0))}`}
         </div>
       ),
     },

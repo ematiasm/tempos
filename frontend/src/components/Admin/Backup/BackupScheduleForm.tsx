@@ -4,7 +4,6 @@ import { CalendarClock, CheckCircle2, XCircle } from "lucide-react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-
 import { type BackupScheduleUpdate, BackupsService } from "@/client"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -27,7 +26,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
-import { type MessageId, useLocale, useT } from "@/i18n"
+import { type MessageId, useT } from "@/i18n"
+import { formatDateTimeStatic } from "@/lib/format"
 import { handleError } from "@/utils"
 
 const formSchema = z
@@ -80,7 +80,6 @@ const WEEKDAY_KEYS: Record<number, MessageId> = {
 
 function BackupScheduleForm() {
   const t = useT()
-  const { locale } = useLocale()
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [isEditing, setIsEditing] = useState(false)
@@ -151,9 +150,7 @@ function BackupScheduleForm() {
   }
 
   const formatDate = (value: string | null | undefined) =>
-    value
-      ? new Date(value).toLocaleString(locale)
-      : t("admin.backups.schedule.never")
+    value ? formatDateTimeStatic(value) : t("admin.backups.schedule.never")
 
   return (
     <div className="flex flex-col gap-6">
