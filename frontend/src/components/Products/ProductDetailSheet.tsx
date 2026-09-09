@@ -103,6 +103,14 @@ const ProductDetailSheet = ({
   const [newVariantSuffix, setNewVariantSuffix] = useState("")
   const [newVariantValueIds, setNewVariantValueIds] = useState<string[]>([])
 
+  // Tracks which product the form was last mirrored to (see the reset
+  // effect below). The selects must mount only after the form holds the
+  // product's values: on the very first open they would otherwise mount
+  // empty and Radix Select never repaints the trigger label for a value
+  // that arrives after its popup mounted empty - the user had to close
+  // and reopen the sheet to see the category/unit.
+  const [syncedProductId, setSyncedProductId] = useState<string | null>(null)
+
   const { data: product } = useQuery({
     queryFn: () => ProductsService.readProduct({ productId: productId! }),
     queryKey: ["product", productId],
@@ -157,6 +165,7 @@ const ProductDetailSheet = ({
 
   useEffect(() => {
     if (!product) return
+    setSyncedProductId(product.id)
     form.reset({
       name: product.name,
       sku: product.sku ?? "",
@@ -334,6 +343,20 @@ const ProductDetailSheet = ({
   })
 
   if (!product) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="sm:max-w-xl overflow-y-auto">
+          <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+            Loading…
+          </div>
+        </SheetContent>
+      </Sheet>
+    )
+  }
+  // The form mirrors `product` asynchronously: hold the loading state until
+  // the reset effect has populated it, so the selects mount with their
+  // values already set (see syncedProductId above).
+  if (syncedProductId !== product.id) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent className="sm:max-w-xl overflow-y-auto">
