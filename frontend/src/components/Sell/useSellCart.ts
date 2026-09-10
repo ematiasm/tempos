@@ -2,19 +2,9 @@ import { useState } from "react"
 import { round2 } from "@/components/Payments/paymentMath"
 import type { CartLine } from "./ProductSearch"
 
-/** Sensible minimum quantity: the smallest amount the UoM can represent. */
-export const minQtyFor = (decimalPlaces: number): number =>
-  decimalPlaces > 0 ? 1 / 10 ** decimalPlaces : 1
-
-/** Keyboard / action-bar step: 1 for integer UoMs, 0.1 for decimal ones. */
-export const qtyStepFor = (decimalPlaces: number): number =>
-  decimalPlaces > 0 ? 0.1 : 1
-
-/** Clamp to the minimum sensible quantity and round at the UoM precision. */
-export const clampQty = (qty: number, decimalPlaces: number): number => {
-  const factor = 10 ** decimalPlaces
-  return Math.max(minQtyFor(decimalPlaces), Math.round(qty * factor) / factor)
-}
+// Quantity helpers live in `@/lib/quantities` (shared with the purchase
+// entry); re-exported here so existing sell import sites keep working.
+export { clampQty, minQtyFor, qtyStepFor } from "@/lib/quantities"
 
 export function computeTotals(cart: CartLine[], discountTotal: number) {
   let subtotal = 0

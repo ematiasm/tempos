@@ -43,6 +43,7 @@ import {
 import useCustomToast from "@/hooks/useCustomToast"
 import { formatStatic, useT } from "@/i18n"
 import { moneyStatic } from "@/lib/format"
+import { clampQty, qtyStepFor } from "@/lib/quantities"
 import { handleError } from "@/utils"
 
 export const Route = createFileRoute("/_layout/buy")({
@@ -370,6 +371,7 @@ function Buy() {
                 </thead>
                 <tbody className="divide-y">
                   {cart.map((line, index) => {
+                    const dp = line.product.uom?.decimal_places ?? 0
                     const lineTotal = round2(
                       line.qty * line.unitPrice * (1 - line.discountPct / 100),
                     )
@@ -409,7 +411,7 @@ function Buy() {
                               className="h-7 w-7"
                               onClick={() =>
                                 updateLine(index, {
-                                  qty: Math.max(0.001, round2(line.qty - 1)),
+                                  qty: clampQty(line.qty - qtyStepFor(dp), dp),
                                 })
                               }
                             >
@@ -417,12 +419,17 @@ function Buy() {
                             </Button>
                             <Input
                               type="number"
-                              step="0.001"
+                              step={dp > 0 ? String(1 / 10 ** dp) : "1"}
                               className="h-8 w-16 px-1 text-right"
                               value={line.qty}
                               onChange={(e) =>
                                 updateLine(index, {
                                   qty: Number(e.target.value) || 0,
+                                })
+                              }
+                              onBlur={() =>
+                                updateLine(index, {
+                                  qty: clampQty(line.qty, dp),
                                 })
                               }
                             />
@@ -432,7 +439,9 @@ function Buy() {
                               size="icon"
                               className="h-7 w-7"
                               onClick={() =>
-                                updateLine(index, { qty: round2(line.qty + 1) })
+                                updateLine(index, {
+                                  qty: clampQty(line.qty + qtyStepFor(dp), dp),
+                                })
                               }
                             >
                               <Plus className="h-3 w-3" />
