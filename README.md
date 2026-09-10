@@ -20,7 +20,7 @@ frontend.
 - Finance: financial accounts, payment methods, transfers, card conciliation,
   account movements (append-only).
 - Reports and HTML voucher printing via `window.print()`.
-- i18n (Spanish default, English available) and Playwright E2E coverage.
+- Playwright E2E coverage.
 
 ## Documentation
 

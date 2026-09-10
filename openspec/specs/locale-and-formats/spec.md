@@ -16,12 +16,6 @@ The system MUST resolve exactly one display locale for the whole business from
 users MUST NOT be able to override the display locale; there MUST be no
 per-user locale preference in `localStorage` or in the database.
 
-#### Scenario: Business default applied to every session
-
-- GIVEN the business `default_locale` is `es`
-- WHEN any user opens the application in any browser or device
-- THEN the UI renders in Spanish and no `tempos.locale` key is read or written
-
 #### Scenario: No per-user switch
 
 - GIVEN the user opens User Settings
