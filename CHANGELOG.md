@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed — purchase line-tax rows computed forward from the net subtotal
+
+`_create_document_in_tx` decomposed **every** line subtotal as if it were a
+tax-inclusive sale price. Purchase line prices are net, so an OC line of
+200.00 with IVA 21% stored `base 165.29 + monto 34.71` instead of the correct
+`base 200.00 + monto 42.00`. `COMPRA` operations now use `_forward_line_taxes`
+(percent montos on the net base, fixed amounts once); sales, quotes and void
+mirrors keep the exact gross decomposition. Historical rows are untouched
+(stored rows are never rewritten) — only new documents get the corrected
+breakdown. No schema change, no OpenAPI change.
+
 ### Changed — pricing chain: taxes integrated in the price (margins over net)
 
 The pricing convention changed from "cost × margin = sale price, IVA shown

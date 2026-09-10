@@ -316,6 +316,32 @@ def _money(value: Decimal) -> Decimal:
     return value.quantize(_Q2)
 
 
+def _forward_line_taxes(
+    subtotal_neto: Decimal, taxes: Sequence[Tax]
+) -> list[tuple[uuid.UUID, Decimal, Decimal]]:
+    """Tax rows for a net line subtotal (purchases).
+
+    Purchase line prices are net of line taxes, so the rows are computed
+    forward: every row's base is the net subtotal, percent montos apply on
+    it and fixed-amount taxes contribute their amount once. Unlike the
+    gross decomposition there is no cent residual to reallocate, and the
+    montos add on top of the subtotal instead of being contained in it.
+    """
+    rows: list[tuple[uuid.UUID, Decimal, Decimal]] = []
+    for tax in taxes:
+        if tax.is_percent:
+            monto = _round2(subtotal_neto * tax.rate / Decimal("100"))
+        else:
+            if tax.rate < 0:
+                raise BusinessError(
+                    "invalid_fixed_tax_amount",
+                    "Fixed-amount taxes cannot be negative",
+                )
+            monto = tax.rate
+        rows.append((tax.id, subtotal_neto, monto))
+    return rows
+
+
 def _decompose_line_taxes(
     subtotal_bruto: Decimal, taxes: Sequence[Tax]
 ) -> list[tuple[uuid.UUID, Decimal, Decimal]]:
@@ -678,7 +704,13 @@ def _create_document_in_tx(
                 acc["base"] += subtotal_line
         line_level = [t for t in taxes if t.aplica_a == TaxAppliesTo.LINEA]
         if line_level:
-            line_taxes = _decompose_line_taxes(subtotal_line, line_level)
+            if doc_type.operation == DocumentOperation.COMPRA:
+                # Purchase line prices are net of line taxes: compute the
+                # rows forward from the net subtotal. Every other operation
+                # prices tax-inclusive, so its subtotal is decomposed.
+                line_taxes = _forward_line_taxes(subtotal_line, line_level)
+            else:
+                line_taxes = _decompose_line_taxes(subtotal_line, line_level)
         line_specs.append(
             (
                 index,

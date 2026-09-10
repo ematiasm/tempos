@@ -583,6 +583,150 @@ def test_non_cf_credit_sale_still_allowed(
     )
 
 
+def test_purchase_line_taxes_computed_forward_from_net(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """Purchase line prices are net of line taxes: the IVA rows apply on the
+    net subtotal (base 200.00 + IVA 42.00) instead of decomposing it as if it
+    were a tax-inclusive sale price."""
+    supplier = _create_supplier(client, superuser_token_headers)
+    iva21 = _iva21_id(client, superuser_token_headers)
+    product = _create_product(
+        client, superuser_token_headers, costo="100.00", tax_ids=[iva21]
+    )
+    oc = _doc_type_id(client, superuser_token_headers, "OC")
+    doc = _create_doc(
+        client,
+        superuser_token_headers,
+        {
+            "document_type_id": oc,
+            "contraparte_id": supplier["id"],
+            "lines": [
+                {
+                    "product_id": product["id"],
+                    "cantidad": "2",
+                    "precio_unit": "100.00",
+                },
+            ],
+        },
+    )
+    assert doc["subtotal"] == "200.00"
+    assert doc["total"] == "200.00"
+    (line,) = doc["lines"]
+    assert line["subtotal_line"] == "200.00"
+    iva = next(t for t in line["taxes"] if t["tax_id"] == iva21)
+    assert iva["aplicado"] is True
+    assert iva["base"] == "200.00"
+    assert iva["monto"] == "42.00"
+    # line-level taxes are not aggregated to DocumentTax
+    assert doc["taxes"] == []
+
+
+def test_purchase_line_taxes_fixed_amount_applied_once(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """A fixed-amount line tax contributes its amount once per purchase line,
+    on the net subtotal (not once per unit, not decomposed)."""
+    supplier = _create_supplier(client, superuser_token_headers)
+    flete = _create_fixed_tax(client, superuser_token_headers)
+    product = _create_product(
+        client, superuser_token_headers, costo="100.00", tax_ids=[flete]
+    )
+    oc = _doc_type_id(client, superuser_token_headers, "OC")
+    doc = _create_doc(
+        client,
+        superuser_token_headers,
+        {
+            "document_type_id": oc,
+            "contraparte_id": supplier["id"],
+            "lines": [
+                {
+                    "product_id": product["id"],
+                    "cantidad": "2",
+                    "precio_unit": "100.00",
+                },
+            ],
+        },
+    )
+    assert doc["subtotal"] == "200.00"
+    assert doc["total"] == "200.00"
+    (line,) = doc["lines"]
+    row = next(t for t in line["taxes"] if t["tax_id"] == flete)
+    assert row["aplicado"] is True
+    assert row["base"] == "200.00"
+    assert row["monto"] == "2.00"
+    assert doc["taxes"] == []
+
+
+def test_void_purchase_regenerates_forward_rows(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """Voiding a purchase rebuilds the mirror NCC rows through the same
+    forward computation: base is the voided net subtotal."""
+    supplier = _create_supplier(client, superuser_token_headers)
+    iva21 = _iva21_id(client, superuser_token_headers)
+    product = _create_product(
+        client, superuser_token_headers, costo="100.00", tax_ids=[iva21]
+    )
+    oc = _doc_type_id(client, superuser_token_headers, "OC")
+    doc = _create_doc(
+        client,
+        superuser_token_headers,
+        {
+            "document_type_id": oc,
+            "contraparte_id": supplier["id"],
+            "lines": [
+                {
+                    "product_id": product["id"],
+                    "cantidad": "2",
+                    "precio_unit": "100.00",
+                },
+            ],
+        },
+    )
+    r = client.post(
+        f"{settings.API_V1_STR}/documents/{doc['id']}/void",
+        headers=superuser_token_headers,
+        json={},
+    )
+    assert r.status_code == 200, r.text
+    (nc_line,) = r.json()["lines"]
+    iva = next(t for t in nc_line["taxes"] if t["tax_id"] == iva21)
+    assert nc_line["subtotal_line"] == "200.00"
+    assert iva["base"] == "200.00"
+    assert iva["monto"] == "42.00"
+
+
+def test_sale_line_taxes_still_decomposed(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Same numbers as the purchase forward test, sale-side: a TCK subtotal
+    is tax-inclusive, so it decomposes (neta 200.00 + IVA 42.00 on 242.00)."""
+    customer = _create_customer(client, superuser_token_headers)
+    iva21 = _iva21_id(client, superuser_token_headers)
+    product = _create_product(
+        client, superuser_token_headers, costo="100.00", tax_ids=[iva21]
+    )  # neto 100.00 → precio_venta (góndola) = 121.00
+    load_stock(client, superuser_token_headers, product["id"], "3")
+    tck = _doc_type_id(client, superuser_token_headers, "TCK")
+    doc = _create_doc(
+        client,
+        superuser_token_headers,
+        {
+            "document_type_id": tck,
+            "contraparte_id": customer["id"],
+            "lines": [{"product_id": product["id"], "cantidad": "2"}],
+            "payments": [{"payment_method_id": _cash_method_id(db), "monto": "242.00"}],
+        },
+    )
+    assert doc["subtotal"] == "242.00"
+    assert doc["total"] == "242.00"
+    (line,) = doc["lines"]
+    iva = next(t for t in line["taxes"] if t["tax_id"] == iva21)
+    assert iva["base"] == "200.00"
+    assert iva["monto"] == "42.00"
+
+
 def test_purchase_split_payment_multiple_methods_and_debt(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
