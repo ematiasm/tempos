@@ -1,16 +1,20 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
-import { useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
 import {
   ApiError,
+  BackupsService,
+  type Body_backups_restore_backup,
   type SetupCreate,
   SetupService,
   type TaxCondition,
 } from "@/client"
+import ConfirmRestoreDialog from "@/components/Admin/Backup/ConfirmRestoreDialog"
+import RestoreBackup from "@/components/Admin/Backup/RestoreBackup"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -102,6 +106,46 @@ function Setup() {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const { logout } = useAuth()
+  const [showRestore, setShowRestore] = useState(false)
+  const [restoreFile, setRestoreFile] = useState<{
+    filename: string
+    file: File
+  } | null>(null)
+  const restoreDoneRef = useRef(false)
+  const restoreStartedRef = useRef(false)
+  const preRestoreStartedAtRef = useRef<string | null | undefined>(undefined)
+
+  const restoreStatusQuery = useQuery({
+    queryKey: ["restore-status"],
+    queryFn: () => BackupsService.readRestoreStatus(),
+    refetchInterval: (query) =>
+      query.state.data?.estado === "running" ? 3000 : false,
+  })
+
+  const restoreMutation = useMutation({
+    mutationFn: (file: File) => {
+      const formData: Body_backups_restore_backup = {}
+      formData.file = file as unknown as string
+      return BackupsService.restoreBackup({ formData })
+    },
+    onSuccess: () => {
+      restoreStartedRef.current = true
+      // Remember the pre-restore state's timestamp so the success effect
+      // below only fires for the restore started here (the state file keeps
+      // the previous restore's success forever).
+      preRestoreStartedAtRef.current =
+        restoreStatusQuery.data?.started_at ?? null
+      showSuccessToast(t("admin.backups.restore.started"))
+      setRestoreFile(null)
+    },
+    onError: handleError.bind(showErrorToast),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["restore-status"] })
+    },
+  })
+
+  const restoreStatus = restoreStatusQuery.data
+  const restoreSucceeded = restoreStatus?.estado === "success"
 
   // Same labels as the Admin General tab so both screens look identical.
   const TAX_CONDITIONS: { value: TaxCondition; label: string }[] = [
@@ -156,11 +200,31 @@ function Setup() {
   const { data: status } = useSetupStatus()
 
   // If setup completes elsewhere (e.g. another tab), leave the wizard.
+  // A successful restore also completes setup, but it is handled below
+  // (the restored DB owns its users, so this session must log out).
   useEffect(() => {
-    if (status?.setup_completed) {
+    if (status?.setup_completed && !restoreSucceeded) {
       navigate({ to: "/" })
     }
-  }, [status, navigate])
+  }, [status, restoreSucceeded, navigate])
+
+  // After a restore started here succeeds, always return to login: the
+  // session may belong to the wiped DB (its user row no longer exists), so
+  // the user must continue with the restored database's users. The
+  // started_at check keeps stale success states from previous restores from
+  // firing this effect.
+  useEffect(() => {
+    if (
+      !restoreSucceeded ||
+      !restoreStartedRef.current ||
+      restoreDoneRef.current ||
+      restoreStatus?.started_at === preRestoreStartedAtRef.current
+    )
+      return
+    restoreDoneRef.current = true
+    showSuccessToast(t("setup.restoreDone"))
+    logout()
+  }, [restoreSucceeded, restoreStatus?.started_at, logout, showSuccessToast, t])
 
   const onSubmit = (data: FormData) => {
     if (mutation.isPending) return
@@ -368,10 +432,46 @@ function Setup() {
                   {t("common.cancel")}
                 </Button>
               </div>
+
+              <div className="border-t pt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="px-0"
+                  onClick={() => setShowRestore((v) => !v)}
+                >
+                  {t("setup.restoreToggle")}
+                </Button>
+                {showRestore && (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-sm text-muted-foreground">
+                      {t("setup.restoreHint")}
+                    </p>
+                    <RestoreBackup
+                      restoreStatus={restoreStatus}
+                      statusError={restoreStatusQuery.isError}
+                      isRestoring={restoreStatus?.estado === "running"}
+                      isPending={restoreMutation.isPending}
+                      onRestore={(file) =>
+                        setRestoreFile({ filename: file.name, file })
+                      }
+                    />
+                  </div>
+                )}
+              </div>
             </form>
           </Form>
         </CardContent>
       </Card>
+      <ConfirmRestoreDialog
+        open={!!restoreFile}
+        onOpenChange={(open) => !open && setRestoreFile(null)}
+        filename={restoreFile?.filename ?? ""}
+        isPending={restoreMutation.isPending}
+        onConfirm={() =>
+          restoreFile && restoreMutation.mutate(restoreFile.file)
+        }
+      />
     </div>
   )
 }

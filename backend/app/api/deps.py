@@ -64,6 +64,28 @@ def get_current_user(session: SessionDep, token: TokenDep) -> User:
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
+def get_current_user_no_db(token: TokenDep) -> TokenPayload:
+    """Validate the JWT signature without touching the database.
+
+    Used by endpoints that must stay readable while the database is down
+    or has just been replaced by a restore (the restore status is sourced
+    from a state file precisely for that reason: after a restore the
+    pre-restore token references a user row that no longer exists, so a
+    DB lookup would 404). Expiry is still enforced by ``jwt.decode``; only
+    the user-row lookup is skipped.
+    """
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
+        )
+        return TokenPayload(**payload)
+    except InvalidTokenError, ValidationError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+        )
+
+
 def get_current_active_superuser(current_user: CurrentUser) -> User:
     if not current_user.is_superuser:
         raise HTTPException(

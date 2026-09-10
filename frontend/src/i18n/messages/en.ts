@@ -755,6 +755,11 @@ export const en: Messages = {
   "setup.loadDemoData": "Load demo data",
   "setup.loadDemoDataHint":
     "Loads demo categories, 14 products with barcodes (zero stock), one customer and one supplier for testing.",
+  "setup.restoreToggle": "Already have a backup?",
+  "setup.restoreHint":
+    "Restore an existing database instead of setting up from scratch. After restoring you will need to log in with that database's users.",
+  "setup.restoreDone":
+    "Database restored. Log in with the restored database's users.",
   "errors.document_type_not_found": "Document type not found",
   "errors.counterpart_not_allowed":
     "This document type does not take a counterpart",

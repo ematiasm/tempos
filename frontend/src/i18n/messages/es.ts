@@ -766,6 +766,11 @@ export const es = {
   "setup.loadDemoData": "Cargar datos demo",
   "setup.loadDemoDataHint":
     "Carga categorías demo, 14 productos con códigos de barra (stock cero), un cliente y un proveedor para probar el sistema.",
+  "setup.restoreToggle": "¿Ya tenés un backup?",
+  "setup.restoreHint":
+    "Restaurá una base de datos existente en lugar de configurar desde cero. Después de restaurar vas a tener que iniciar sesión con los usuarios de esa base.",
+  "setup.restoreDone":
+    "Base de datos restaurada. Iniciá sesión con los usuarios de la base restaurada.",
   "errors.document_type_not_found": "Tipo de documento no encontrado",
   "errors.counterpart_not_allowed":
     "Este tipo de documento no admite contraparte",

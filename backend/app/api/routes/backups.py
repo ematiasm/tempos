@@ -4,12 +4,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import func
 from sqlmodel import col, select
 
-from app.api.deps import CurrentUser, PaginationDep, SessionDep, require_permissions
+from app.api.deps import (
+    CurrentUser,
+    PaginationDep,
+    SessionDep,
+    get_current_user_no_db,
+    require_permissions,
+)
 from app.core import backup as backup_service
 from app.core.backup import BackupError
 from app.models import (
@@ -204,7 +210,11 @@ def update_backup_schedule(
 @router.get(
     "/restore-status",
     response_model=RestoreStatusPublic,
-    dependencies=[require_permissions("backup.read")],
+    # Signature-only auth (no DB lookup, no permission check): the status
+    # lives in a state file so it stays readable while the database is down
+    # mid-restore or has just been replaced (the caller's user row may no
+    # longer exist). The token must still be validly signed.
+    dependencies=[Depends(get_current_user_no_db)],
 )
 def read_restore_status() -> Any:
     """Get the state of the last/current database restore."""

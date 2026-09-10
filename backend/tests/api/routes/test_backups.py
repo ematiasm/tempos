@@ -5,6 +5,7 @@ database.
 """
 
 import io
+import uuid
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -13,6 +14,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from app.core import backup as backup_service
+from app.core import security
 from app.core.config import settings
 from app.models import (
     Backup,
@@ -400,6 +402,22 @@ def test_restore_from_backup_id(
     )
     assert r.json()["estado"] == "success"
     assert r.json()["source_filename"] == backup["filename"]
+
+
+def test_restore_status_readable_without_db_user(client: TestClient, _backup_dir):
+    """The restore status must stay readable when the caller's user row is
+    gone: after a restore the pre-restore token references a user that no
+    longer exists, yet the status (state file, not DB) must report the
+    outcome instead of leaving the UI stuck on 'unreachable'."""
+    orphan_token = security.create_access_token(
+        subject=str(uuid.uuid4()), expires_delta=timedelta(minutes=5)
+    )
+    r = client.get(
+        f"{settings.API_V1_STR}/backups/restore-status",
+        headers={"Authorization": f"Bearer {orphan_token}"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["estado"] == "idle"
 
 
 @pytest.fixture
