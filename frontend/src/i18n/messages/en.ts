@@ -755,7 +755,8 @@ export const en: Messages = {
   "setup.loadDemoData": "Load demo data",
   "setup.loadDemoDataHint":
     "Loads demo categories, 14 products with barcodes (zero stock), one customer and one supplier for testing.",
-  "setup.restoreToggle": "Already have a backup?",
+  "setup.tabSetup": "Setup",
+  "setup.tabRestore": "Restore backup",
   "setup.restoreHint":
     "Restore an existing database instead of setting up from scratch. After restoring you will need to log in with that database's users.",
   "setup.restoreDone":

@@ -9,6 +9,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
+import { setupStatusQueryOptions } from "@/hooks/useSetupStatus"
 import { useT } from "@/i18n"
 import { handleError } from "@/utils"
 import BackupScheduleForm from "./BackupScheduleForm"
@@ -84,9 +85,22 @@ function BackupsTab() {
     )
       return
     restoreDoneRef.current = true
+    // Drop the cached setup status: it may hold `setup_completed: false`
+    // (30s staleTime) and would send the user back to the wizard right
+    // after logging in with the restored database.
+    queryClient.removeQueries({
+      queryKey: setupStatusQueryOptions().queryKey,
+    })
     showSuccessToast(t("setup.restoreDone"))
     logout()
-  }, [restoreSucceeded, restoreStatus?.started_at, logout, showSuccessToast, t])
+  }, [
+    restoreSucceeded,
+    restoreStatus?.started_at,
+    logout,
+    queryClient,
+    showSuccessToast,
+    t,
+  ])
 
   const handleRestoreBackup = (backup: BackupPublic) => {
     setRestoreTarget({

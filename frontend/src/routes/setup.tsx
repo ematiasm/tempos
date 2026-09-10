@@ -41,6 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import { setupStatusQueryOptions, useSetupStatus } from "@/hooks/useSetupStatus"
@@ -106,7 +107,7 @@ function Setup() {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const { logout } = useAuth()
-  const [showRestore, setShowRestore] = useState(false)
+  const [tab, setTab] = useState<"setup" | "restore">("setup")
   const [restoreFile, setRestoreFile] = useState<{
     filename: string
     file: File
@@ -222,13 +223,69 @@ function Setup() {
     )
       return
     restoreDoneRef.current = true
+    queryClient.removeQueries({
+      queryKey: setupStatusQueryOptions().queryKey,
+    })
     showSuccessToast(t("setup.restoreDone"))
     logout()
-  }, [restoreSucceeded, restoreStatus?.started_at, logout, showSuccessToast, t])
+  }, [
+    restoreSucceeded,
+    restoreStatus?.started_at,
+    logout,
+    queryClient,
+    showSuccessToast,
+    t,
+  ])
 
   const onSubmit = (data: FormData) => {
     if (mutation.isPending) return
     mutation.mutate(data)
+  }
+
+  const switcher = (
+    <Tabs value={tab} onValueChange={(v) => setTab(v as "setup" | "restore")}>
+      <TabsList className="mb-4 grid w-full grid-cols-2">
+        <TabsTrigger value="setup">{t("setup.tabSetup")}</TabsTrigger>
+        <TabsTrigger value="restore">{t("setup.tabRestore")}</TabsTrigger>
+      </TabsList>
+    </Tabs>
+  )
+
+  if (tab === "restore") {
+    return (
+      <div className="flex min-h-svh items-center justify-center p-6">
+        <Card className="w-full max-w-lg">
+          <CardHeader>
+            <CardTitle className="text-2xl">{t("setup.title")}</CardTitle>
+            <CardDescription>{t("setup.subtitle")}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {switcher}
+            <p className="text-sm text-muted-foreground">
+              {t("setup.restoreHint")}
+            </p>
+            <RestoreBackup
+              restoreStatus={restoreStatus}
+              statusError={restoreStatusQuery.isError}
+              isRestoring={restoreStatus?.estado === "running"}
+              isPending={restoreMutation.isPending}
+              onRestore={(file) =>
+                setRestoreFile({ filename: file.name, file })
+              }
+            />
+          </CardContent>
+        </Card>
+        <ConfirmRestoreDialog
+          open={!!restoreFile}
+          onOpenChange={(open) => !open && setRestoreFile(null)}
+          filename={restoreFile?.filename ?? ""}
+          isPending={restoreMutation.isPending}
+          onConfirm={() =>
+            restoreFile && restoreMutation.mutate(restoreFile.file)
+          }
+        />
+      </div>
+    )
   }
 
   return (
@@ -239,6 +296,7 @@ function Setup() {
           <CardDescription>{t("setup.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent>
+          {switcher}
           <Form {...form}>
             <form
               onSubmit={form.handleSubmit(onSubmit)}
@@ -431,33 +489,6 @@ function Setup() {
                 <Button type="button" variant="outline" onClick={logout}>
                   {t("common.cancel")}
                 </Button>
-              </div>
-
-              <div className="border-t pt-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="px-0"
-                  onClick={() => setShowRestore((v) => !v)}
-                >
-                  {t("setup.restoreToggle")}
-                </Button>
-                {showRestore && (
-                  <div className="flex flex-col gap-2">
-                    <p className="text-sm text-muted-foreground">
-                      {t("setup.restoreHint")}
-                    </p>
-                    <RestoreBackup
-                      restoreStatus={restoreStatus}
-                      statusError={restoreStatusQuery.isError}
-                      isRestoring={restoreStatus?.estado === "running"}
-                      isPending={restoreMutation.isPending}
-                      onRestore={(file) =>
-                        setRestoreFile({ filename: file.name, file })
-                      }
-                    />
-                  </div>
-                )}
               </div>
             </form>
           </Form>
