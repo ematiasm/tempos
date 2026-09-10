@@ -3,7 +3,7 @@ name: Test Backend
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
 permissions:
   contents: read
@@ -31,6 +31,14 @@ jobs:
       - run: docker compose up -d db mailcatcher
       - name: Migrate DB
         run: uv run bash scripts/prestart.sh
+        working-directory: backend
+      - name: Check schema drift
+        # Compares SQLModel metadata against the schema this job just built from
+        # scratch with `alembic upgrade head`. This is the gate that catches a
+        # DB-level object (index, check constraint) that only ever lived in a
+        # migration going missing, which is how `d61ddf38636a` silently dropped
+        # two invariants.
+        run: uv run bash scripts/check-schema.sh
         working-directory: backend
       - name: Run tests
         run: uv run bash scripts/tests-start.sh "Coverage for ${{ github.sha }}"

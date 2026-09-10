@@ -884,9 +884,9 @@ def test_account_movements_equal_fecha_order_is_deterministic(
     )
     assert r.status_code == 200, r.text
     account_id = uuid.UUID(r.json()["id"])
-    user_id = db.exec(
-        select(User).where(User.email == settings.FIRST_SUPERUSER)
-    ).one().id
+    user_id = (
+        db.exec(select(User).where(User.email == settings.FIRST_SUPERUSER)).one().id
+    )
 
     fecha = datetime(2026, 1, 15, 12, 0, tzinfo=UTC)
     db.add_all(

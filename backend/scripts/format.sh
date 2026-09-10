@@ -1,5 +1,7 @@
 #!/bin/sh -e
 set -x
 
-ruff check app scripts --fix
-ruff format app scripts
+# Keep this list in sync with scripts/lint.sh so the fixer and the checker always
+# agree on their scope.
+ruff check app scripts tests --fix
+ruff format app scripts tests

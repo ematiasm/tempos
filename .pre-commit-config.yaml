@@ -26,7 +26,9 @@ repos:
     hooks:
       - id: local-biome-check
         name: biome check
-        entry: npm run lint
+        # ``npm run lint:fix``, not ``lint``: ``lint`` is check-only so it can fail a
+        # validation run, while this hook is the auto-fixer that CI commits back.
+        entry: npm run lint:fix
         language: system
         types: [text]
         files: ^frontend/

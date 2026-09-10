@@ -363,16 +363,14 @@ def test_receipt_consumidor_final_on_account_credit_rejected(
         json={
             "contraparte_type": "customer",
             "contraparte_id": str(cf.id),
-            "payments": [
-                {"payment_method_id": _cash_method_id(db), "monto": "100.00"}
-            ],
+            "payments": [{"payment_method_id": _cash_method_id(db), "monto": "100.00"}],
         },
     )
     assert r.status_code == 400, r.text
     assert r.json()["detail"]["code"] == "consumidor_final_no_credit"
-    assert _customer_saldo(
-        client, superuser_token_headers, str(cf.id)
-    ) == Decimal("0.00")
+    assert _customer_saldo(client, superuser_token_headers, str(cf.id)) == Decimal(
+        "0.00"
+    )
 
 
 def test_supplier_receipt_pays_oldest_purchase(
