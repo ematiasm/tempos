@@ -6,7 +6,7 @@ from typing import Optional
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, EmailStr, field_validator
-from sqlalchemy import JSON, DateTime, Numeric, String
+from sqlalchemy import JSON, CheckConstraint, DateTime, Index, Numeric, String, text
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.validators import normalize_and_validate_documento
@@ -883,6 +883,20 @@ class UoM(SQLModel, table=True):
 
 
 class Product(ProductBase, table=True):
+    # Database-level defense in depth for the min-max reorder policy: the product
+    # routes already reject a fill-to level below the trigger
+    # (``_ensure_stock_maximo``), but imports and direct writes bypass them.
+    # Declared in metadata (not only in a migration) so ``alembic check`` keeps it
+    # alive: migration ``d61ddf38636a`` dropped this hand-written constraint
+    # because autogenerate could not see it in metadata, and the loss went
+    # unnoticed for several migrations.
+    __table_args__ = (
+        CheckConstraint(
+            "stock_minimo IS NULL OR stock_maximo >= stock_minimo",
+            name="ck_product_stock_maximo_gte_minimo",
+        ),
+    )
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     # Cached net price (margin over cost, before line taxes); recomputed by the
     # pricing-chain helper at every product write path.
@@ -1419,6 +1433,22 @@ class CashRegisterSession(SQLModel, table=True):
     (``expected_amount``, ``counted_amount``, ``difference``) are frozen at
     close for audit purposes.
     """
+
+    # At most one row may be OPEN at a time. This is a database guarantee, not
+    # only the check-then-insert in ``crud.open_cash_session``, which is
+    # race-prone under concurrent opens. Declared in metadata (not only in a
+    # migration) so ``alembic check`` keeps it alive: migration
+    # ``d61ddf38636a`` dropped the hand-written index because autogenerate could
+    # not see it, leaving the ``except IntegrityError`` branch in
+    # ``open_cash_session`` as dead code.
+    __table_args__ = (
+        Index(
+            "uq_cashregistersession_single_open",
+            "status",
+            unique=True,
+            postgresql_where=text("status = 'OPEN'::cashsessionstatus"),
+        ),
+    )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     opened_at: datetime = Field(

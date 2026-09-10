@@ -435,9 +435,9 @@ def test_stock_movements_filter_resolves_business_local_days(
     load_stock(client, superuser_token_headers, product["id"], "1")
 
     settings_url = f"{settings.API_V1_STR}/business-settings/"
-    previous_tz = client.get(
-        settings_url, headers=superuser_token_headers
-    ).json()["timezone"]
+    previous_tz = client.get(settings_url, headers=superuser_token_headers).json()[
+        "timezone"
+    ]
     r = client.patch(
         settings_url,
         headers=superuser_token_headers,

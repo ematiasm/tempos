@@ -131,7 +131,8 @@ test.describe("Admin user management", () => {
       .get<{ id: string; email: string }>(request, "/users/?skip=0&limit=1000")
       .then((r) => r.data)
     for (const u of users) {
-      if (u.email === email || u.full_name === updatedName) await api.delete(request, `/users/${u.id}`)
+      if (u.email === email || u.full_name === updatedName)
+        await api.delete(request, `/users/${u.id}`)
     }
   })
 

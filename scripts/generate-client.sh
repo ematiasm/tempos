@@ -8,4 +8,6 @@ uv run python -c "import app.main; import json; print(json.dumps(app.main.app.op
 cd ..
 mv openapi.json frontend/
 bun run --filter frontend generate-client
-bun run lint
+# ``lint:fix`` on purpose: the freshly generated client needs formatting, and
+# ``lint`` is check-only (it has to be able to fail a validation run).
+bun run lint:fix

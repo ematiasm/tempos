@@ -325,9 +325,7 @@ def test_report_expected_math_with_transfer(
     # money movements include the transfer
     assert any(m["concept"] == "Transfer" for m in data["movements"])
     # same-account float source: no funding movement was booked
-    assert not any(
-        m["concept"] == "Opening float funding" for m in data["movements"]
-    )
+    assert not any(m["concept"] == "Opening float funding" for m in data["movements"])
 
     # Close with the physical count (drawer holds float + 121 - 500 deposit).
     r = client.post(
@@ -587,6 +585,13 @@ def test_partial_unique_index_blocks_second_open_session(db: Session) -> None:
     The autouse ``open_cash_session`` fixture already committed one OPEN
     session; inserting another OPEN row must violate
     ``uq_cashregistersession_single_open`` at flush time.
+
+    Every NOT NULL column has to be filled in. Leaving
+    ``opening_source_account_id`` unset raises a *not-null* IntegrityError
+    instead, which satisfies ``pytest.raises(IntegrityError)`` while the index is
+    missing — this test passed for that wrong reason for several migrations, when
+    the index had in fact been dropped. The final assertion pins the failure to
+    the index so the test can never go green again without it.
     """
     user = db.exec(select(User).where(User.email == settings.FIRST_SUPERUSER)).one()
     drawer = db.exec(select(FinancialAccount)).first()
@@ -594,8 +599,39 @@ def test_partial_unique_index_blocks_second_open_session(db: Session) -> None:
     second = CashRegisterSession(
         opened_by_user_id=user.id,
         cash_account_id=drawer.id,
+        opening_source_account_id=drawer.id,
     )
     db.add(second)
-    with pytest.raises(IntegrityError):
+    with pytest.raises(IntegrityError) as excinfo:
         db.flush()
     db.rollback()
+    assert "uq_cashregistersession_single_open" in str(excinfo.value)
+
+
+def test_open_session_race_is_reported_as_already_open(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A lost check-then-insert race surfaces as the friendly business error.
+
+    ``crud.open_cash_session`` checks for an open session and only then inserts;
+    the partial unique index is what closes the window between the two. Forcing
+    the pre-check to return ``None`` simulates the concurrent transaction that
+    committed first, so this exercises the ``except IntegrityError`` branch — the
+    one that turns a 500 into a 400. That branch is dead code whenever the index
+    is missing, so this test is what proves the DB guarantee is wired to the
+    friendly error.
+    """
+    from app import crud
+
+    monkeypatch.setattr(crud, "_get_open_cash_session", lambda session: None)
+    drawer = crud._cash_drawer_account(db)  # noqa: SLF001
+    r = client.post(
+        f"{settings.API_V1_STR}/cash-sessions/open",
+        headers=superuser_token_headers,
+        json={"opening_amount": "0", "opening_source_account_id": str(drawer.id)},
+    )
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "cash_session_already_open"
