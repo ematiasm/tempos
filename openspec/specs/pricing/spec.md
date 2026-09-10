@@ -4,8 +4,6 @@
 
 Define the product price formation chain for the retail catalog: margin is computed over a real net price, line-level taxes (IVA, IIBB, internos, etc. where `aplica_a = linea`) are first-class citizens added on top of the net price to form the góndola (shelf) price, and line taxes on documents form an exact decomposition of the gross line price. This domain owns the tax-breakdown semantics for document lines; no separate documents capability spec exists, and this change modifies no existing spec'd capability.
 
-Domain vocabulary in Spanish (`precio_venta`, `costo_actual`, `margen_pct`, góndola) is preserved; new technical identifiers are in English.
-
 ## Requirements
 
 ### Requirement: Price formation chain (margin over net)

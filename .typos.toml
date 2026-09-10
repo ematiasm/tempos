@@ -1,7 +1,6 @@
 # Typos hook configuration.
 #
-# This repository intentionally contains Spanish domain vocabulary (see
-# AGENTS.md, "Language rule" -> "Domain vocabulary exception"): DB column
+# This repository intentionally contains Spanish domain vocabulary: DB column
 # names, persisted enum values, seed labels and Spanish UI copy (the default
 # locale is `es`). The words below are correct Spanish, not typos, so they are
 # whitelisted via identity mappings. Only words actually flagged by the

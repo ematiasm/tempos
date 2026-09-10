@@ -18,7 +18,6 @@ to Engram under a deterministic topic key AND mirrored here as a file.
 
 ## Conventions
 
-- All artifacts are written in English (project language rule, AGENTS.md).
 - File paths mirror Engram topic keys: `sdd/{change-name}/{artifact-type}`.
   Recovery works from either store.
 - `state.yaml` is the DAG state for a change and survives context compaction.
