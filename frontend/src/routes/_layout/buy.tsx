@@ -31,6 +31,12 @@ import {
 } from "@/components/Payments/SplitPaymentDialog"
 import ProductSearch, { type CartLine } from "@/components/Sell/ProductSearch"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import {
@@ -54,6 +60,121 @@ export const Route = createFileRoute("/_layout/buy")({
 })
 
 const round2 = (n: number) => Math.round(n * 100) / 100
+
+/** Purchase cart line: net unit price is stored, gross is derived on display. */
+type BuyLine = CartLine & {
+  /** True = the price/total inputs of this line are tax-inclusive. */
+  priceIsGross: boolean
+  /** Active taxes; null = every product tax (backend default). */
+  taxIds: string[] | null
+}
+
+/** Line-level taxes currently active on the line. */
+const activeLineTaxes = (line: BuyLine) => {
+  const all = line.product.taxes ?? []
+  const ids = line.taxIds ?? all.map((tax) => tax.id)
+  return all.filter((tax) => ids.includes(tax.id) && tax.aplica_a === "linea")
+}
+
+const taxParts = (line: BuyLine) => {
+  const taxes = activeLineTaxes(line)
+  return {
+    percent: taxes
+      .filter((tax) => tax.is_percent)
+      .reduce((acc, tax) => acc + Number(tax.rate), 0),
+    fixed: taxes
+      .filter((tax) => !tax.is_percent)
+      .reduce((acc, tax) => acc + Number(tax.rate), 0),
+  }
+}
+
+/** Net line subtotal exactly as the backend computes it (bruto − descuento). */
+const netSubtotal = (line: BuyLine) =>
+  round2(line.qty * line.unitPrice * (1 - line.discountPct / 100))
+
+/** Gross line subtotal for display/entry, mirroring _forward_line_taxes:
+ * each percent monto rounded individually, fixed amounts added once. */
+const grossSubtotal = (line: BuyLine) => {
+  const taxes = activeLineTaxes(line)
+  const net = netSubtotal(line)
+  const percentMontos = taxes
+    .filter((tax) => tax.is_percent)
+    .reduce((acc, tax) => acc + round2((net * Number(tax.rate)) / 100), 0)
+  const fixed = taxes
+    .filter((tax) => !tax.is_percent)
+    .reduce((acc, tax) => acc + Number(tax.rate), 0)
+  return round2(net + percentMontos + fixed)
+}
+
+/** Gross unit price derived from the line gross total, so per-line fixed
+ * taxes spread across units instead of landing whole on every unit. */
+const grossUnit = (line: BuyLine) =>
+  line.qty > 0 ? round2(grossSubtotal(line) / line.qty) : grossSubtotal(line)
+
+/** Inverse: net unit price from an entered gross unit price. */
+const netUnitFromGross = (line: BuyLine, gross: number) =>
+  netUnitFromGrossTotal(line, gross * line.qty)
+
+/** Inverse: net unit price from an entered net line total. */
+const netUnitFromNetTotal = (line: BuyLine, total: number) => {
+  const denom = line.qty * (1 - line.discountPct / 100)
+  if (line.qty <= 0 || denom <= 0) return null
+  return round2(total / denom)
+}
+
+/** Inverse: net unit price from an entered gross line total. The single
+ * divisor approximates the per-tax rounding above; it round-trips exactly
+ * for single-tax lines and within a cent for multi-percent ones. */
+const netUnitFromGrossTotal = (line: BuyLine, total: number) => {
+  if (line.qty <= 0) return null
+  const { percent, fixed } = taxParts(line)
+  const denom = line.qty * (1 - line.discountPct / 100) * (1 + percent / 100)
+  if (denom <= 0) return null
+  return round2((total - fixed) / denom)
+}
+
+/** Document-level taxes active across the cart, with backend-mirroring
+ * montos (percent on the aggregated base, fixed amounts once each). */
+const docTaxTotals = (cart: BuyLine[]) => {
+  const byId = new Map<
+    string,
+    { name: string; base: number; rate: number; isPercent: boolean }
+  >()
+  for (const line of cart) {
+    const net = netSubtotal(line)
+    const all = line.product.taxes ?? []
+    const ids = line.taxIds ?? all.map((tax) => tax.id)
+    for (const tax of all) {
+      if (!ids.includes(tax.id) || tax.aplica_a === "linea") continue
+      const entry = byId.get(tax.id) ?? {
+        name: tax.name,
+        base: 0,
+        rate: Number(tax.rate),
+        isPercent: tax.is_percent ?? false,
+      }
+      entry.base = round2(entry.base + net)
+      byId.set(tax.id, entry)
+    }
+  }
+  return [...byId.entries()].map(([id, entry]) => ({
+    id,
+    name: entry.name,
+    base: entry.base,
+    monto: entry.isPercent
+      ? round2((entry.base * entry.rate) / 100)
+      : entry.rate,
+  }))
+}
+
+/** Normalize to the backend payload: null when every product tax is active. */
+const lineTaxIds = (line: BuyLine): string[] | null => {
+  const all = (line.product.taxes ?? []).map((tax) => tax.id).sort()
+  if (line.taxIds === null) return null
+  const active = [...line.taxIds].sort()
+  return active.length === all.length && active.every((id, i) => id === all[i])
+    ? null
+    : active
+}
 
 function Buy() {
   const queryClient = useQueryClient()
@@ -84,7 +205,7 @@ function Buy() {
   )
 
   const [supplierId, setSupplierId] = useState<string | null>(null)
-  const [cart, setCart] = useState<CartLine[]>([])
+  const [cart, setCart] = useState<BuyLine[]>([])
   const [date, setDate] = useState<string>(() =>
     new Date().toISOString().slice(0, 10),
   )
@@ -131,7 +252,16 @@ function Buy() {
     }
     return s
   }, [cart])
-  const total = round2(subtotal - discountTotal)
+  const docTaxes = useMemo(() => docTaxTotals(cart), [cart])
+  const docTaxesTotal = round2(
+    docTaxes.reduce((acc, tax) => acc + tax.monto, 0),
+  )
+  // Backend total: subtotal − document discount + document-level taxes.
+  // Paying this exact amount leaves no phantom supplier debt behind.
+  const total = round2(subtotal - discountTotal + docTaxesTotal)
+  const totalGross = round2(
+    cart.reduce((acc, line) => acc + grossSubtotal(line), 0),
+  )
 
   useEffect(() => {
     // While a split is composed the rows own the amounts: re-syncing the
@@ -168,15 +298,26 @@ function Buy() {
           qty: 1,
           unitPrice: defaultCostFor(product, variant),
           discountPct: 0,
+          priceIsGross: false,
+          taxIds: null,
         },
       ])
     }
   }
 
-  const updateLine = (index: number, patch: Partial<CartLine>) => {
+  const updateLine = (index: number, patch: Partial<BuyLine>) => {
     setCart((prev) =>
       prev.map((l, i) => (i === index ? { ...l, ...patch } : l)),
     )
+  }
+
+  const toggleLineTax = (index: number, taxId: string, checked: boolean) => {
+    const line = cart[index]
+    const all = (line.product.taxes ?? []).map((tax) => tax.id)
+    const current = new Set(line.taxIds ?? all)
+    if (checked) current.add(taxId)
+    else current.delete(taxId)
+    updateLine(index, { taxIds: [...current] })
   }
 
   const removeLine = (index: number) => {
@@ -199,6 +340,7 @@ function Buy() {
             cantidad: l.qty,
             precio_unit: l.unitPrice,
             descuento_pct: l.discountPct,
+            tax_ids: lineTaxIds(l),
           })),
           payments: split
             ? toPaymentCreates(split.rows)
@@ -366,15 +508,15 @@ function Buy() {
                     <th className="w-24 px-3 py-2 text-right">
                       {t("buy.lineTotal")}
                     </th>
+                    <th className="w-24 px-3 py-2 text-right">
+                      {t("buy.lineTotalGross")}
+                    </th>
                     <th className="w-10 px-2 py-2" />
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {cart.map((line, index) => {
                     const dp = line.product.uom?.decimal_places ?? 0
-                    const lineTotal = round2(
-                      line.qty * line.unitPrice * (1 - line.discountPct / 100),
-                    )
                     return (
                       <tr
                         key={`${line.product.id}-${line.variant?.id ?? "base"}`}
@@ -388,19 +530,93 @@ function Buy() {
                               {line.variant.sku_suffix}
                             </span>
                           )}
+                          {(line.product.taxes ?? []).length > 0 && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="mt-0.5 block h-6 px-0 text-left text-xs text-muted-foreground"
+                                >
+                                  <span className="block max-w-40 truncate">
+                                    {(line.product.taxes ?? [])
+                                      .filter((tax) =>
+                                        (
+                                          line.taxIds ??
+                                          (line.product.taxes ?? []).map(
+                                            (all) => all.id,
+                                          )
+                                        ).includes(tax.id),
+                                      )
+                                      .map((tax) => tax.name)
+                                      .join(", ") || "—"}
+                                  </span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start">
+                                {(line.product.taxes ?? []).map((tax) => (
+                                  <DropdownMenuCheckboxItem
+                                    key={tax.id}
+                                    checked={(
+                                      line.taxIds ??
+                                      (line.product.taxes ?? []).map(
+                                        (all) => all.id,
+                                      )
+                                    ).includes(tax.id)}
+                                    onCheckedChange={(checked) =>
+                                      toggleLineTax(
+                                        index,
+                                        tax.id,
+                                        checked === true,
+                                      )
+                                    }
+                                  >
+                                    {tax.name} (
+                                    {tax.is_percent
+                                      ? `${Number(tax.rate)}%`
+                                      : moneyStatic(Number(tax.rate))}
+                                    )
+                                  </DropdownMenuCheckboxItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </td>
                         <td className="px-2 py-2 text-right">
                           <Input
                             type="number"
                             step="0.01"
                             className="ml-auto h-8 w-24 text-right"
-                            value={line.unitPrice}
-                            onChange={(e) =>
+                            value={
+                              line.priceIsGross
+                                ? grossUnit(line)
+                                : line.unitPrice
+                            }
+                            onChange={(e) => {
+                              const v = Number(e.target.value) || 0
+                              if (!line.priceIsGross) {
+                                updateLine(index, { unitPrice: v })
+                                return
+                              }
+                              const next = netUnitFromGross(line, v)
+                              if (next !== null)
+                                updateLine(index, { unitPrice: next })
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="ml-auto block h-6 px-1 text-[11px] text-muted-foreground"
+                            onClick={() =>
                               updateLine(index, {
-                                unitPrice: Number(e.target.value) || 0,
+                                priceIsGross: !line.priceIsGross,
                               })
                             }
-                          />
+                          >
+                            {line.priceIsGross
+                              ? t("buy.modeGross")
+                              : t("buy.modeNet")}
+                          </Button>
                         </td>
                         <td className="px-2 py-2">
                           <div className="flex h-8 items-center justify-end gap-1">
@@ -461,8 +677,37 @@ function Buy() {
                             }
                           />
                         </td>
-                        <td className="px-3 py-2 text-right font-medium">
-                          {moneyStatic(lineTotal)}
+                        <td className="px-2 py-2 text-right">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            className="ml-auto h-8 w-24 text-right"
+                            value={netSubtotal(line)}
+                            onChange={(e) => {
+                              const next = netUnitFromNetTotal(
+                                line,
+                                Number(e.target.value) || 0,
+                              )
+                              if (next !== null)
+                                updateLine(index, { unitPrice: next })
+                            }}
+                          />
+                        </td>
+                        <td className="px-2 py-2 text-right">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            className="ml-auto h-8 w-24 text-right"
+                            value={grossSubtotal(line)}
+                            onChange={(e) => {
+                              const next = netUnitFromGrossTotal(
+                                line,
+                                Number(e.target.value) || 0,
+                              )
+                              if (next !== null)
+                                updateLine(index, { unitPrice: next })
+                            }}
+                          />
                         </td>
                         <td className="px-2 py-2">
                           <Button
@@ -547,9 +792,21 @@ function Buy() {
                 <span>-{moneyStatic(discountTotal)}</span>
               </div>
             )}
+            {docTaxesTotal > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  {t("buy.perceptions")}
+                </span>
+                <span>{moneyStatic(docTaxesTotal)}</span>
+              </div>
+            )}
             <div className="flex justify-between border-t font-semibold">
               <span>{t("buy.total")}</span>
               <span>{moneyStatic(total)}</span>
+            </div>
+            <div className="flex justify-between text-muted-foreground">
+              <span>{t("buy.totalGross")}</span>
+              <span>{moneyStatic(totalGross)}</span>
             </div>
           </div>
 
