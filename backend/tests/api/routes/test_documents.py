@@ -141,7 +141,9 @@ def test_line_quantity_rejected_beyond_uom_precision(
         "payments": [],
     }
     r = client.post(
-        f"{settings.API_V1_STR}/documents/", headers=superuser_token_headers, json=payload
+        f"{settings.API_V1_STR}/documents/",
+        headers=superuser_token_headers,
+        json=payload,
     )
     assert r.status_code == 400, r.text
     assert r.json()["detail"]["code"] == "line_qty_precision"
@@ -181,6 +183,55 @@ def test_line_quantity_within_uom_precision_accepted(
     }
     doc = _create_doc(client, superuser_token_headers, payload)
     assert doc["lines"][0]["cantidad"] == "0.120"
+
+
+def test_line_quantity_trailing_zeros_accepted_at_zero_precision(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """Trailing zeros are not decimals: "2.000" is a whole quantity.
+
+    The precision check normalizes the quantity first, so a client that always
+    sends three decimals (as ``Numeric(12, 3)`` suggests) is not rejected by a
+    UoM with ``decimal_places = 0``.
+    """
+    customer = _create_customer(client, superuser_token_headers)
+    product = _create_product(client, superuser_token_headers)
+    type_id = _doc_type_id(client, superuser_token_headers, "TCK")
+    doc = _create_doc(
+        client,
+        superuser_token_headers,
+        {
+            "document_type_id": type_id,
+            "contraparte_id": customer["id"],
+            "lines": [{"product_id": product["id"], "cantidad": "2.000"}],
+            "payments": [],
+        },
+    )
+    assert doc["lines"][0]["cantidad"] == "2.000"
+
+
+def test_line_quantity_positive_exponent_accepted_at_zero_precision(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """A positive exponent is a magnitude, never a decimal count.
+
+    ``Decimal("1E+1")`` normalizes to exponent ``+1``; only a negative exponent
+    counts as decimal places, so a UoM with ``decimal_places = 0`` accepts it.
+    """
+    customer = _create_customer(client, superuser_token_headers)
+    product = _create_product(client, superuser_token_headers)
+    type_id = _doc_type_id(client, superuser_token_headers, "TCK")
+    doc = _create_doc(
+        client,
+        superuser_token_headers,
+        {
+            "document_type_id": type_id,
+            "contraparte_id": customer["id"],
+            "lines": [{"product_id": product["id"], "cantidad": "1E+1"}],
+            "payments": [],
+        },
+    )
+    assert doc["lines"][0]["cantidad"] == "10.000"
 
 
 def test_create_sale_document_computes_totals_and_taxes(

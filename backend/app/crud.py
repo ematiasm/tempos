@@ -639,7 +639,10 @@ def _create_document_in_tx(
         if uom is not None:
             qty = line_in.cantidad.normalize()
             exponent = qty.as_tuple().exponent
-            decimals = -exponent if exponent < 0 else 0
+            # ``as_tuple().exponent`` is ``int | Literal['n', 'N', 'F']``: the
+            # letters tag NaN / Infinity, which the request schema already
+            # rejects. Only a negative int counts as decimal places.
+            decimals = -exponent if isinstance(exponent, int) and exponent < 0 else 0
             if decimals > uom.decimal_places:
                 raise BusinessError(
                     "line_qty_precision",
