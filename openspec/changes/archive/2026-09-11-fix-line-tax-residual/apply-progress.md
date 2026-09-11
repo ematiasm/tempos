@@ -2,8 +2,8 @@
 
 ## Status
 
-Complete. One work unit in a single pull request; the only open item is the parent-owned
-sync and archive.
+Complete and archived. One work unit in one pull request (#59), with the canonical sync and
+the archive performed alongside the verification report.
 
 ## Work Unit 1 — Assign the residual deterministically
 

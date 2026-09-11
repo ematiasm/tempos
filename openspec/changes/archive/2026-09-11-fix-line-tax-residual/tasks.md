@@ -48,5 +48,5 @@ failing behaviour this unit fixes, and it is recorded in the issue with the raw 
 
 ## Parent-owned lifecycle
 
-- [ ] Sync the delta into `openspec/specs/pricing/spec.md` and archive this change after
+- [x] Sync the delta into `openspec/specs/pricing/spec.md` and archive this change after
       verification. <!-- sdd-owner: parent -->
