@@ -85,7 +85,9 @@ test.describe("Reports", () => {
     // pattern expected the US shape (`1,234.50`), so it only matched once the day's
     // accumulated total reached four digits and the dot showed up as a thousands
     // separator — whether the assertion passed depended on the total, not on the page.
-    await expect(page.getByText(/Total \$\d{1,3}(\.\d{3})*,\d{2}\b/)).toBeVisible()
+    await expect(
+      page.getByText(/Total \$\d{1,3}(\.\d{3})*,\d{2}\b/),
+    ).toBeVisible()
   })
 
   // LowStock was merged into Reponer: the same below-minimum product must
