@@ -63,8 +63,8 @@ interface LocaleContextValue {
 }
 
 const LocaleContext = createContext<LocaleContextValue>({
-  locale: "es",
-  numberFormat: "es",
+  locale: "en",
+  numberFormat: "en",
   timezone: undefined,
 })
 
@@ -72,7 +72,7 @@ const LocaleContext = createContext<LocaleContextValue>({
 // (formatStatic, static date helpers) can format without subscribing. The
 // business locale only changes on reload, so staleness is not a concern.
 const staticLocaleRef: { locale: Locale; timezone: string | undefined } = {
-  locale: "es",
+  locale: "en",
   timezone: undefined,
 }
 
@@ -116,7 +116,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       <IntlProvider
         locale={LOCALE_TAGS[locale]}
         messages={catalogs[locale]}
-        defaultLocale="es"
+        defaultLocale="en"
       >
         {children}
       </IntlProvider>

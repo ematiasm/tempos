@@ -9,6 +9,8 @@ export const LOCALE_TAGS: Record<Locale, string> = {
   en: "en-US",
 }
 
+/** Resolve a persisted locale value. Anything that is not `es` is `en`: English is the
+ *  default before a business has configured its locale. */
 export function toLocale(value: string | null | undefined): Locale {
-  return value === "en" ? "en" : "es"
+  return value === "es" ? "es" : "en"
 }
