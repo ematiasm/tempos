@@ -16,6 +16,7 @@ testing:
   frontend_typecheck_command: "cd frontend && bunx tsc -p tsconfig.build.json --noEmit"
   frontend_build_command: "cd frontend && bun run build"
   frontend_lint_command: "cd frontend && bun run lint"
+  frontend_unit_test_command: "cd frontend && bun run test:unit"
   frontend_e2e_command: "cd frontend && bunx playwright test"
   client_regeneration_command: "bash ./scripts/generate-client.sh"
   prerequisites: "Backend tests need the docker compose db service up and migrations applied; tests are non-parallel-safe."

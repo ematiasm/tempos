@@ -1,0 +1,5 @@
+# Unit tests live next to the code they cover, under `src/`. Without this root,
+# `bun test` also picks up `tests/*.spec.ts` — the Playwright end-to-end suite, which
+# imports its own runner and fails under Bun's.
+[test]
+root = "src"

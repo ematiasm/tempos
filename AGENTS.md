@@ -42,9 +42,9 @@ spec, the spec is right and this file is wrong.
 3. **After any OpenAPI-shape change, regenerate the client** with
    `bash ./scripts/generate-client.sh` and confirm the frontend typecheck passes.
 4. **Validation gates.** Always: backend tests, backend lint, `check-schema.sh`, frontend
-   typecheck, frontend lint, frontend build. Conditional: E2E when a UI flow changed, and
-   client regeneration when the API shape changed. The exact commands live in
-   `openspec/config.yaml` under `testing:`.
+   typecheck, frontend lint, frontend unit tests, frontend build. Conditional: E2E when a UI
+   flow changed, and client regeneration when the API shape changed. The exact commands live
+   in `openspec/config.yaml` under `testing:`.
 5. **Pagination goes through `Page[T]` and `PaginationDep`.** Do not add a per-entity
    `{data, count}` schema.
 6. **A new permission is added to the seed in `init_db`**, so a fresh database grants it.
