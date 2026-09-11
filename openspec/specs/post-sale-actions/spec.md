@@ -1,6 +1,13 @@
-# Delta for post-sale-actions
+# Post-Sale Actions Specification
 
-## ADDED Requirements
+## Purpose
+
+Define what can be done with a document once it is issued: the post-sale dialog
+and its actions — printing the voucher in either profile, emailing it or saving
+it as a PDF — the notes persisted on the document, and the state the sell screen
+returns to for the next sale.
+
+## Requirements
 
 ### Requirement: Post-sale dialog
 

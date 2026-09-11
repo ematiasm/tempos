@@ -1,6 +1,13 @@
-# Delta for product-search
+# Product Search Specification
 
-## ADDED Requirements
+## Purpose
+
+Define how a product is found while selling: the suggestion list and its keyboard
+navigation, the ordering that puts an exact barcode match first, matching a
+variant barcode, the state shown when a scan finds nothing, and when live search
+starts.
+
+## Requirements
 
 ### Requirement: Suggestion keyboard navigation
 

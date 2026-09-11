@@ -1,6 +1,12 @@
-# Delta for print-configuration
+# Print Configuration Specification
 
-## ADDED Requirements
+## Purpose
+
+Define the print configuration: the printing settings a business holds, the admin
+section that manages them, and the requirement that both voucher profiles honour
+them.
+
+## Requirements
 
 ### Requirement: Print settings on BusinessSettings
 

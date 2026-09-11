@@ -1,6 +1,14 @@
-# Delta for payments
+# Payments Specification
 
-## ADDED Requirements
+## Purpose
+
+Define how a document is paid: the payment methods offered and their shortcuts,
+what a credit method requires of the counterpart, splitting a total across
+methods, the limits on credit and on overpayment with vuelto, the standalone
+receipts that settle outstanding documents, and the localized strings of these
+screens.
+
+## Requirements
 
 ### Requirement: Quick payment-method shortcuts
 
