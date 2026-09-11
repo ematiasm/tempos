@@ -350,8 +350,9 @@ def _decompose_line_taxes(
 
     ``neta = round2((bruto - fixed_total) / (1 + Σ percent rates / 100))``;
     each percent ``monto = round2(neta × rate / 100)``; the cent residual is
-    added to the LAST percent tax's monto (deterministic adjust-last rule), so
-    ``neta + Σ montos == subtotal_bruto`` EXACTLY. Fixed-amount taxes are NOT
+    added to the percent tax with the largest monto, ties broken by tax id, so
+    ``neta + Σ montos == subtotal_bruto`` EXACTLY without the stored breakdown
+    depending on the order the taxes arrive in. Fixed-amount taxes are NOT
     part of the divisor and contribute their fixed amount once. Runs only at
     document creation; stored rows are never rewritten.
     """
@@ -383,13 +384,16 @@ def _decompose_line_taxes(
         else:
             rows.append((tax.id, neta, tax.rate))
     if percent_taxes:
-        # adjust-last: the residual lands on the LAST PERCENT tax's row,
-        # wherever fixed rows follow it in the stored order.
-        for i in range(len(rows) - 1, -1, -1):
-            if rows[i][0] in {t.id for t in percent_taxes}:
-                tid, base, monto = rows[i]
-                rows[i] = (tid, base, monto + residual)
-                break
+        # The residual lands on the percent tax with the largest monto, ties broken by
+        # tax id. Choosing by value instead of by position is what makes the stored
+        # breakdown independent of the order the database returns the taxes in: the
+        # previous adjust-last rule picked whichever percent tax came last, so two
+        # identical sales could store the cent on a different row.
+        target = min(percent_taxes, key=lambda t: (-montos[t.id], t.id)).id
+        rows = [
+            (tid, base, monto + residual) if tid == target else (tid, base, monto)
+            for tid, base, monto in rows
+        ]
     else:
         # No percent taxes: adjust-the-net keeps the identity exact.
         neta += residual

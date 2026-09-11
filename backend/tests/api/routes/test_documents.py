@@ -1529,7 +1529,7 @@ def test_decomposition_single_iva_exact(
     assert doc["total"] == "181.50"
 
 
-def test_decomposition_adjust_last_percent_reconciles(
+def test_decomposition_residual_goes_to_the_largest_percent_tax(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
     global db_session
@@ -1555,9 +1555,11 @@ def test_decomposition_adjust_last_percent_reconciles(
     iibb_row = next(lt for lt in line["taxes"] if lt["tax_id"] == iibb)
     # neta = round2(186.50 / 1.24) = 150.40
     assert iva["base"] == iibb_row["base"] == "150.40"
-    assert iva["monto"] == "31.58"
-    # residual 0.01 goes to the LAST percent tax (IIBB): 4.51 + 0.01
-    assert iibb_row["monto"] == "4.52"
+    # The residual cent goes to the percent tax with the largest monto — IVA 31.58 over
+    # IIBB 4.51 — so the stored breakdown does not depend on the order the database
+    # returns the product's taxes in. Its own rounded monto was 31.58.
+    assert iva["monto"] == "31.59"
+    assert iibb_row["monto"] == "4.51"
     _assert_identity(doc)
     assert doc["total"] == "186.50"
 
