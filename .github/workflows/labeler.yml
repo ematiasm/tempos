@@ -37,7 +37,7 @@ jobs:
       # from Debian bullseye, whose security repository is expired, so `apt-get update`
       # breaks the build on every pull request. This check needs no image and no
       # third-party action.
-      - name: Require at least one type label
+      - name: Require exactly one type label
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -47,9 +47,17 @@ jobs:
           set -euo pipefail
           labels=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/labels" --jq '.[].name')
           matches=$(printf '%s\n' "$labels" | grep -E "^(${ALLOWED//,/|})$" || true)
-          if [ -z "$matches" ]; then
-            echo "::error::This pull request needs one of these labels: $ALLOWED"
-            echo "Labels found: $(printf '%s' "$labels" | tr '\n' ' ')"
+          count=$(printf '%s' "$matches" | grep -c . || true)
+          found=$(printf '%s' "$matches" | tr '\n' ' ')
+          present=$(printf '%s' "$labels" | tr '\n' ' ')
+          if [ "$count" -eq 0 ]; then
+            echo "::error::This pull request needs one type label: $ALLOWED"
+            echo "Labels found: ${present:-none}"
             exit 1
           fi
-          echo "Label check passed: $(printf '%s' "$matches" | tr '\n' ' ')"
+          if [ "$count" -gt 1 ]; then
+            echo "::error::This pull request carries more than one type label ($found); keep the primary one"
+            echo "Labels found: $present"
+            exit 1
+          fi
+          echo "Label check passed: $found"
