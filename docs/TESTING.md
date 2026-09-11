@@ -83,6 +83,23 @@ uv run bash scripts/format.sh                      # ruff --fix + ruff format
   files nobody edited. Remove them, or run the lint before the E2E suite.
 - **Disk fills during E2E rebuilds.** `docker builder prune` frees the space.
 
+## Frontend unit tests
+
+```bash
+cd frontend
+bun run test:unit            # Bun's runner over src/**/*.test.ts
+bun run test:unit --watch    # watch mode
+```
+
+Unit tests cover the pure logic — number and date formatting, locale resolution, payment
+composition, the price chain, the CSV export, the report cells — colocated with the code they
+test and scoped by `frontend/bunfig.toml`. That `[test] root = "src"` matters: Bun also
+matches `*.spec.ts`, so without it the runner loads the Playwright suite and fails on its
+imports. `@types/bun` is a dev dependency because the `tsc` gate typechecks everything under
+`src/`, tests included.
+
+There is no DOM environment by design: component and flow behaviour stays with Playwright.
+
 ## Frontend and E2E
 
 ```bash
@@ -99,19 +116,23 @@ UI**: `tests/auth.setup.ts` pins `default_locale: "es"` through the API before t
 run, which is why the E2E suite is unaffected by changes to the frontend's locale
 fallback. Any new user-facing string must exist in both catalogs.
 
-Known flake: `tests/reports.spec.ts` › `Daily sales shows today's sales` fails
-intermittently in CI shard 2 with the total row missing, on `main` as well. It does not
-reproduce locally, even with the browser pinned to UTC. It is tracked separately; when
-it fails, check whether it is that spec before assuming a regression.
+**Money in the suite is es-AR.** The suite pins `default_locale: "es"`, so an amount renders
+with a dot for thousands and a comma for decimals. Assert that shape, not the US one: a stale
+assertion expecting `1,234.50` once matched only above a thousand, where a dot happens to
+appear as a thousands separator, and failed below it. It read as flakiness and was really an
+assertion coupled to the amount.
 
 ## What CI runs
 
 `test-backend` (the backend suite), `test-docker-compose` (the stack comes up),
 `pre-commit` (hooks over the diff, including `typos`, `ruff`, `mypy`, `ty` and the client
-generation check), `test-playwright` sharded four ways with the `changes` job skipping it
-for documentation-only diffs, and `zizmor` over the workflows. `check-labels` currently
-fails for every pull request because the pinned `agilepathway/label-checker` action
-cannot build its own image any more (an expired `bullseye-security` repository breaks its
-`apt-get update`); the label requirement it enforces — one of `breaking`, `security`,
-`feature`, `bug`, `refactor`, `upgrade`, `docs`, `lang-all`, `internal` — still applies
-by convention.
+generation check), `test-unit` (the frontend unit tests: seconds, no services),
+`test-playwright` sharded four ways with the `changes` job skipping it for documentation-only
+diffs, and `zizmor` over the workflows.
+
+`check-labels` requires **exactly one** of `breaking`, `security`, `feature`, `bug`,
+`refactor`, `upgrade`, `docs`, `lang-all`, `internal`. It reads the labels through the API
+after the `labeler` job runs, because the event payload predates the labels that job adds,
+and it is a **required check** on `main`: a pull request without exactly one type label
+cannot merge. It replaced `agilepathway/label-checker`, whose pinned release could no longer
+build its own image.
