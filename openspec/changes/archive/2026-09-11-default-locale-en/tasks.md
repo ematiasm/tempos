@@ -66,5 +66,5 @@ through the API before its specs run, so it is unaffected and does not need upda
 
 ## Parent-owned lifecycle
 
-- [ ] Sync the delta into `openspec/specs/locale-and-formats/spec.md` and archive this
+- [x] Sync the delta into `openspec/specs/locale-and-formats/spec.md` and archive this
       change after verification. <!-- sdd-owner: parent -->
