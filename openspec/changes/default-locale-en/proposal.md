@@ -35,14 +35,22 @@ the locale selector in the setup wizard so installing in Spanish costs one click
    keeps accepting an omitted `default_locale`, which stores that default.
 5. **No translation work.** Both catalogs are complete and identical in coverage (1173 keys
    each), so English is already fully rendered.
+6. **The screens that cannot read the settings get a public value.** `LocaleProvider` wraps
+   the whole application, but the settings endpoint requires authentication, so login,
+   password reset and sign-up could only ever use the fallback. A public, read-only
+   endpoint answers the locale — the stored one, or the default when no settings row
+   exists — so those screens follow the business instead of a fixed fallback. It exposes
+   one enum, never creates the settings row and reveals nothing else.
 
 ## Scope
 
 ### In Scope
 
 - Six frontend fallbacks, one of them the wizard prefill.
-- A `locale-and-formats` delta that states the pre-configuration behaviour and restores the
-  per-session scenario that describes a stored choice governing every session.
+- A `locale-and-formats` delta that states the pre-configuration behaviour, the
+  pre-authentication resolution and the stored choice governing every session.
+- A public, read-only locale endpoint (`GET /business-settings/locale`) plus the
+  `LocaleProvider` wiring that uses it where the settings are not readable.
 - A backend test that locks the API default: `POST /setup` without `default_locale` must
   answer `en`.
 
@@ -72,12 +80,15 @@ the locale selector in the setup wizard so installing in Spanish costs one click
 | Existing installs could flip language | They cannot: the value is persisted per business, and only the pre-configuration fallback and the prefill change |
 | The wizard could render in a language the installer does not read | The selector stays and is prefilled, so one click switches the whole flow |
 | An unknown locale value could silently become English | That is the intended default, and `toLocale` documents it: anything that is not `es` resolves to `en` |
-| The frontend has no unit-test harness, so the fallback flip is not covered by tests | Stated as a finding: the automated coverage is the backend default test plus typecheck, build and lint; the E2E suite pins its own locale and is unaffected |
+| The frontend has no unit-test harness, so the fallback flip is not covered by tests | Stated as a finding: the automated coverage is the backend tests, typecheck, build and lint. The E2E suite pins `default_locale: "es"` through the API, and with the public endpoint the login screen it clicks follows that pinned locale again |
+| Exposing the locale publicly could leak business data | It returns a single enum, never touches the settings row, and a test asserts a fresh install neither creates the row nor reveals anything beyond the default |
+| The pre-authentication screens could render in a language the business does not use | That was the original defect this endpoint fixes: without it, login, reset and sign-up can only use a fixed fallback, because the settings endpoint requires authentication |
 
 ## Rollback
 
-Reverting the six fallbacks restores the previous behaviour with no data implications. No
-migration runs in either direction.
+Reverting the six fallbacks restores the previous behaviour with no data implications. The
+public endpoint can stay: it is additive and leaks nothing. No migration runs in either
+direction.
 
 ## Success Criteria
 

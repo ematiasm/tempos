@@ -9,11 +9,15 @@ The system MUST resolve exactly one display locale for the whole business from
 NOT be able to override the display locale; there MUST be no per-user locale preference in
 `localStorage` or in the database. Before a locale has been configured — while no
 `BusinessSettings` row exists — the system MUST render in `en`, and the first-run setup
-flow MUST offer the locale choice so the installer can select `es` instead.
+flow MUST offer the locale choice so the installer can select `es` instead. Screens that
+render before authentication — login, password reset and sign-up — MUST resolve the locale
+through the public value the API exposes for that purpose, so they follow the configured
+locale instead of a fixed fallback.
 
 (Previously: stated that the locale comes from `BusinessSettings.default_locale`, with no
-behaviour defined for the state before it is configured, and with no scenario asserting
-that the stored choice governs what a session renders.)
+behaviour defined for the state before it is configured, no scenario asserting that the
+stored choice governs what a session renders, and no rule for the screens that cannot read
+the settings because they render before authentication.)
 
 #### Scenario: English before the business decides
 
@@ -33,6 +37,12 @@ that the stored choice governs what a session renders.)
 - GIVEN the first-run setup flow
 - WHEN the installer selects Spanish and completes it
 - THEN the stored `default_locale` is `es` and every subsequent screen renders in Spanish
+
+#### Scenario: The pre-authentication screens follow the configured locale
+
+- GIVEN the business `default_locale` is `es` and no user is authenticated
+- WHEN the login screen is opened
+- THEN it renders in Spanish, resolved through the public locale the API exposes
 
 #### Scenario: No per-user switch
 

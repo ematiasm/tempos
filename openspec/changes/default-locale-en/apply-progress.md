@@ -23,6 +23,11 @@ parent-owned sync and archive.
 | `frontend/src/i18n/index.tsx` | Context default, `staticLocaleRef` and `IntlProvider defaultLocale` start at `en` |
 | `frontend/src/routes/setup.tsx` | First-run prefill flipped to `en`; the selector and both options stay |
 | `backend/tests/api/routes/test_setup.py` | New regression lock: `POST /setup` without `default_locale` answers `en` |
+| `backend/app/models.py` | `BusinessLocalePublic`, the one-field schema the public read returns |
+| `backend/app/api/routes/business_settings.py` | `GET /business-settings/locale`: no authentication, never creates the row |
+| `frontend/src/i18n/index.tsx` | `LocaleProvider` follows that public value while the settings are unreadable |
+| `backend/tests/api/routes/test_business_settings.py` | Three tests: unauthenticated read, fresh install answers the default without creating the row, stored value is reflected |
+| `frontend/src/client/**` | Regenerated for the new endpoint |
 | `openspec/changes/default-locale-en/**` | Proposal, spec delta and tasks |
 
 ### Commands and observed results
@@ -30,6 +35,8 @@ parent-owned sync and archive.
 | Command | Result |
 |---------|--------|
 | `uv run pytest tests/api/routes/test_setup.py -q` | `8 passed` |
+| `uv run pytest tests/api/routes/test_business_settings.py tests/api/routes/test_setup.py -q` | `32 passed`, including the three public-locale tests |
+| `bash ./scripts/generate-client.sh` | the new endpoint appears; only the generated files changed |
 | `uv run bash scripts/test.sh` | `381 passed` (three of four runs; the fourth showed the pre-existing `test_decomposition_adjust_last_percent_reconciles` flake, unrelated and tracked as issue #51) |
 | `uv run bash scripts/lint.sh` | `Success: no issues found in 48 source files`; ty and ruff clean |
 | `cd frontend && bunx tsc -p tsconfig.build.json --noEmit` | clean |
@@ -38,7 +45,13 @@ parent-owned sync and archive.
 
 ### Deviations from the proposal
 
-None. The backend needed no change, as stated, and the wizard keeps its selector.
+One addition, discovered when the first Playwright run failed on three shards: the change
+made the login screen English for a Spanish business. `LocaleProvider` wraps the whole
+application, but the settings endpoint requires authentication, so the pre-authentication
+screens could only ever use the fallback — which used to be `es` by accident and is now
+`en` by policy. The user chose to expose the locale publicly rather than accept an English
+login, so this unit gained `GET /business-settings/locale` and the provider wiring that
+consumes it. Everything else went as planned.
 
 ### Remaining work
 

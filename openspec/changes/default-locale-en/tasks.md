@@ -46,6 +46,14 @@ through the API before its specs run, so it is unaffected and does not need upda
 - [x] Flip the first-run prefill in `frontend/src/routes/setup.tsx` from `"es"` to `"en"`,
       leaving the `default_locale` selector and both `SelectItem`s in place.
       <!-- sdd-owner: implementation -->
+- [x] Public locale endpoint: `BusinessLocalePublic`, `GET /business-settings/locale` with no
+      authentication, answering the stored locale or the model default when no settings row
+      exists — without ever creating it. Three tests cover the unauthenticated read, the fresh
+      install and the stored value. <!-- sdd-owner: implementation -->
+- [x] Wire `LocaleProvider` to it so the pre-authentication screens (login, password reset,
+      sign-up) follow the business locale, keeping the settings query as the source of truth
+      once it is readable; regenerated the client for the new endpoint.
+      <!-- sdd-owner: implementation -->
 - [x] TRIANGULATE: confirm the wizard still renders the selector, that
       `AdminSettings.general.tsx`'s existing `?? "en"` fallback now agrees with the runtime,
       and that no other `"es"` literal acts as a locale fallback (the catalogs, the

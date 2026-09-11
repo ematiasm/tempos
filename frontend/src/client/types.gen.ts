@@ -134,6 +134,16 @@ export type Body_login_login_access_token = {
     client_secret?: (string | null);
 };
 
+/**
+ * The business display locale, for the screens rendered before authentication.
+ *
+ * Deliberately tiny: login, password reset and sign-up need the language before any
+ * credential exists, and nothing else about the business is public.
+ */
+export type BusinessLocalePublic = {
+    default_locale: LocalePreference;
+};
+
 export type BusinessSettingsPublic = {
     id: number;
     business_name: string;
@@ -1410,6 +1420,8 @@ export type BackupsRestoreBackupData = {
 };
 
 export type BackupsRestoreBackupResponse = (RestoreStatusPublic);
+
+export type BusinessSettingsReadBusinessLocaleResponse = (BusinessLocalePublic);
 
 export type BusinessSettingsReadBusinessSettingsResponse = (BusinessSettingsPublic);
 

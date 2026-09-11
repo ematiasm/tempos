@@ -775,6 +775,21 @@ export const Body_login_login_access_tokenSchema = {
     title: 'Body_login-login_access_token'
 } as const;
 
+export const BusinessLocalePublicSchema = {
+    properties: {
+        default_locale: {
+            '$ref': '#/components/schemas/LocalePreference'
+        }
+    },
+    type: 'object',
+    required: ['default_locale'],
+    title: 'BusinessLocalePublic',
+    description: `The business display locale, for the screens rendered before authentication.
+
+Deliberately tiny: login, password reset and sign-up need the language before any
+credential exists, and nothing else about the business is public.`
+} as const;
+
 export const BusinessSettingsPublicSchema = {
     properties: {
         id: {

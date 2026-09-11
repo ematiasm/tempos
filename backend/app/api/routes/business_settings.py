@@ -7,9 +7,11 @@ from sqlmodel import select
 from app.api.deps import SessionDep, get_current_user, require_permissions
 from app.core.config import settings
 from app.models import (
+    BusinessLocalePublic,
     BusinessSettings,
     BusinessSettingsPublic,
     BusinessSettingsUpdate,
+    LocalePreference,
 )
 
 router = APIRouter(prefix="/business-settings", tags=["business-settings"])
@@ -31,6 +33,24 @@ def _get_settings(session: SessionDep) -> BusinessSettings:
             },
         )
     return bs
+
+
+@router.get(
+    "/locale",
+    response_model=BusinessLocalePublic,
+    # Public on purpose. Login, password reset and sign-up render before any credential
+    # exists, and they must follow the business locale instead of falling back blindly.
+    # It exposes one enum, never creates the settings row and never reveals anything else.
+)
+def read_business_locale(session: SessionDep) -> Any:
+    """The business display locale, readable without authentication.
+
+    A fresh install has no settings row and answers the model default.
+    """
+    bs = session.exec(select(BusinessSettings)).first()
+    return BusinessLocalePublic(
+        default_locale=bs.default_locale if bs else LocalePreference.EN
+    )
 
 
 @router.get(
