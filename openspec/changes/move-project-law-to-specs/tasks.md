@@ -46,26 +46,26 @@ are non-parallel-safe.
 
 ## Work Unit 2 — Documentation extraction (PR 3)
 
-- [ ] Create `docs/ARCHITECTURE.md` with: backend (`backend/app/`) and frontend (`frontend/src/`) and root layout tables moved from `AGENTS.md` §4; the stack and conventions from §2; the rationale of the database invariants now enforced (the trigger, the partial unique index and the check constraint declared in `app/models.py` metadata); the migration traps (`postgresql.ENUM(..., create_type=False)`, the spurious `drop_index` removed by hand); the custom `ThemeProvider`; the `ENVIRONMENT=local` private router; and that Backups come from the upstream template. <!-- sdd-owner: implementation -->
-- [ ] Create `docs/TESTING.md` with: the real-Postgres session-scoped autouse `db` fixture, the non-parallel caveat, how to run tests against a dev database, the PEP 758 unparenthesized `except` trap that `ruff format --check` enforces, `uv run bash scripts/...` and the `docker builder prune` disk note. <!-- sdd-owner: implementation -->
-- [ ] Verify both files read as standalone documents: every command matches the current scripts, and no statement contradicts `openspec/config.yaml: testing` or a spec. <!-- sdd-owner: implementation -->
+- [x] Create `docs/ARCHITECTURE.md` with: backend (`backend/app/`) and frontend (`frontend/src/`) and root layout tables moved from `AGENTS.md` §4; the stack and conventions from §2; the rationale of the database invariants now enforced (the trigger, the partial unique index and the check constraint declared in `app/models.py` metadata); the migration traps (`postgresql.ENUM(..., create_type=False)`, the spurious `drop_index` removed by hand); the custom `ThemeProvider`; the `ENVIRONMENT=local` private router; and that Backups come from the upstream template. <!-- sdd-owner: implementation -->
+- [x] Create `docs/TESTING.md` with: the real-Postgres session-scoped autouse `db` fixture, the non-parallel caveat, how to run tests against a dev database, the PEP 758 unparenthesized `except` trap that `ruff format --check` enforces, `uv run bash scripts/...` and the `docker builder prune` disk note. <!-- sdd-owner: implementation -->
+- [x] Verify both files read as standalone documents: every command matches the current scripts, and no statement contradicts `openspec/config.yaml: testing` or a spec. <!-- sdd-owner: implementation -->
 
 ## Work Unit 3 — Test hygiene and dead files (PR 3)
 
-- [ ] Change the autouse `open_cash_session` fixture in `backend/tests/conftest.py` to close a stray `OPEN` `CashRegisterSession` instead of failing with `cash_session_already_open`. RED is not applicable (the current behaviour is proven by the existing suite failing on a stray session); verify by opening a session manually, running the suite, and confirming it is green without a manual `UPDATE`. <!-- sdd-owner: implementation -->
-- [ ] Delete `backend/tests/utils/item.py` and `frontend/src/components/Pending/PendingItems.tsx` after confirming nothing imports or references them, then run `bash backend/scripts/test.sh`, `cd frontend && bunx tsc -p tsconfig.build.json --noEmit` and `bun run lint`. <!-- sdd-owner: implementation -->
-- [ ] Confirm no remaining reference to the template `Item` CRUD exists anywhere in live files (generated client excluded). <!-- sdd-owner: implementation -->
+- [x] Change the autouse `open_cash_session` fixture in `backend/tests/conftest.py` to close a stray `OPEN` `CashRegisterSession` instead of failing with `cash_session_already_open`. RED is not applicable (the current behaviour is proven by the existing suite failing on a stray session); verify by opening a session manually, running the suite, and confirming it is green without a manual `UPDATE`. <!-- sdd-owner: implementation -->
+- [x] Delete `backend/tests/utils/item.py` and `frontend/src/components/Pending/PendingItems.tsx` after confirming nothing imports or references them, then run `bash backend/scripts/test.sh`, `cd frontend && bunx tsc -p tsconfig.build.json --noEmit` and `bun run lint`. <!-- sdd-owner: implementation -->
+- [x] Confirm no remaining reference to the template `Item` CRUD exists anywhere in live files (generated client excluded). <!-- sdd-owner: implementation -->
 
 ## Work Unit 4 — `AGENTS.md` index and config citations (PR 4 and PR 5)
 
 - [x] PR 4: remove `AGENTS.md` §6 and §8 entirely, renumber the surviving §7 to §6 and fix the internal cross-reference, and update the citations that pointed at the old locations: `rules.design` → `openspec/specs/transactional-integrity/spec.md`, `rules.apply` → `docs/ARCHITECTURE.md`, `README.md` no longer calls the guide a module map, and two code comments that cited the deleted enum-trap section now point at `docs/ARCHITECTURE.md`. <!-- sdd-owner: implementation -->
-- [ ] PR 5: remove `AGENTS.md` §3 (commands) and §4 (where things live), then rewrite §1/§2/§5 as the pointer index: purpose, "where the rules live" pointers, the seven working rules, and the reserved-hooks line pointing at the `documents` spec. Target under 60 lines. <!-- sdd-owner: implementation -->
-- [ ] Verify the index contains no behavioural contract owned by a capability and that every invariant it names links to a file that exists. <!-- sdd-owner: implementation -->
+- [x] PR 5: remove `AGENTS.md` §2 (stack), §3 (commands) and §4 (where things live) — all copied into `docs/ARCHITECTURE.md` — and rewrite §1/§5 as the pointer index: purpose, the owner table for the twelve capabilities plus the two docs, the seven working rules (with the gates named but not spelled out, since the commands belong to `config.yaml: testing`), and the reserved-hooks line pointing at the `documents` spec. The file went from 501 to 60 lines. <!-- sdd-owner: implementation -->
+- [x] Verify the index contains no behavioural contract owned by a capability and that every invariant it names links to a file that exists. <!-- sdd-owner: implementation -->
 - [x] Verify the contradiction is gone: no file states that `precio_venta` carries IVA inside, and `pricing/spec.md` remains the only statement of the shelf-price chain. <!-- sdd-owner: implementation -->
 
 ## Parent-owned lifecycle
 
 - [ ] Start or reuse bounded review for each merged slice. <!-- sdd-owner: parent -->
-- [ ] Sync the change specs into `openspec/specs/` (five new capabilities, `payments` ADDED, two REMOVED) after PR 2 is merged and verified. <!-- sdd-owner: parent -->
+- [x] Sync the change specs into `openspec/specs/` (five new capabilities, `payments` ADDED, two REMOVED) after PR 2 is merged and verified. <!-- sdd-owner: parent -->
 - [ ] Archive the change under `openspec/changes/archive/YYYY-MM-DD-move-project-law-to-specs/`. <!-- sdd-owner: parent -->
 - [ ] Deliver the deferred default-locale (EN) change as its own PR after this change lands. <!-- sdd-owner: parent -->
