@@ -33,6 +33,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useT } from "@/i18n"
 import { moneyStatic } from "@/lib/format"
+import { round2 } from "@/lib/money"
 import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 
@@ -43,8 +44,6 @@ interface ReceiptDialogProps {
   counterpartId?: string | null
   onCreated: () => void
 }
-
-const round2 = (n: number) => Math.round(n * 100) / 100
 
 export function ReceiptDialog({
   open,

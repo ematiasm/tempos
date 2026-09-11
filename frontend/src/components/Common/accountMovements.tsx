@@ -9,6 +9,7 @@ import {
 } from "@/client"
 import type { useT } from "@/i18n"
 import { formatDateTimeStatic, moneyStatic } from "@/lib/format"
+import { round2 } from "@/lib/money"
 import { cn } from "@/lib/utils"
 
 export type AccountMovementType = "customer" | "supplier"
@@ -24,8 +25,6 @@ export interface MovementRow {
   monto: number
   saldo: number
 }
-
-const round2 = (n: number) => Math.round(n * 100) / 100
 
 export function useAccountMovements(
   counterpartId: string,

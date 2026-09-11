@@ -49,6 +49,7 @@ import {
 import useCustomToast from "@/hooks/useCustomToast"
 import { formatStatic, useT } from "@/i18n"
 import { moneyStatic } from "@/lib/format"
+import { round2 } from "@/lib/money"
 import { clampQty, qtyStepFor } from "@/lib/quantities"
 import { handleError } from "@/utils"
 
@@ -58,8 +59,6 @@ export const Route = createFileRoute("/_layout/buy")({
     meta: [{ title: `${formatStatic("buy.title")} - tempos` }],
   }),
 })
-
-const round2 = (n: number) => Math.round(n * 100) / 100
 
 /** Purchase cart line: net unit price is stored, gross is derived on display. */
 type BuyLine = CartLine & {

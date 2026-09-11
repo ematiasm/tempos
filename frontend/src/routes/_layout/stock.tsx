@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_layout/stock")({
   }),
 })
 
-const round2 = (n: number) => Math.round(n * 1000) / 1000
+const round3 = (n: number) => Math.round(n * 1000) / 1000
 
 interface AdjustLine {
   product: ProductPublic
@@ -57,7 +57,7 @@ function Stock() {
     if (existing) {
       setLines((prev) =>
         prev.map((l) =>
-          l === existing ? { ...l, qty: round2(l.qty + 1) } : l,
+          l === existing ? { ...l, qty: round3(l.qty + 1) } : l,
         ),
       )
     } else {
@@ -151,7 +151,7 @@ function Stock() {
                       const current = line.variant
                         ? Number(line.variant.stock_current)
                         : Number(line.product.stock_current)
-                      const after = round2(current + line.qty)
+                      const after = round3(current + line.qty)
                       const invalid = after < 0
                       return (
                         <tr

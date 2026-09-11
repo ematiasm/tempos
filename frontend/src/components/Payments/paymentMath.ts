@@ -1,4 +1,5 @@
 import type { DocumentPaymentCreate } from "@/client"
+import { round2 } from "@/lib/money"
 
 /**
  * Pure payment-composition math, shared by every surface that posts payment
@@ -83,8 +84,6 @@ export interface SplitMetrics {
   /** Non-cash paid portion exceeds the target (payment_exceeds_total). */
   nonCashOverpaid: boolean
 }
-
-export const round2 = (n: number) => Math.round(n * 100) / 100
 
 /**
  * Credit in favor applied to the target: only when the toggle is on, the

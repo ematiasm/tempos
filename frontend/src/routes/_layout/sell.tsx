@@ -14,7 +14,7 @@ import type {
 import { DocumentsService } from "@/client"
 import type { CounterpartComboboxControls } from "@/components/Common/CounterpartCombobox"
 import { CONSUMIDOR_FINAL_NAME } from "@/components/Common/conditionOptions"
-import { round2, toPaymentCreates } from "@/components/Payments/paymentMath"
+import { toPaymentCreates } from "@/components/Payments/paymentMath"
 import {
   SplitPaymentDialog,
   type SplitPaymentResult,
@@ -53,6 +53,7 @@ import {
 import { Button } from "@/components/ui/button"
 import useCustomToast from "@/hooks/useCustomToast"
 import { formatStatic, useT } from "@/i18n"
+import { round2 } from "@/lib/money"
 import { handleError } from "@/utils"
 
 export const Route = createFileRoute("/_layout/sell")({
