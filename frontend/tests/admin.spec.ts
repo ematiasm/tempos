@@ -54,7 +54,10 @@ test.describe("Admin user management", () => {
     // cleanup: leftover users accumulate in the shared dev DB and break
     // getByText uniqueness in later runs
     const users = await api
-      .get<{ id: string; email: string }>(request, "/users/?skip=0&limit=1000")
+      .get<{ id: string; email: string; full_name?: string | null }>(
+        request,
+        "/users/?skip=0&limit=1000",
+      )
       .then((r) => r.data)
     for (const u of users) {
       if (u.email === email) await api.delete(request, `/users/${u.id}`)
@@ -87,7 +90,10 @@ test.describe("Admin user management", () => {
     // cleanup: leftover users accumulate in the shared dev DB and break
     // getByText uniqueness in later runs
     const users = await api
-      .get<{ id: string; email: string }>(request, "/users/?skip=0&limit=1000")
+      .get<{ id: string; email: string; full_name?: string | null }>(
+        request,
+        "/users/?skip=0&limit=1000",
+      )
       .then((r) => r.data)
     for (const u of users) {
       if (u.email === email) await api.delete(request, `/users/${u.id}`)
@@ -128,7 +134,10 @@ test.describe("Admin user management", () => {
     // cleanup: leftover users accumulate in the shared dev DB and break
     // getByText uniqueness in later runs
     const users = await api
-      .get<{ id: string; email: string }>(request, "/users/?skip=0&limit=1000")
+      .get<{ id: string; email: string; full_name?: string | null }>(
+        request,
+        "/users/?skip=0&limit=1000",
+      )
       .then((r) => r.data)
     for (const u of users) {
       if (u.email === email || u.full_name === updatedName)

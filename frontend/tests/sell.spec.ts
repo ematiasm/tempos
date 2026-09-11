@@ -52,7 +52,6 @@ const mockNoSession = (page: Page) =>
 test.describe("Sell flow", () => {
   let productName: string
   let productId: string
-  const _price = 150
 
   test.beforeAll(async ({ request }) => {
     await ensureOpenCashSession(request)
@@ -1607,7 +1606,7 @@ test.describe("Sell flow", () => {
   }) => {
     const suffix = uid()
     const email = `cliente-${suffix}@example.com`
-    const _customer = await api.post<{ id: string }>(request, "/customers/", {
+    await api.post<{ id: string }>(request, "/customers/", {
       razon_social: `Cliente Email ${suffix}`,
       email,
     })

@@ -100,6 +100,11 @@ imports. `@types/bun` is a dev dependency because the `tsc` gate typechecks ever
 
 There is no DOM environment by design: component and flow behaviour stays with Playwright.
 
+The command typechecks the suite before running it (`tsc -p tsconfig.json --noEmit`), and
+that is deliberate: `tsconfig.build.json` excludes `tests/**`, so the build gate never saw
+the Playwright specs. Nothing did, which is how they carried real type errors until this was
+wired up. `tests/**` has to stay type-clean now, and the same command enforces it locally.
+
 ## Frontend and E2E
 
 ```bash
