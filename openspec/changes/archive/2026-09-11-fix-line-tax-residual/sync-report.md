@@ -38,7 +38,8 @@ None. No other active change declares `pricing`, and every other folder under
 ## Validation performed
 
 - The replaced block was asserted to be one complete requirement before writing.
-- After the sync the canonical spec lists 8 requirements and 18 scenarios, with
+- After the sync the canonical spec lists 8 requirements and 22 scenarios (3 + 2 + 3 + 3 + 6
+  + 2 + 2 + 1), with
   `Cost-change recompute` and everything below it untouched.
 - No file outside `openspec/specs/pricing/spec.md` changed.
 
