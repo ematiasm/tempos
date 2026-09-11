@@ -77,7 +77,13 @@ export interface ApiDocument {
   notes?: string | null
   parent_document_id: string | null
   contraparte_id: string | null
-  lines: { id: string; cantidad: string; precio_unit: string }[]
+  // Mirrors the API's DocumentLinePublic for the fields the specs read.
+  lines: {
+    id: string
+    cantidad: string
+    precio_unit: string
+    product_name?: string | null
+  }[]
   payments: { payment_method_id: string; monto: string }[]
 }
 
@@ -189,7 +195,11 @@ export const readSupplierProducts = (
   { product_id: string; costo_actual: string; es_referencia: boolean }[]
 > =>
   api
-    .get(request, `/supplier-products/?supplier_id=${supplierId}&limit=100`)
+    .get<{
+      product_id: string
+      costo_actual: string
+      es_referencia: boolean
+    }>(request, `/supplier-products/?supplier_id=${supplierId}&limit=100`)
     .then((r) => r.data)
 
 /**

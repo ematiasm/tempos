@@ -12,7 +12,7 @@
     "generate-client": "openapi-ts",
     "test": "bunx playwright test",
     "test:ui": "bunx playwright test --ui",
-    "test:unit": "bun test"
+    "test:unit": "tsc -p tsconfig.json --noEmit && bun test"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

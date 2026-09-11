@@ -116,7 +116,7 @@ test.describe
       page,
       request,
     }) => {
-      const _sale = await issueUnpaidSale(request)
+      await issueUnpaidSale(request)
 
       await page.goto("/payments")
       await page.getByRole("button", { name: "Nuevo recibo" }).click()
