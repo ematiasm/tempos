@@ -2,8 +2,8 @@
 
 ## Status
 
-Complete. One work unit landed in a single pull request; the only open item is the
-parent-owned sync and archive.
+Complete and archived. Two commits in one pull request (#53), the canonical sync and the
+archive performed alongside the verification report.
 
 ## Work Unit 1 — Default the locale to English
 
