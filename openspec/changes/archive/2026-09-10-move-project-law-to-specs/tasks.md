@@ -59,7 +59,7 @@ are non-parallel-safe.
 ## Work Unit 4 — `AGENTS.md` index and config citations (PR 4 and PR 5)
 
 - [x] PR 4: remove `AGENTS.md` §6 and §8 entirely, renumber the surviving §7 to §6 and fix the internal cross-reference, and update the citations that pointed at the old locations: `rules.design` → `openspec/specs/transactional-integrity/spec.md`, `rules.apply` → `docs/ARCHITECTURE.md`, `README.md` no longer calls the guide a module map, and two code comments that cited the deleted enum-trap section now point at `docs/ARCHITECTURE.md`. <!-- sdd-owner: implementation -->
-- [x] PR 5: remove `AGENTS.md` §2 (stack), §3 (commands) and §4 (where things live) — all copied into `docs/ARCHITECTURE.md` — and rewrite §1/§5 as the pointer index: purpose, the owner table for the twelve capabilities plus the two docs, the seven working rules (with the gates named but not spelled out, since the commands belong to `config.yaml: testing`), and the reserved-hooks line pointing at the `documents` spec. The file went from 501 to 60 lines. <!-- sdd-owner: implementation -->
+- [x] PR 5: remove `AGENTS.md` §2 (stack), §3 (commands) and §4 (where things live) — all copied into `docs/ARCHITECTURE.md` — and rewrite §1/§5 as the pointer index: purpose, the owner table for the twelve capabilities plus the two docs, the seven working rules (with the gates named but not spelled out, since the commands belong to `config.yaml: testing`), and the reserved-hooks line pointing at the `documents` spec. The file went from 501 to 59 lines. <!-- sdd-owner: implementation -->
 - [x] Verify the index contains no behavioural contract owned by a capability and that every invariant it names links to a file that exists. <!-- sdd-owner: implementation -->
 - [x] Verify the contradiction is gone: no file states that `precio_venta` carries IVA inside, and `pricing/spec.md` remains the only statement of the shelf-price chain. <!-- sdd-owner: implementation -->
 
@@ -67,5 +67,5 @@ are non-parallel-safe.
 
 - [ ] Start or reuse bounded review for each merged slice. <!-- sdd-owner: parent -->
 - [x] Sync the change specs into `openspec/specs/` (five new capabilities, `payments` ADDED, two REMOVED) after PR 2 is merged and verified. <!-- sdd-owner: parent -->
-- [ ] Archive the change under `openspec/changes/archive/YYYY-MM-DD-move-project-law-to-specs/`. <!-- sdd-owner: parent -->
+- [x] Archive the change under `openspec/changes/archive/2026-09-10-move-project-law-to-specs/`. <!-- sdd-owner: parent -->
 - [ ] Deliver the deferred default-locale (EN) change as its own PR after this change lands. <!-- sdd-owner: parent -->

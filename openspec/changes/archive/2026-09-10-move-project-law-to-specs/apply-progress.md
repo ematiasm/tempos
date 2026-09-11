@@ -2,8 +2,9 @@
 
 ## Status
 
-Work Unit 1 (PR 1) implemented and validated. Work Units 2–4 (PR 3, PR 4, PR 5) not
-started. The domain specs for PR 2 are written but not yet committed.
+Complete. Every implementation-owned task landed across seven pull requests (#35, #37,
+#40, #42, #44, #46, #48), the canonical sync ran in #46, and `verify-report.md` records
+the evidence. Three parent-owned actions stay open by design.
 
 ## Work Unit 1 — Enforce ledger immutability (PR 1)
 
@@ -63,15 +64,22 @@ started. The domain specs for PR 2 are written but not yet committed.
 
 ### Remaining work
 
-- Work Unit 2 — `docs/ARCHITECTURE.md` and `docs/TESTING.md` (PR 3).
-- Work Unit 3 — cash-session fixture closes a stray session; two orphan files deleted
-  (PR 3). The cascade observed during this unit (a failed test poisoning the cleanup and
-  failing ten following tests with `cash_session_already_open`) is the evidence that the
-  fixture fix is worth doing.
-- Work Unit 4 — `AGENTS.md` becomes the index; `config.yaml` citations repointed
-  (PR 4 and PR 5).
-- PR 2 — the domain specs (`documents`, `catalog`, `counterparties`, `cash-sessions`,
-  the `payments` addition and the two removals) are written and waiting to be committed.
+None implementation-owned. The parent-owned actions left open are the maintainer's bounded
+review per slice, the archive (done alongside this report) and delivering the deferred
+default-locale (EN) change as its own pull request.
+
+### Later work units, as landed
+
+- Work Unit 2 — `docs/ARCHITECTURE.md` and `docs/TESTING.md` (PR #42).
+- Work Unit 3 — the cash-session fixture now closes a stray `OPEN` session instead of
+  failing, and the two orphan files are gone (PR #42). The cascade observed while
+  implementing the guard — one poisoned transaction failing ten following tests with
+  `cash_session_already_open` — was the evidence that motivated it, and the fix was verified
+  against a real stray session in the dev database.
+- Work Unit 4 — `AGENTS.md` lost the module map and the known-issues section (PR #44) and
+  then became the index (PR #48); the `config.yaml` citations were repointed in #44.
+- Domain specs and the canonical sync — PR #40 wrote them and PR #46 merged them into
+  `openspec/specs/`, with the sync recorded in `sync-report.md`.
 
 ### Workload / PR boundary
 
