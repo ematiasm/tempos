@@ -1155,9 +1155,28 @@ class AccountMovement(SQLModel, table=True):
         default=None,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
-    conciliado: bool = Field(default=False)
     user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False)
     created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class Conciliation(SQLModel, table=True):
+    """Append-only log of account-movement conciliations.
+
+    Conciliating a movement never touches the ledger row: a movement counts as
+    conciliated when this table holds a row for it. That keeps the append-only
+    invariant absolute, which is why this table carries the same guard trigger as
+    the ledgers themselves.
+    """
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    account_movement_id: uuid.UUID = Field(
+        foreign_key="accountmovement.id", nullable=False, unique=True, index=True
+    )
+    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False)
+    conciliated_at: datetime = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
     )

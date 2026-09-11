@@ -44,8 +44,8 @@ export class AccountMovementsService {
      * Conciliate Movement
      * Mark an account movement as conciliated.
      *
-     * Only the conciliation flag is touched; the ledger amount and direction
-     * remain immutable.
+     * Conciliation is recorded as its own append-only row: the ledger movement is
+     * never mutated, so its amount, direction and timestamp stay immutable.
      * @param data The data for the request.
      * @param data.movementId
      * @returns AccountMovementPublic Successful Response
