@@ -17,6 +17,7 @@ import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useT } from "@/i18n"
 import { moneyStatic } from "@/lib/format"
+import { round2 } from "@/lib/money"
 import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 import {
@@ -74,8 +75,7 @@ export function CloseCashDialog({
 
   const expected = useMemo(() => Number(report?.expected_amount ?? 0), [report])
   const countedNum = Number(counted)
-  const difference =
-    counted === "" ? null : Math.round((countedNum - expected) * 100) / 100
+  const difference = counted === "" ? null : round2(countedNum - expected)
 
   const mutation = useMutation({
     mutationFn: () =>

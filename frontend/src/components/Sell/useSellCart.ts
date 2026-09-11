@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { round2 } from "@/components/Payments/paymentMath"
+import { round2 } from "@/lib/money"
 import type { CartLine } from "./ProductSearch"
 
 // Quantity helpers live in `@/lib/quantities` (shared with the purchase

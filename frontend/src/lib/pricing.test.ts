@@ -1,11 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import type { TaxPublic, TaxType } from "@/client"
-import { round2 as paymentMathRound2 } from "@/components/Payments/paymentMath"
 import {
   computePriceChain,
   countSelectedIvas,
   margenPctFromNeto,
-  round2,
 } from "@/lib/pricing"
 
 type ChainTax = Pick<TaxPublic, "tipo" | "is_percent" | "rate">
@@ -16,23 +14,6 @@ const tax = (tipo: TaxType, is_percent: boolean, rate: number): ChainTax => ({
   rate: String(rate),
 })
 const iva21 = tax("IVA", true, 21)
-
-describe("round2", () => {
-  test("mirrors the backend's ROUND_HALF_UP at the cent", () => {
-    expect(round2(2.675)).toBe(2.68)
-    expect(round2(0.105)).toBe(0.11)
-    expect(round2(1234.564)).toBe(1234.56)
-    expect(round2(-1.005)).toBe(-1)
-  })
-
-  test("and it is not the same helper the payments module ships", () => {
-    // This one carries the epsilon correction, so the classic float case rounds up.
-    // paymentMath.round2 is naive and returns 1 here, which is a real difference between
-    // two helpers with the same name in the same codebase.
-    expect(round2(1.005)).toBe(1.01)
-    expect(paymentMathRound2(1.005)).toBe(1)
-  })
-})
 
 describe("computePriceChain", () => {
   test("computes the net price from cost and margin", () => {

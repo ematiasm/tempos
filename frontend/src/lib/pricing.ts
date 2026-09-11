@@ -1,8 +1,5 @@
 import type { PriceRounding, TaxPublic } from "@/client"
-
-/** Mirror of the backend's `_round2` (Decimal ROUND_HALF_UP at 0.01). */
-export const round2 = (value: number): number =>
-  Math.round((value + Number.EPSILON) * 100) / 100
+import { round2 } from "@/lib/money"
 
 /**
  * Live client-side mirror of the backend pricing chain (crud.py

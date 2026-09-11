@@ -57,6 +57,7 @@ import {
 import useCustomToast from "@/hooks/useCustomToast"
 import { useT } from "@/i18n"
 import { moneyStatic } from "@/lib/format"
+import { round2 } from "@/lib/money"
 import { handleError } from "@/utils"
 
 interface NewDocumentDialogProps {
@@ -66,8 +67,6 @@ interface NewDocumentDialogProps {
 
 // Auto-issued by voiding (NC) or with dedicated screens (receipts).
 const EXCLUDED_PREFIXES = new Set(["NCV", "NCC", "RC", "RP"])
-
-const round2 = (n: number) => Math.round(n * 100) / 100
 
 const INITIAL_STATE = {
   typeId: null as string | null,

@@ -5,7 +5,6 @@ import {
   computeFavorApplied,
   computeSplitMetrics,
   type MethodOption,
-  round2,
   toPaymentCreates,
 } from "@/components/Payments/paymentMath"
 
@@ -21,22 +20,6 @@ const metrics = (
   total: number,
   favor = 0,
 ) => computeSplitMetrics(rows, index, total, favor)
-
-describe("round2", () => {
-  test("rounds to cents", () => {
-    expect(round2(2.675)).toBe(2.68)
-    expect(round2(0.005)).toBe(0.01)
-    expect(round2(1234.567)).toBe(1234.57)
-    expect(round2(-1.005)).toBe(-1)
-  })
-
-  test("documents the float edge instead of hiding it", () => {
-    // 1.005 * 100 is 100.49999999999999, so Math.round lands on 100. Amounts reaching
-    // this helper carry two decimals in practice, but the behaviour is pinned here so it
-    // is a known property rather than a surprise in production.
-    expect(round2(1.005)).toBe(1)
-  })
-})
 
 describe("buildMethodIndex", () => {
   test("keeps only the flags a row is classified by", () => {

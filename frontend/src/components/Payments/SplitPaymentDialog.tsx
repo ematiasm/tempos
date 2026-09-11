@@ -22,12 +22,12 @@ import {
 } from "@/components/ui/select"
 import { useT } from "@/i18n"
 import { moneyStatic } from "@/lib/format"
+import { round2 } from "@/lib/money"
 import {
   buildMethodIndex,
   capCashRows,
   computeFavorApplied,
   computeSplitMetrics,
-  round2,
   type SplitRowInput,
 } from "./paymentMath"
 
