@@ -27,12 +27,29 @@ jobs:
     needs:
       - labeler
     permissions:
-      issues: read # Required by label-checker to read PR labels via GraphQL on private repos.
+      issues: read # Read the pull request's labels, which is an issues endpoint.
       pull-requests: read
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: agilepathway/label-checker@c3d16ad512e7cea5961df85ff2486bb774caf3c5 # v1.6.65
-        with:
-          one_of: breaking,security,feature,bug,refactor,upgrade,docs,lang-all,internal
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
+      # Replaces agilepathway/label-checker, whose pinned release builds its own Docker
+      # image and now fails before it can read a label: its Dockerfile installs upx-ucl
+      # from Debian bullseye, whose security repository is expired, so `apt-get update`
+      # breaks the build on every pull request. This check needs no image and no
+      # third-party action.
+      - name: Require at least one type label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ALLOWED: breaking,security,feature,bug,refactor,upgrade,docs,lang-all,internal
+        run: |
+          set -euo pipefail
+          labels=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/labels" --jq '.[].name')
+          matches=$(printf '%s\n' "$labels" | grep -E "^(${ALLOWED//,/|})$" || true)
+          if [ -z "$matches" ]; then
+            echo "::error::This pull request needs one of these labels: $ALLOWED"
+            echo "Labels found: $(printf '%s' "$labels" | tr '\n' ' ')"
+            exit 1
+          fi
+          echo "Label check passed: $(printf '%s' "$matches" | tr '\n' ' ')"
