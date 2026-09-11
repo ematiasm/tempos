@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text, tuple_
-from sqlmodel import Session, SQLModel, delete, select
+from sqlmodel import Session, SQLModel, col, delete, select
 
 from app.core.config import settings
 from app.core.db import engine, init_db
@@ -202,9 +202,30 @@ def open_cash_session(db: Session) -> Generator[None]:
     from decimal import Decimal
 
     from app import crud
-    from app.models import CashSessionOpenCreate, User
+    from app.models import (
+        CashRegisterSession,
+        CashSessionOpenCreate,
+        CashSessionStatus,
+        User,
+        get_datetime_utc,
+    )
 
     opener = db.exec(select(User).where(User.email == settings.FIRST_SUPERUSER)).one()
+    # A test that fails mid-transaction never reaches its cleanup, so its cash session
+    # can stay OPEN and the next setup would abort every following test with
+    # cash_session_already_open. Close the strays instead of failing.
+    strays = db.exec(
+        select(CashRegisterSession).where(
+            col(CashRegisterSession.status) == CashSessionStatus.OPEN
+        )
+    ).all()
+    for stray in strays:
+        stray.status = CashSessionStatus.CLOSED
+        stray.closed_at = get_datetime_utc()
+        db.add(stray)
+    if strays:
+        db.commit()
+
     drawer = crud._cash_drawer_account(db)  # noqa: SLF001
     crud.open_cash_session(
         session=db,
