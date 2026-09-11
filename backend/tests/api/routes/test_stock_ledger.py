@@ -10,7 +10,7 @@ from sqlmodel import Session
 
 from app.core.config import settings
 from app.models import StockMovement
-from tests.utils.ledger import load_stock, unload_stock
+from tests.utils.ledger import load_stock, pin_created_at, unload_stock
 from tests.utils.utils import random_lower_string
 
 
@@ -453,9 +453,7 @@ def test_stock_movements_filter_resolves_business_local_days(
         # created_at is server-generated; pin it directly for determinism.
         movement = db.get(StockMovement, uuid.UUID(movement_id))
         assert movement is not None
-        movement.created_at = datetime(2026, 8, 30, 2, 30, tzinfo=UTC)
-        db.add(movement)
-        db.commit()
+        pin_created_at(db, movement, datetime(2026, 8, 30, 2, 30, tzinfo=UTC))
 
         r = client.get(
             f"{settings.API_V1_STR}/stock-movements/",

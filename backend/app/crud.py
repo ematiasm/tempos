@@ -29,6 +29,7 @@ from app.models import (
     CashSessionPublic,
     CashSessionReport,
     CashSessionStatus,
+    Conciliation,
     CostChangeSuggestion,
     CounterpartStatementPublic,
     CounterpartType,
@@ -2375,6 +2376,23 @@ def create_transfer(
     session.commit()
     session.refresh(transfer)
     return transfer
+
+
+def conciliate_account_movement(
+    session: Session, movement: AccountMovement, user_id: uuid.UUID
+) -> None:
+    """Record a conciliation as a new append-only row.
+
+    The ledger row is never touched, so its amount, direction and timestamp stay
+    immutable. Idempotent: an already-conciliated movement keeps its original row.
+    """
+    existing = session.exec(
+        select(Conciliation).where(Conciliation.account_movement_id == movement.id)
+    ).first()
+    if existing is not None:
+        return
+    session.add(Conciliation(account_movement_id=movement.id, user_id=user_id))
+    session.commit()
 
 
 # ---------------------------------------------------------------------------

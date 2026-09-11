@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import tuple_
+from sqlalchemy import text, tuple_
 from sqlmodel import Session, SQLModel, delete, select
 
 from app.core.config import settings
@@ -126,6 +126,12 @@ def _seed_setup_defaults(session: Session) -> None:
 def _clean_test_data(session: Session) -> None:
     """Delete test-created rows (FK-safe order), keeping the session baseline."""
     try:
+        # The ledger tables carry the append-only trigger, which rejects DELETE.
+        # ``replica`` disables user triggers for this cleanup transaction only: it
+        # is superuser-only, the commit below clears it, and the per-row baseline
+        # is still honored (TRUNCATE could not honor it and would discard
+        # pre-existing dev rows).
+        session.execute(text("SET LOCAL session_replication_role = replica"))
         for model in CLEANUP_MODELS:
             kept = _BASELINE.get(model)
             if kept:

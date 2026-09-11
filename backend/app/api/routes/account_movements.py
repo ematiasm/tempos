@@ -6,10 +6,11 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlmodel import col, func, select
 
 from app import crud
-from app.api.deps import PaginationDep, SessionDep, require_permissions
+from app.api.deps import CurrentUser, PaginationDep, SessionDep, require_permissions
 from app.models import (
     AccountMovement,
     AccountMovementPublic,
+    Conciliation,
     CounterpartType,
     Customer,
     Document,
@@ -20,6 +21,21 @@ from app.models import (
 )
 
 router = APIRouter(prefix="/account-movements", tags=["account-movements"])
+
+
+def _conciliated_ids(
+    session: SessionDep, movement_ids: set[uuid.UUID]
+) -> set[uuid.UUID]:
+    """The movements that already have a conciliation log row."""
+    if not movement_ids:
+        return set()
+    return set(
+        session.exec(
+            select(col(Conciliation.account_movement_id)).where(
+                col(Conciliation.account_movement_id).in_(movement_ids)
+            )
+        ).all()
+    )
 
 
 def _decorate(
@@ -77,8 +93,11 @@ def _decorate(
         ).all()
     }
     publics = []
+    conciliated_ids = _conciliated_ids(session, {m.id for m in movements})
     for movement in movements:
-        public = AccountMovementPublic.model_validate(movement)
+        public = AccountMovementPublic.model_validate(
+            movement, update={"conciliado": movement.id in conciliated_ids}
+        )
         public.account_name = account_names.get(movement.financial_account_id)
         public.payment_method_name = (
             method_names.get(movement.payment_method_id)
@@ -124,7 +143,9 @@ def read_account_movements(
             col(AccountMovement.financial_account_id) == financial_account_id
         )
     if conciliado is not None:
-        conditions.append(col(AccountMovement.conciliado) == conciliado)
+        conciliated = select(col(Conciliation.account_movement_id))
+        is_conciliated = col(AccountMovement.id).in_(conciliated)
+        conditions.append(is_conciliated if conciliado else ~is_conciliated)
     dt_from, dt_to = crud.period_bounds(session, fecha_desde, fecha_hasta)
     if dt_from is not None:
         conditions.append(col(AccountMovement.fecha) >= dt_from)
@@ -152,17 +173,16 @@ def read_account_movements(
     response_model=AccountMovementPublic,
     dependencies=[require_permissions("finance.update")],
 )
-def conciliate_movement(*, session: SessionDep, movement_id: uuid.UUID) -> Any:
+def conciliate_movement(
+    *, session: SessionDep, current_user: CurrentUser, movement_id: uuid.UUID
+) -> Any:
     """Mark an account movement as conciliated.
 
-    Only the conciliation flag is touched; the ledger amount and direction
-    remain immutable.
+    Conciliation is recorded as its own append-only row: the ledger movement is
+    never mutated, so its amount, direction and timestamp stay immutable.
     """
     movement = session.get(AccountMovement, movement_id)
     if not movement:
         raise HTTPException(status_code=404, detail="Account movement not found")
-    movement.conciliado = True
-    session.add(movement)
-    session.commit()
-    session.refresh(movement)
+    crud.conciliate_account_movement(session, movement, current_user.id)
     return _decorate(session, [movement])[0]
