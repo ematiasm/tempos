@@ -21,4 +21,5 @@ to Engram under a deterministic topic key AND mirrored here as a file.
 - File paths mirror Engram topic keys: `sdd/{change-name}/{artifact-type}`.
   Recovery works from either store.
 - `state.yaml` is the DAG state for a change and survives context compaction.
-- Project law lives in `AGENTS.md` at the repo root and always wins.
+- `AGENTS.md` at the repo root is the always-on index: the working rules plus a
+  pointer to the file that owns each contract. Behaviour lives in `openspec/specs/`.
