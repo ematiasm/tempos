@@ -40,7 +40,8 @@ None. No other active change declares `locale-and-formats`, and every folder und
 ## Validation performed
 
 - The replaced block was asserted to be a single, complete requirement before writing.
-- After the sync the canonical spec lists 5 requirements and 14 scenarios, with
+- After the sync the canonical spec lists 5 requirements and 10 scenarios — the modified
+  requirement going from 1 to 5 — with
   `Formats derived from the locale` and everything below it untouched.
 - No file outside `openspec/specs/locale-and-formats/spec.md` changed.
 
