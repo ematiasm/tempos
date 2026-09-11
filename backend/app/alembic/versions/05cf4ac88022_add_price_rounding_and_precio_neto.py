@@ -19,7 +19,8 @@ depends_on = None
 def upgrade():
     # Two additive columns for the pricing chain (single conceptual change).
     # Plain string column (not a pg enum): enum types persist across
-    # migrations and poison reuse (AGENTS.md §9).
+    # migrations and poison reuse (see the migration traps in
+    # docs/ARCHITECTURE.md).
     op.add_column(
         'businesssettings',
         sa.Column(

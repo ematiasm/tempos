@@ -30,14 +30,14 @@ rules:
   design:
     - Include sequence diagrams for complex flows
     - Document architecture decisions with rationale
-    - Respect append-only ledgers, atomic saldo updates, and DocumentSequence locking (AGENTS.md rules 5-7, 13)
+    - Respect the ledger, cache and numbering invariants in openspec/specs/transactional-integrity/spec.md
   tasks:
     - Group by phase, use hierarchical numbering
     - Keep tasks completable in one session
     - Include a client regeneration task after any backend OpenAPI-shape change
   apply:
     guidelines:
-      - Follow existing code patterns (see AGENTS.md section 4 for where things live)
+      - Follow existing code patterns (see docs/ARCHITECTURE.md for where things live)
     tdd: true
     test_command: "cd backend && bash scripts/test.sh"
   verify:
