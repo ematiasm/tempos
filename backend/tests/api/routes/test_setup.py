@@ -98,6 +98,23 @@ def test_setup_creates_settings_and_default_customer(
     assert r.json() == {"setup_completed": True}
 
 
+def test_setup_without_default_locale_falls_back_to_english(
+    client: TestClient, db: Session, superuser_token_headers: dict[str, str]
+) -> None:
+    """The API default is EN, and the frontend's fallback relies on it agreeing."""
+    _fresh_install(db)
+    r = client.post(
+        SETUP_URL,
+        headers=superuser_token_headers,
+        json={
+            "business_name": "Sin idioma elegido",
+            "condicion_fiscal": "Consumidor Final",
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["default_locale"] == "en"
+
+
 def test_setup_rejected_when_already_completed(
     client: TestClient, db: Session, superuser_token_headers: dict[str, str]
 ) -> None:

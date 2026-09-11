@@ -15,15 +15,15 @@ export function localeTag(locale: Locale): string {
   return LOCALE_TAGS[locale]
 }
 
-/** Number format derived from the locale: "en" -> "en", otherwise "es". */
+/** Number format derived from the locale: "es" -> "es", otherwise "en". */
 export function numberFormatFor(locale: Locale): NumberFormat {
-  return locale === "en" ? "en" : "es"
+  return locale === "es" ? "es" : "en"
 }
 
 // --- Static locale mirror (synced by LocaleProvider) ---
 
 const staticRef: { locale: Locale; timezone: string | undefined } = {
-  locale: "es",
+  locale: "en",
   timezone: undefined,
 }
 

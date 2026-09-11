@@ -1538,6 +1538,16 @@ class UserPublic(UserBase):
     roles: list[RolePublic] = []
 
 
+class BusinessLocalePublic(SQLModel):
+    """The business display locale, for the screens rendered before authentication.
+
+    Deliberately tiny: login, password reset and sign-up need the language before any
+    credential exists, and nothing else about the business is public.
+    """
+
+    default_locale: LocalePreference
+
+
 class BusinessSettingsPublic(SQLModel):
     id: int
     business_name: str

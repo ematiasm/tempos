@@ -3,9 +3,46 @@
 import io
 
 from fastapi.testclient import TestClient
+from sqlmodel import Session, delete, select
 
 from app.core.config import settings
+from app.models import BusinessSettings
 from tests.utils.utils import random_lower_string
+
+
+def test_public_locale_is_readable_without_authentication(client: TestClient) -> None:
+    """Login, reset and sign-up need the language before any credential exists."""
+    r = client.get(f"{settings.API_V1_STR}/business-settings/locale")
+    assert r.status_code == 200, r.text
+    assert r.json()["default_locale"] in ("es", "en")
+
+
+def test_public_locale_on_a_fresh_install_answers_the_default(
+    client: TestClient, db: Session
+) -> None:
+    """It reports the default and must never complete setup by creating the row."""
+    db.execute(delete(BusinessSettings))
+    db.commit()
+
+    r = client.get(f"{settings.API_V1_STR}/business-settings/locale")
+    assert r.status_code == 200, r.text
+    assert r.json()["default_locale"] == "en"
+    assert db.exec(select(BusinessSettings)).first() is None
+
+
+def test_public_locale_follows_the_stored_value(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    r = client.patch(
+        f"{settings.API_V1_STR}/business-settings/",
+        headers=superuser_token_headers,
+        json={"default_locale": "es"},
+    )
+    assert r.status_code == 200, r.text
+
+    r = client.get(f"{settings.API_V1_STR}/business-settings/locale")
+    assert r.status_code == 200, r.text
+    assert r.json()["default_locale"] == "es"
 
 
 def test_read_business_settings_singleton(

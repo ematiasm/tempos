@@ -63,8 +63,8 @@ interface LocaleContextValue {
 }
 
 const LocaleContext = createContext<LocaleContextValue>({
-  locale: "es",
-  numberFormat: "es",
+  locale: "en",
+  numberFormat: "en",
   timezone: undefined,
 })
 
@@ -72,7 +72,7 @@ const LocaleContext = createContext<LocaleContextValue>({
 // (formatStatic, static date helpers) can format without subscribing. The
 // business locale only changes on reload, so staleness is not a concern.
 const staticLocaleRef: { locale: Locale; timezone: string | undefined } = {
-  locale: "es",
+  locale: "en",
   timezone: undefined,
 }
 
@@ -86,17 +86,27 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     queryFn: () => BusinessSettingsService.readBusinessSettings(),
     staleTime: 60_000,
   })
+  // The screens rendered before authentication — login, password reset, sign-up and the
+  // first-run setup — cannot read the settings, so they follow this public value. A fresh
+  // install answers the default.
+  const { data: businessLocale } = useQuery({
+    queryKey: ["business-locale"],
+    queryFn: () => BusinessSettingsService.readBusinessLocale(),
+    staleTime: Infinity,
+  })
   const [locale, setLocaleState] = useState<Locale>(() =>
-    toLocale(settings?.default_locale),
+    toLocale(businessLocale?.default_locale),
   )
 
   useEffect(() => {
-    // The business default locale is the single source of truth (es -> es-AR,
-    // en -> en-US); there is no per-user override.
-    if (settings?.default_locale) {
-      setLocaleState(toLocale(settings.default_locale))
+    // The stored business locale is the single source of truth (es -> es-AR,
+    // en -> en-US); there is no per-user override. The public value covers the
+    // pre-authentication screens, where the settings are not readable.
+    const stored = settings?.default_locale ?? businessLocale?.default_locale
+    if (stored) {
+      setLocaleState(toLocale(stored))
     }
-  }, [settings])
+  }, [settings, businessLocale])
 
   staticLocaleRef.locale = locale
   staticLocaleRef.timezone = settings?.timezone ?? undefined
@@ -116,7 +126,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       <IntlProvider
         locale={LOCALE_TAGS[locale]}
         messages={catalogs[locale]}
-        defaultLocale="es"
+        defaultLocale="en"
       >
         {children}
       </IntlProvider>

@@ -166,7 +166,7 @@ function Setup() {
       email: "",
       cuit: "",
       condicion_fiscal: "Consumidor Final",
-      default_locale: "es",
+      default_locale: "en",
       load_demo_data: false,
     },
   })
