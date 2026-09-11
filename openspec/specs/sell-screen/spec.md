@@ -1,6 +1,12 @@
-# Delta for sell-screen
+# Sell Screen Specification
 
-## ADDED Requirements
+## Purpose
+
+Define the counter sale screen: the modal for fractional quantities, the cash
+session required to issue a sale, the tagging that makes every counter sale count
+toward that session arqueo, and the localized strings of the screen.
+
+## Requirements
 
 ### Requirement: Fractioned-quantity modal
 
