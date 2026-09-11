@@ -295,6 +295,10 @@ test.describe("Buy split payment", () => {
 
     // Summary visible → click edit → dialog reopens with 40
     await expect(page.getByTestId("split-summary")).toBeVisible()
+    // The summary appears while the modal is still on its way out, and clicking it then
+    // races the outside-click handler that closes the dialog: the click lands, the dialog
+    // does not reopen. Wait for it to be gone first.
+    await expect(page.getByTestId("split-dialog")).toHaveCount(0)
     await page.getByTestId("split-edit").click()
     await expect(page.getByTestId("split-dialog")).toBeVisible()
     await expect(page.getByTestId("split-row-0-amount")).toHaveValue("40")
@@ -302,6 +306,10 @@ test.describe("Buy split payment", () => {
     await page.getByTestId("split-confirm").click()
 
     // Clear → inline single payment restored
+    // The summary appears while the modal is still on its way out, and clicking it then
+    // races the outside-click handler that closes the dialog: the click lands, the dialog
+    // does not reopen. Wait for it to be gone first.
+    await expect(page.getByTestId("split-dialog")).toHaveCount(0)
     await page.getByTestId("split-clear").click()
     await expect(page.getByTestId("split-summary")).toHaveCount(0)
     // The inline amount input should be visible (not the split summary)
