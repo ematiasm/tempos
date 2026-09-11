@@ -58,10 +58,10 @@ are non-parallel-safe.
 
 ## Work Unit 4 — `AGENTS.md` index and config citations (PR 4 and PR 5)
 
-- [ ] PR 4: remove `AGENTS.md` §6 and §8 entirely, and update the three `openspec/config.yaml` citations: `rules.design` → `openspec/specs/transactional-integrity/spec.md`, `rules.apply` → `docs/ARCHITECTURE.md`, `rules.proposal` left pointing at rule 1. Confirm no live file still cites `AGENTS.md` for a contract that moved. <!-- sdd-owner: implementation -->
+- [x] PR 4: remove `AGENTS.md` §6 and §8 entirely, renumber the surviving §7 to §6 and fix the internal cross-reference, and update the citations that pointed at the old locations: `rules.design` → `openspec/specs/transactional-integrity/spec.md`, `rules.apply` → `docs/ARCHITECTURE.md`, `README.md` no longer calls the guide a module map, and two code comments that cited the deleted enum-trap section now point at `docs/ARCHITECTURE.md`. <!-- sdd-owner: implementation -->
 - [ ] PR 5: remove `AGENTS.md` §3 (commands) and §4 (where things live), then rewrite §1/§2/§5 as the pointer index: purpose, "where the rules live" pointers, the seven working rules, and the reserved-hooks line pointing at the `documents` spec. Target under 60 lines. <!-- sdd-owner: implementation -->
 - [ ] Verify the index contains no behavioural contract owned by a capability and that every invariant it names links to a file that exists. <!-- sdd-owner: implementation -->
-- [ ] Verify the contradiction is gone: no file states that `precio_venta` carries IVA inside, and `pricing/spec.md` remains the only statement of the shelf-price chain. <!-- sdd-owner: implementation -->
+- [x] Verify the contradiction is gone: no file states that `precio_venta` carries IVA inside, and `pricing/spec.md` remains the only statement of the shelf-price chain. <!-- sdd-owner: implementation -->
 
 ## Parent-owned lifecycle
 

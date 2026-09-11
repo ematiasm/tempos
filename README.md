@@ -24,7 +24,7 @@ frontend.
 
 ## Documentation
 
-- [`AGENTS.md`](./AGENTS.md) — operational guide and module map.
+- [`AGENTS.md`](./AGENTS.md) — agent guide: conventions, commands and working rules.
 - [`CHANGELOG.md`](./CHANGELOG.md) — feature history per phase.
 - [`docs/DEPLOY.md`](./docs/DEPLOY.md) — production deployment (DO VPS + Traefik).
 

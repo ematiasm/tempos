@@ -795,7 +795,8 @@ class BusinessSettings(SQLModel, table=True):
     # Rounding mode applied ONLY to ``precio_venta`` at price formation;
     # ``precio_neto`` and ``costo_actual`` stay exact 2-dec values.
     # Plain string column with Python-side str-enum validation: no pg enum
-    # type (they persist across migrations and poison reuse, AGENTS.md §9).
+    # type (they persist across migrations and poison reuse; see the migration
+    # traps in docs/ARCHITECTURE.md).
     price_rounding: PriceRounding = Field(
         default=PriceRounding.NONE,
         sa_type=String(length=20),  # type: ignore
