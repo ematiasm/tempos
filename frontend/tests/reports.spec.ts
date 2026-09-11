@@ -80,9 +80,12 @@ test.describe("Reports", () => {
     await page.goto("/reports")
 
     await expect(page.getByText(/ventas \/ \d+ días/)).toBeVisible()
-    // the grand total grows with the accumulated dev DB: allow thousands
-    // separators in the formatted amount
-    await expect(page.getByText(/Total \$[\d,]+\.\d{2}/)).toBeVisible()
+    // The suite pins the business locale to `es`, so money renders with es-AR
+    // conventions: a dot groups thousands and a comma separates decimals. The old
+    // pattern expected the US shape (`1,234.50`), so it only matched once the day's
+    // accumulated total reached four digits and the dot showed up as a thousands
+    // separator — whether the assertion passed depended on the total, not on the page.
+    await expect(page.getByText(/Total \$\d{1,3}(\.\d{3})*,\d{2}\b/)).toBeVisible()
   })
 
   // LowStock was merged into Reponer: the same below-minimum product must
