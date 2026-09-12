@@ -392,8 +392,9 @@ class ProductVariantCreate(SQLModel):
 CONSUMIDOR_FINAL_NAME = "Consumidor Final"
 
 # Seeded fiscal sale types by invoice letter, used to resolve Factura A/B/C
-# from the business/customer tax condition combo.
-FISCAL_SALE_TYPE_NAMES = {"A": "Factura A", "B": "Factura B", "C": "Factura C"}
+# from the business/customer tax condition combo. Keyed by the document type's
+# stable `key`, never by its editable name or prefix.
+FISCAL_SALE_TYPE_KEYS = {"A": "factura_a", "B": "factura_b", "C": "factura_c"}
 
 
 def _validate_documento_field(value: str | None) -> str | None:
@@ -568,11 +569,14 @@ class CostChangeSuggestion(SQLModel):
 # Document input schemas
 # ---------------------------------------------------------------------------
 class DocumentTypeUpdate(SQLModel):
-    """Editable fields of a document type; signs and operation stay fixed."""
+    """Editable fields of a document type; key, signs and operation stay fixed."""
 
     name: str | None = Field(default=None, min_length=1, max_length=100)
     prefix: str | None = Field(default=None, min_length=1, max_length=10)
     is_active: bool | None = None
+    # Declared only so the route can reject it with a business error instead of
+    # silently ignoring an attempt to move a type off its seed identity.
+    key: str | None = None
 
 
 class DocumentLineCreate(SQLModel):

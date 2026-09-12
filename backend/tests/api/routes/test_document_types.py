@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 from app.core.config import settings
 from app.core.db import init_db
 from app.models import DocumentType
+from tests.utils.utils import random_lower_string
 
 
 def _types(client: TestClient, headers: dict[str, str]) -> list[dict]:
@@ -125,6 +126,66 @@ def test_update_document_type_name_and_prefix(
     assert r.status_code == 200
 
 
+def test_fiscal_type_survives_a_rename(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """A renamed fiscal type is still the one the tax condition resolves to.
+
+    `name` and `prefix` are both editable from the admin panel, so resolving a seeded
+    type by either turns a supported edit into a broken sale screen: the suggestion
+    used to look the row up by `name == "Factura A"` and raised
+    `Seeded document type 'Factura A' not found` the moment a user renamed it.
+    """
+    fa = _type_by_prefix(client, superuser_token_headers, "FA")
+    settings_url = f"{settings.API_V1_STR}/business-settings/"
+    original_condicion = client.get(
+        settings_url, headers=superuser_token_headers
+    ).json()["condicion_fiscal"]
+    r = client.post(
+        f"{settings.API_V1_STR}/customers/",
+        headers=superuser_token_headers,
+        json={
+            "razon_social": random_lower_string()[:20],
+            "condicion_fiscal": "RI",
+        },
+    )
+    assert r.status_code == 200, r.text
+    customer = r.json()
+    client.patch(
+        settings_url,
+        headers=superuser_token_headers,
+        json={"condicion_fiscal": "RI"},
+    )
+
+    try:
+        r = client.patch(
+            f"{settings.API_V1_STR}/document-types/{fa['id']}",
+            headers=superuser_token_headers,
+            json={"prefix": "FAX", "name": "Factura A (renamed)"},
+        )
+        assert r.status_code == 200, r.text
+
+        r = client.get(
+            f"{settings.API_V1_STR}/documents/suggest-type",
+            headers=superuser_token_headers,
+            params={"customer_id": customer["id"]},
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["id"] == fa["id"]
+        assert r.json()["name"] == "Factura A (renamed)"
+    finally:
+        client.patch(
+            f"{settings.API_V1_STR}/document-types/{fa['id']}",
+            headers=superuser_token_headers,
+            json={"prefix": "FA", "name": "Factura A"},
+        )
+        client.patch(
+            settings_url,
+            headers=superuser_token_headers,
+            json={"condicion_fiscal": original_condicion},
+        )
+
+
 def test_reseed_does_not_duplicate_a_renamed_type(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
@@ -149,9 +210,9 @@ def test_reseed_does_not_duplicate_a_renamed_type(
         assert len(rows) == 14
         assert [row["id"] for row in rows].count(fa["id"]) == 1
     finally:
-        # A RED observation runs against the pre-fix seed, which inserts a duplicate
-        # while the prefix is renamed. It must not leave the shared session database
-        # with an extra type, so the squatter is removed before the prefix is restored.
+        # The pre-fix seed inserts a duplicate while the prefix is renamed. A RED
+        # observation must not leave the shared session database with an extra
+        # type, so the squatter is removed before the prefix is restored.
         squatters = db.exec(
             select(DocumentType).where(
                 DocumentType.prefix == "FA", DocumentType.id != fa["id"]
@@ -165,3 +226,20 @@ def test_reseed_does_not_duplicate_a_renamed_type(
             headers=superuser_token_headers,
             json={"prefix": "FA", "name": "Factura A"},
         )
+
+
+def test_key_cannot_be_edited_via_patch(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """The stable identity is seed-managed: the API rejects an attempt to change it."""
+    fa = _type_by_prefix(client, superuser_token_headers, "FA")
+    original_key = fa["key"]
+    assert original_key
+
+    r = client.patch(
+        f"{settings.API_V1_STR}/document-types/{fa['id']}",
+        headers=superuser_token_headers,
+        json={"key": "not_the_seeded_key"},
+    )
+    assert r.status_code == 400
+    assert _type_by_prefix(client, superuser_token_headers, "FA")["key"] == original_key

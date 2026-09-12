@@ -13,7 +13,7 @@ from sqlmodel import Session, col, delete, func, select
 from app.core.security import get_password_hash, verify_password
 from app.models import (
     CONSUMIDOR_FINAL_NAME,
-    FISCAL_SALE_TYPE_NAMES,
+    FISCAL_SALE_TYPE_KEYS,
     AccountMovement,
     AccountMovementType,
     Attribute,
@@ -1156,7 +1156,8 @@ def suggest_fiscal_sale_type(
     """Resolve Factura A/B/C from the business/customer tax condition combo.
 
     RI business + RI customer → A; RI business + anyone else → B;
-    non-RI business → C. Matched by seeded type name.
+    non-RI business → C. Matched by the seeded type's stable `key`, because its
+    name and prefix are both editable from the admin panel.
     """
     customer = session.get(Customer, customer_id)
     if not customer:
@@ -1173,12 +1174,12 @@ def suggest_fiscal_sale_type(
     )
     doc_type = session.exec(
         select(DocumentType).where(
-            col(DocumentType.name) == FISCAL_SALE_TYPE_NAMES[letter]
+            col(DocumentType.key) == FISCAL_SALE_TYPE_KEYS[letter]
         )
     ).first()
     if not doc_type:
         raise ValueError(
-            f"Seeded document type '{FISCAL_SALE_TYPE_NAMES[letter]}' not found"
+            f"Seeded document type '{FISCAL_SALE_TYPE_KEYS[letter]}' not found"
         )
     return doc_type
 
