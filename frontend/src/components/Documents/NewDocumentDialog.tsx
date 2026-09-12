@@ -56,6 +56,7 @@ import {
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useT } from "@/i18n"
+import { isCreatableType } from "@/lib/documentTypes"
 import { moneyStatic } from "@/lib/format"
 import { round2 } from "@/lib/money"
 import { handleError } from "@/utils"
@@ -65,8 +66,9 @@ interface NewDocumentDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-// Auto-issued by voiding (NC) or with dedicated screens (receipts).
-const EXCLUDED_PREFIXES = new Set(["NCV", "NCC", "RC", "RP"])
+// Auto-issued by voiding (NC) or with dedicated screens (receipts). The rule
+// itself lives in `@/lib/documentTypes` so it follows the stable key instead of a
+// prefix a user can rename.
 
 const INITIAL_STATE = {
   typeId: null as string | null,
@@ -139,7 +141,7 @@ const NewDocumentDialog = ({ open, onOpenChange }: NewDocumentDialogProps) => {
   const types = useMemo(
     () =>
       (typesData?.data ?? []).filter(
-        (dt) => dt.is_active && !EXCLUDED_PREFIXES.has(dt.prefix),
+        (dt) => dt.is_active && isCreatableType(dt),
       ),
     [typesData],
   )

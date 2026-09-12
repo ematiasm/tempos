@@ -7,9 +7,8 @@ import {
   PaymentMethodsService,
 } from "@/client"
 import useAuth from "@/hooks/useAuth"
+import { isCounterSaleType } from "@/lib/documentTypes"
 import { hasPermission } from "@/lib/permissions"
-
-const SALE_PREFIXES = ["FA", "FB", "FC", "TCK"]
 
 /**
  * Shared reference data for the sell screen: active customers (plus the
@@ -48,10 +47,7 @@ export function useReferenceData() {
   const saleTypes = useMemo(
     () =>
       (typesData?.data ?? []).filter(
-        (t) =>
-          t.is_active &&
-          t.operation === "venta" &&
-          SALE_PREFIXES.includes(t.prefix),
+        (t) => t.is_active && isCounterSaleType(t),
       ),
     [typesData],
   )
