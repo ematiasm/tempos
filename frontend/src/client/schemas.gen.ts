@@ -3200,6 +3200,17 @@ export const DocumentTypePublicSchema = {
             format: 'uuid',
             title: 'Id'
         },
+        key: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Key'
+        },
         name: {
             type: 'string',
             title: 'Name'

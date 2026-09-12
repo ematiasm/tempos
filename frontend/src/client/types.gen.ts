@@ -541,6 +541,7 @@ export type DocumentTaxPublic = {
 
 export type DocumentTypePublic = {
     id: string;
+    key?: (string | null);
     name: string;
     prefix: string;
     operation: DocumentOperation;
