@@ -1,8 +1,32 @@
 """Tests for the /document-types endpoints."""
 
+import uuid
+
 from fastapi.testclient import TestClient
+from sqlmodel import Session, select
 
 from app.core.config import settings
+from app.core.db import init_db
+from app.models import (
+    CounterpartType,
+    DocumentOperation,
+    DocumentSequence,
+    DocumentType,
+)
+
+
+def _types(client: TestClient, headers: dict[str, str]) -> list[dict]:
+    r = client.get(
+        f"{settings.API_V1_STR}/document-types/",
+        headers=headers,
+        params={"limit": 100},
+    )
+    assert r.status_code == 200, r.text
+    return r.json()["data"]
+
+
+def _type_by_prefix(client: TestClient, headers: dict[str, str], prefix: str) -> dict:
+    return next(row for row in _types(client, headers) if row["prefix"] == prefix)
 
 
 def test_seeded_document_types(
@@ -34,6 +58,32 @@ def test_seeded_document_types(
     assert rows["RC"]["tipo_contraparte"] == "customer"
     assert rows["RP"]["signo_caja"] == -1
     assert rows["RP"]["tipo_contraparte"] == "supplier"
+    # The stable seed identity, checked for every row because Alembic autogenerate
+    # cannot see an enum or a seed change and `alembic check` would stay silent.
+    assert {prefix: row["key"] for prefix, row in rows.items()} == {
+        "FA": "factura_a",
+        "FB": "factura_b",
+        "FC": "factura_c",
+        "TCK": "ticket",
+        "COT": "cotizacion",
+        "NCV": "nota_credito_venta",
+        "NDV": "nota_debito_venta",
+        "OC": "orden_compra",
+        "NCC": "nc_compra",
+        "NDC": "nd_compra",
+        "RTO": "remito",
+        "AJS": "ajuste_stock",
+        "RC": "recibo_cobro",
+        "RP": "recibo_pago",
+    }
+    # The void mirrors are wired by `key` now, so a mis-keyed entry would silently
+    # leave a type un-voidable instead of failing loudly.
+    assert rows["FA"]["void_document_type_id"] == rows["NCV"]["id"]
+    assert rows["TCK"]["void_document_type_id"] == rows["NCV"]["id"]
+    assert rows["OC"]["void_document_type_id"] == rows["NCC"]["id"]
+    assert rows["NDC"]["void_document_type_id"] == rows["NCC"]["id"]
+    assert rows["AJS"]["void_document_type_id"] is None
+    assert rows["COT"]["void_document_type_id"] is None
 
 
 def test_update_document_type_name_and_prefix(
@@ -80,3 +130,125 @@ def test_update_document_type_name_and_prefix(
         json={"prefix": "FA", "name": "Factura A"},
     )
     assert r.status_code == 200
+
+
+def test_reseed_does_not_duplicate_a_renamed_type(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Re-running the seed after a prefix edit must not insert a second row.
+
+    The seed matches existing types by `prefix`, so renaming one makes the next
+    startup believe the type is missing and insert a duplicate of it.
+    """
+    fa = _type_by_prefix(client, superuser_token_headers, "FA")
+    try:
+        r = client.patch(
+            f"{settings.API_V1_STR}/document-types/{fa['id']}",
+            headers=superuser_token_headers,
+            json={"prefix": "FAX"},
+        )
+        assert r.status_code == 200, r.text
+        assert len(_types(client, superuser_token_headers)) == 14
+
+        init_db(db)
+
+        rows = _types(client, superuser_token_headers)
+        assert len(rows) == 14
+        assert [row["id"] for row in rows].count(fa["id"]) == 1
+    finally:
+        # A RED observation runs against the pre-fix seed, which inserts a duplicate
+        # while the prefix is renamed. It must not leave the shared session database
+        # with an extra type, so the squatter is removed before the prefix is restored.
+        squatters = db.exec(
+            select(DocumentType).where(
+                DocumentType.prefix == "FA", DocumentType.id != fa["id"]
+            )
+        ).all()
+        for squatter in squatters:
+            db.delete(squatter)
+        db.commit()
+        client.patch(
+            f"{settings.API_V1_STR}/document-types/{fa['id']}",
+            headers=superuser_token_headers,
+            json={"prefix": "FA", "name": "Factura A"},
+        )
+
+
+def test_reseed_adopts_the_row_in_service_over_a_duplicate(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """A duplicate left by the old prefix-keyed seed must not take the identity.
+
+    The old seed matched rows by `prefix`, so renaming a prefix made the next startup insert a
+    duplicate of the type. When both rows exist, the one a document or a numbering sequence
+    points at is the original, and the key belongs to it: stamping the key onto the duplicate
+    would split one logical type across two rows, with its documents and its numbering on
+    different sides.
+    """
+    fa = _type_by_prefix(client, superuser_token_headers, "FA")
+    fa_id = uuid.UUID(fa["id"])
+    # A numbering sequence is the lightest form of "this type is in service".
+    created_sequence = False
+    if (
+        db.exec(
+            select(DocumentSequence).where(
+                DocumentSequence.document_type_id == fa_id,
+                DocumentSequence.year == 2026,
+            )
+        ).first()
+        is None
+    ):
+        db.add(DocumentSequence(document_type_id=fa_id, year=2026, last_number=3))
+        db.commit()
+        created_sequence = True
+    duplicate = DocumentType(
+        key=None,
+        name="Factura A",
+        prefix="FA",
+        operation=DocumentOperation.VENTA,
+        signo_stock=-1,
+        signo_caja=1,
+        es_fiscal=True,
+        tipo_contraparte=CounterpartType.CUSTOMER,
+    )
+    original = db.get(DocumentType, fa_id)
+    assert original is not None
+    try:
+        # The shape a database predating `key` has once a renamed type was duplicated.
+        original.prefix = "FAX"
+        original.key = None
+        db.add(original)
+        db.add(duplicate)
+        db.commit()
+
+        init_db(db)
+
+        db.refresh(original)
+        db.refresh(duplicate)
+        assert original.key == "factura_a"
+        assert duplicate.key is None
+    finally:
+        db.rollback()
+        # Drop everything this test created, so a RED observation cannot leave the shared
+        # database dirty: the sequence that marks the original as in service, and any row
+        # squatting on the prefix.
+        if created_sequence:
+            for sequence in db.exec(
+                select(DocumentSequence).where(
+                    DocumentSequence.document_type_id == fa_id
+                )
+            ).all():
+                db.delete(sequence)
+        for squatter in db.exec(
+            select(DocumentType).where(
+                DocumentType.prefix == "FA", DocumentType.id != fa_id
+            )
+        ).all():
+            db.delete(squatter)
+        db.flush()
+        restored = db.get(DocumentType, fa_id)
+        if restored is not None:
+            restored.prefix = "FA"
+            restored.key = "factura_a"
+            db.add(restored)
+        db.commit()
