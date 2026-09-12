@@ -77,10 +77,11 @@ uv run bash scripts/format.sh                      # ruff --fix + ruff format
 - **`bun run lint` is check-only.** It can and should fail a validation run;
   `lint:fix` is the writer, and it is what the pre-commit hook and
   `scripts/generate-client.sh` call.
-- **E2E artifacts break the local lint.** Playwright writes `frontend/test-results/`
-  and `frontend/playwright/.auth/`. They are gitignored, but `biome check ./` still
-  scans them, so `bun run lint` fails right after an E2E run with a formatting error in
-  files nobody edited. Remove them, or run the lint before the E2E suite.
+- **The E2E artifacts are excluded from the lint.** Playwright writes `test-results/` and
+  `frontend/playwright/.auth/` next to the code. Both are gitignored and both are listed in
+  `frontend/biome.json` under `files.includes`, so `bun run lint` does not scan them. If the
+  lint ever reports a file nobody edited, check whether Playwright grew a new output path and
+  extend that list — it is the same shape as the existing `!**/playwright-report` entry.
 - **Disk fills during E2E rebuilds.** `docker builder prune` frees the space.
 
 ## Frontend unit tests
