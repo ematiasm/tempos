@@ -7,6 +7,12 @@
  * - Dates as dd/mm/yyyy.
  * - Fields containing `;`, `"` or newlines are double-quoted with inner
  *   quotes escaped.
+ *
+ * Input is expected machine-formatted, with a dot as the decimal separator: that is what the
+ * API sends and what `csvNumber` and `csvMoney` assume. A human-typed es-AR amount has to be
+ * parsed before it reaches them, because `"12.345"` is twelve and a bit here and twelve
+ * thousand to whoever typed it. Values at or beyond `1e21` have no decimal form in
+ * JavaScript and therefore come out exponential.
  */
 
 export type CsvCell = string | number | null | undefined
