@@ -11,9 +11,8 @@ import PendingUsers from "@/components/Pending/PendingUsers"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { formatStatic, useT } from "@/i18n"
+import { isReceiptType } from "@/lib/documentTypes"
 import { moneyStatic } from "@/lib/format"
-
-const RECEIPT_PREFIXES = ["RC", "RP"]
 
 function getDocumentsQueryOptions() {
   return {
@@ -52,9 +51,7 @@ function PaymentsContent() {
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase()
     const receipts = (documents.data ?? []).filter(
-      (d) =>
-        RECEIPT_PREFIXES.includes(d.document_type.prefix) &&
-        d.estado === "active",
+      (d) => isReceiptType(d.document_type) && d.estado === "active",
     )
     const filtered = receipts.filter(
       (d) =>

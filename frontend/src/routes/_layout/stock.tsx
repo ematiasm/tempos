@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
 import { formatStatic, useT } from "@/i18n"
+import { findTypeByKey } from "@/lib/documentTypes"
 import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 
@@ -40,9 +41,7 @@ function Stock() {
       DocumentTypesService.readDocumentTypes({ skip: 0, limit: 100 }),
     queryKey: ["document-types"],
   })
-  const ajsType = typesData?.data.find(
-    (t) => t.operation === "ajuste" && t.prefix === "AJS",
-  )
+  const ajsType = findTypeByKey(typesData?.data, "ajuste_stock")
 
   const [lines, setLines] = useState<AdjustLine[]>([])
   const [motivo, setMotivo] = useState("")

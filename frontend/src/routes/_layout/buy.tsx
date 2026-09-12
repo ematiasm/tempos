@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
 import { formatStatic, useT } from "@/i18n"
+import { findTypeByKey } from "@/lib/documentTypes"
 import { moneyStatic } from "@/lib/format"
 import { round2 } from "@/lib/money"
 import { clampQty, qtyStepFor } from "@/lib/quantities"
@@ -199,9 +200,7 @@ function Buy() {
     (s) => s.is_active !== false,
   )
   const methods = methodsData?.data ?? []
-  const ocType = typesData?.data.find(
-    (t) => t.is_active && t.operation === "compra" && t.prefix === "OC",
-  )
+  const ocType = findTypeByKey(typesData?.data, "orden_compra")
 
   const [supplierId, setSupplierId] = useState<string | null>(null)
   const [cart, setCart] = useState<BuyLine[]>([])

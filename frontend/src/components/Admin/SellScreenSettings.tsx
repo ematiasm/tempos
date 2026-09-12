@@ -32,10 +32,9 @@ import {
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useT } from "@/i18n"
+import { isCounterSaleType } from "@/lib/documentTypes"
 import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
-
-const SALE_PREFIXES = ["FA", "FB", "FC", "TCK"]
 
 /** Radix Select rejects empty-string values, so sentinels stand for NULLs. */
 const AUTO_DOC_TYPE = "__auto__"
@@ -73,10 +72,7 @@ function SellScreenSettings() {
   const saleTypes = useMemo(
     () =>
       (typesData?.data ?? []).filter(
-        (dt) =>
-          dt.is_active &&
-          dt.operation === "venta" &&
-          SALE_PREFIXES.includes(dt.prefix),
+        (dt) => dt.is_active && isCounterSaleType(dt),
       ),
     [typesData],
   )
