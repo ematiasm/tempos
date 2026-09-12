@@ -1,11 +1,18 @@
 """Tests for the /document-types endpoints."""
 
+import uuid
+
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from app.core.config import settings
 from app.core.db import init_db
-from app.models import DocumentType
+from app.models import (
+    CounterpartType,
+    DocumentOperation,
+    DocumentSequence,
+    DocumentType,
+)
 from tests.utils.utils import random_lower_string
 
 
@@ -226,6 +233,86 @@ def test_reseed_does_not_duplicate_a_renamed_type(
             headers=superuser_token_headers,
             json={"prefix": "FA", "name": "Factura A"},
         )
+
+
+def test_reseed_adopts_the_row_in_service_over_a_duplicate(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """A duplicate left by the old prefix-keyed seed must not take the identity.
+
+    The old seed matched rows by `prefix`, so renaming a prefix made the next startup insert a
+    duplicate of the type. When both rows exist, the one a document or a numbering sequence
+    points at is the original, and the key belongs to it: stamping the key onto the duplicate
+    would split one logical type across two rows, with its documents and its numbering on
+    different sides.
+    """
+    fa = _type_by_prefix(client, superuser_token_headers, "FA")
+    fa_id = uuid.UUID(fa["id"])
+    # A numbering sequence is the lightest form of "this type is in service".
+    created_sequence = False
+    if (
+        db.exec(
+            select(DocumentSequence).where(
+                DocumentSequence.document_type_id == fa_id,
+                DocumentSequence.year == 2026,
+            )
+        ).first()
+        is None
+    ):
+        db.add(DocumentSequence(document_type_id=fa_id, year=2026, last_number=3))
+        db.commit()
+        created_sequence = True
+    duplicate = DocumentType(
+        key=None,
+        name="Factura A",
+        prefix="FA",
+        operation=DocumentOperation.VENTA,
+        signo_stock=-1,
+        signo_caja=1,
+        es_fiscal=True,
+        tipo_contraparte=CounterpartType.CUSTOMER,
+    )
+    original = db.get(DocumentType, fa_id)
+    assert original is not None
+    try:
+        # The shape a database predating `key` has once a renamed type was duplicated.
+        original.prefix = "FAX"
+        original.key = None
+        db.add(original)
+        db.add(duplicate)
+        db.commit()
+
+        init_db(db)
+
+        db.refresh(original)
+        db.refresh(duplicate)
+        assert original.key == "factura_a"
+        assert duplicate.key is None
+    finally:
+        db.rollback()
+        # Drop everything this test created, so a RED observation cannot leave the shared
+        # database dirty: the sequence that marks the original as in service, and any row
+        # squatting on the prefix.
+        if created_sequence:
+            for sequence in db.exec(
+                select(DocumentSequence).where(
+                    DocumentSequence.document_type_id == fa_id
+                )
+            ).all():
+                db.delete(sequence)
+        for squatter in db.exec(
+            select(DocumentType).where(
+                DocumentType.prefix == "FA", DocumentType.id != fa_id
+            )
+        ).all():
+            db.delete(squatter)
+        db.flush()
+        restored = db.get(DocumentType, fa_id)
+        if restored is not None:
+            restored.prefix = "FA"
+            restored.key = "factura_a"
+            db.add(restored)
+        db.commit()
 
 
 def test_key_cannot_be_edited_via_patch(
