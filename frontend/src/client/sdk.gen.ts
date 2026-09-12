@@ -1091,7 +1091,9 @@ export class DocumentTypesService {
      * Update Document Type
      * Update the editable fields of a document type (name, prefix, active).
      *
-     * Operation and signs are seed-managed and cannot be changed.
+     * The key, the operation and the signs are seed-managed and cannot be changed;
+     * `key` is rejected explicitly because it is the identity code resolves a seeded
+     * type by, while `name` and `prefix` are free to be renamed.
      * @param data The data for the request.
      * @param data.documentTypeId
      * @param data.requestBody

@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import NamedTuple
 
 from sqlmodel import Session, create_engine, select
 
@@ -86,12 +87,26 @@ SEED_PERMISSIONS: list[tuple[str, str]] = [
     ("backup.restore", "Restore the database from a backup"),
 ]
 
+
+class _SeedDocumentType(NamedTuple):
+    """A seeded document type, named so the positional booleans stop being opaque."""
+
+    # Stable identity used by code. `name` and `prefix` are editable afterwards,
+    # so neither of them may ever be used to resolve a seeded type.
+    key: str
+    name: str
+    prefix: str
+    operation: DocumentOperation
+    signo_stock: int
+    signo_caja: int
+    es_fiscal: bool
+    tipo_contraparte: CounterpartType | None
+
+
 # Seeded document types. Signs: stock/caja direction of the operation.
-# Only name/prefix are user-editable afterwards.
-SEED_DOCUMENT_TYPES: list[
-    tuple[str, str, DocumentOperation, int, int, bool, CounterpartType | None]
-] = [
-    (
+SEED_DOCUMENT_TYPES: list[_SeedDocumentType] = [
+    _SeedDocumentType(
+        "factura_a",
         "Factura A",
         "FA",
         DocumentOperation.VENTA,
@@ -100,7 +115,8 @@ SEED_DOCUMENT_TYPES: list[
         True,
         CounterpartType.CUSTOMER,
     ),
-    (
+    _SeedDocumentType(
+        "factura_b",
         "Factura B",
         "FB",
         DocumentOperation.VENTA,
@@ -109,7 +125,8 @@ SEED_DOCUMENT_TYPES: list[
         True,
         CounterpartType.CUSTOMER,
     ),
-    (
+    _SeedDocumentType(
+        "factura_c",
         "Factura C",
         "FC",
         DocumentOperation.VENTA,
@@ -118,8 +135,18 @@ SEED_DOCUMENT_TYPES: list[
         True,
         CounterpartType.CUSTOMER,
     ),
-    ("Ticket", "TCK", DocumentOperation.VENTA, -1, +1, False, CounterpartType.CUSTOMER),
-    (
+    _SeedDocumentType(
+        "ticket",
+        "Ticket",
+        "TCK",
+        DocumentOperation.VENTA,
+        -1,
+        +1,
+        False,
+        CounterpartType.CUSTOMER,
+    ),
+    _SeedDocumentType(
+        "cotizacion",
         "Cotización",
         "COT",
         DocumentOperation.COTIZACION,
@@ -128,7 +155,8 @@ SEED_DOCUMENT_TYPES: list[
         False,
         CounterpartType.CUSTOMER,
     ),
-    (
+    _SeedDocumentType(
+        "nota_credito_venta",
         "Nota de Crédito",
         "NCV",
         DocumentOperation.VENTA,
@@ -137,7 +165,8 @@ SEED_DOCUMENT_TYPES: list[
         True,
         CounterpartType.CUSTOMER,
     ),
-    (
+    _SeedDocumentType(
+        "nota_debito_venta",
         "Nota de Débito",
         "NDV",
         DocumentOperation.VENTA,
@@ -146,7 +175,8 @@ SEED_DOCUMENT_TYPES: list[
         True,
         CounterpartType.CUSTOMER,
     ),
-    (
+    _SeedDocumentType(
+        "orden_compra",
         "Orden de Compra",
         "OC",
         DocumentOperation.COMPRA,
@@ -155,7 +185,8 @@ SEED_DOCUMENT_TYPES: list[
         False,
         CounterpartType.SUPPLIER,
     ),
-    (
+    _SeedDocumentType(
+        "nc_compra",
         "NC Compra",
         "NCC",
         DocumentOperation.COMPRA,
@@ -164,7 +195,8 @@ SEED_DOCUMENT_TYPES: list[
         False,
         CounterpartType.SUPPLIER,
     ),
-    (
+    _SeedDocumentType(
+        "nd_compra",
         "ND Compra",
         "NDC",
         DocumentOperation.COMPRA,
@@ -173,9 +205,28 @@ SEED_DOCUMENT_TYPES: list[
         False,
         CounterpartType.SUPPLIER,
     ),
-    ("Remito", "RTO", DocumentOperation.VENTA, -1, 0, False, CounterpartType.CUSTOMER),
-    ("Ajuste Stock", "AJS", DocumentOperation.AJUSTE, 0, 0, False, None),
-    (
+    _SeedDocumentType(
+        "remito",
+        "Remito",
+        "RTO",
+        DocumentOperation.VENTA,
+        -1,
+        0,
+        False,
+        CounterpartType.CUSTOMER,
+    ),
+    _SeedDocumentType(
+        "ajuste_stock",
+        "Ajuste Stock",
+        "AJS",
+        DocumentOperation.AJUSTE,
+        0,
+        0,
+        False,
+        None,
+    ),
+    _SeedDocumentType(
+        "recibo_cobro",
         "Recibo de Cobro",
         "RC",
         DocumentOperation.RECIBO,
@@ -184,7 +235,8 @@ SEED_DOCUMENT_TYPES: list[
         False,
         CounterpartType.CUSTOMER,
     ),
-    (
+    _SeedDocumentType(
+        "recibo_pago",
         "Recibo de Pago",
         "RP",
         DocumentOperation.RECIBO,
@@ -194,15 +246,15 @@ SEED_DOCUMENT_TYPES: list[
         CounterpartType.SUPPLIER,
     ),
 ]
-# Voiding: type prefix → mirror NC type prefix (seed-managed, rename-proof).
+# Voiding: type key → mirror NC type key (seed-managed, rename-proof).
 VOID_TYPE_MIRROR = {
-    "FA": "NCV",
-    "FB": "NCV",
-    "FC": "NCV",
-    "TCK": "NCV",
-    "NDV": "NCV",
-    "OC": "NCC",
-    "NDC": "NCC",
+    "factura_a": "nota_credito_venta",
+    "factura_b": "nota_credito_venta",
+    "factura_c": "nota_credito_venta",
+    "ticket": "nota_credito_venta",
+    "nota_debito_venta": "nota_credito_venta",
+    "orden_compra": "nc_compra",
+    "nd_compra": "nc_compra",
 }
 
 SEED_MAIN_CASH_ACCOUNT = "Caja Principal"
@@ -322,36 +374,48 @@ def init_db(session: Session) -> None:
         session.commit()
 
     # --- Seed document types ---
-    for (
-        name,
-        prefix,
-        operation,
-        signo_stock,
-        signo_caja,
-        es_fiscal,
-        party,
-    ) in SEED_DOCUMENT_TYPES:
-        if not session.exec(
-            select(DocumentType).where(DocumentType.prefix == prefix)
-        ).first():
+    # Matched by the stable `key`, never by `prefix`: the prefix is editable from
+    # the admin panel, so a rename used to make the next startup believe the type
+    # was missing and insert a duplicate. A database that predates the `key`
+    # column still has NULLs here, so the current prefix and then the current name
+    # are used to adopt the row before falling back to an insert.
+    for seed in SEED_DOCUMENT_TYPES:
+        doc_type = session.exec(
+            select(DocumentType).where(DocumentType.key == seed.key)
+        ).first()
+        if doc_type is None:
+            doc_type = session.exec(
+                select(DocumentType).where(DocumentType.prefix == seed.prefix)
+            ).first()
+        if doc_type is None:
+            doc_type = session.exec(
+                select(DocumentType).where(DocumentType.name == seed.name)
+            ).first()
+        if doc_type is None:
             session.add(
                 DocumentType(
-                    name=name,
-                    prefix=prefix,
-                    operation=operation,
-                    signo_stock=signo_stock,
-                    signo_caja=signo_caja,
-                    es_fiscal=es_fiscal,
-                    tipo_contraparte=party,
+                    key=seed.key,
+                    name=seed.name,
+                    prefix=seed.prefix,
+                    operation=seed.operation,
+                    signo_stock=seed.signo_stock,
+                    signo_caja=seed.signo_caja,
+                    es_fiscal=seed.es_fiscal,
+                    tipo_contraparte=seed.tipo_contraparte,
                 )
             )
+        elif doc_type.key != seed.key:
+            doc_type.key = seed.key
+            session.add(doc_type)
     session.commit()
 
     # Wire the void-mirror NC type per voidable document type (idempotent).
-    types_by_prefix = {t.prefix: t for t in session.exec(select(DocumentType)).all()}
-    for type_prefix, mirror_prefix in VOID_TYPE_MIRROR.items():
-        doc_type = types_by_prefix.get(type_prefix)
-        mirror = types_by_prefix.get(mirror_prefix)
+    types_by_key = {
+        t.key: t for t in session.exec(select(DocumentType)).all() if t.key is not None
+    }
+    for type_key, mirror_key in VOID_TYPE_MIRROR.items():
+        doc_type = types_by_key.get(type_key)
+        mirror = types_by_key.get(mirror_key)
         if doc_type and mirror and doc_type.void_document_type_id != mirror.id:
             doc_type.void_document_type_id = mirror.id
             session.add(doc_type)

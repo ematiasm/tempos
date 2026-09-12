@@ -1215,6 +1215,12 @@ class StockMovement(SQLModel, table=True):
 # ---------------------------------------------------------------------------
 class DocumentType(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    # Stable seed identity. `name` and `prefix` are both editable from the admin
+    # panel (`DocumentTypeUpdate`), so neither can identify a seeded type: code
+    # resolves one by `key` (or by `operation` + `tipo_contraparte`), never by
+    # either of them. NULL only for a row a legacy database cannot match during
+    # the backfill; the seed adopts and fills such a row.
+    key: str | None = Field(default=None, unique=True, index=True, max_length=50)
     name: str = Field(max_length=100)
     prefix: str = Field(unique=True, index=True, max_length=10)
     operation: DocumentOperation = Field(max_length=20)
@@ -1840,6 +1846,7 @@ class SupplierAccountMovementPublic(SQLModel):
 
 class DocumentTypePublic(SQLModel):
     id: uuid.UUID
+    key: str | None = None
     name: str
     prefix: str
     operation: DocumentOperation

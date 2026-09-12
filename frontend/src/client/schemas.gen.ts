@@ -3200,6 +3200,17 @@ export const DocumentTypePublicSchema = {
             format: 'uuid',
             title: 'Id'
         },
+        key: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Key'
+        },
         name: {
             type: 'string',
             title: 'Name'
@@ -3293,11 +3304,22 @@ export const DocumentTypeUpdateSchema = {
                 }
             ],
             title: 'Is Active'
+        },
+        key: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Key'
         }
     },
     type: 'object',
     title: 'DocumentTypeUpdate',
-    description: 'Editable fields of a document type; signs and operation stay fixed.'
+    description: 'Editable fields of a document type; key, signs and operation stay fixed.'
 } as const;
 
 export const DocumentVoidCreateSchema = {
