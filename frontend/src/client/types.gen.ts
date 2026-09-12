@@ -554,12 +554,13 @@ export type DocumentTypePublic = {
 };
 
 /**
- * Editable fields of a document type; signs and operation stay fixed.
+ * Editable fields of a document type; key, signs and operation stay fixed.
  */
 export type DocumentTypeUpdate = {
     name?: (string | null);
     prefix?: (string | null);
     is_active?: (boolean | null);
+    key?: (string | null);
 };
 
 /**

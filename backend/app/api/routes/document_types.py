@@ -51,12 +51,22 @@ def update_document_type(
 ) -> Any:
     """Update the editable fields of a document type (name, prefix, active).
 
-    Operation and signs are seed-managed and cannot be changed.
+    The key, the operation and the signs are seed-managed and cannot be changed;
+    `key` is rejected explicitly because it is the identity code resolves a seeded
+    type by, while `name` and `prefix` are free to be renamed.
     """
     document_type = session.get(DocumentType, document_type_id)
     if not document_type:
         raise HTTPException(status_code=404, detail="Document type not found")
     data = document_type_in.model_dump(exclude_unset=True)
+    if "key" in data:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "document_type_key_immutable",
+                "message": "The document type key cannot be changed",
+            },
+        )
     if data.get("prefix"):
         existing = session.exec(
             select(DocumentType).where(
